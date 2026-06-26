@@ -1,6 +1,7 @@
 {
   "name": "APEX Tracker",
   "short_name": "APEX",
+  "description": "Personal lifestyle and habit tracking app",
   "id": "/LT/",
   "start_url": "/LT/",
   "display": "standalone",
