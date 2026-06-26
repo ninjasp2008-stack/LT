@@ -1,0 +1,3277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<!-- ── PWA: Full-screen standalone mode ── -->
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="APEX">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22APEX%20Tracker%22%2C%22short_name%22%3A%22APEX%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23000000%22%2C%22theme_color%22%3A%22%23000000%22%2C%22orientation%22%3A%22portrait%22%7D">
+
+<title>APEX Tracker — Habit Mastery</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:transparent;color:#fff;
+  font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+/* ── GLOBAL CHROME METALLIC BACKGROUND LAYER ── */
+.apex-global-bg{
+  position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:-1;
+  background:#000000;
+}
+
+.week-day-item{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;cursor:default;padding:4px 2px;flex:1;min-width:0;
+  transition:all .4s cubic-bezier(.16,1,.3,1);
+  color:rgba(255,255,255,0.4);border-radius:10px;
+  font-family:'DM Sans',system-ui,sans-serif;
+  user-select:none;
+}
+.week-day-item.active{
+  color:#fff;transform:scale(1.2);cursor:pointer;
+}
+.week-day-item.active:hover{color:#fff}
+.week-day-name{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.week-day-date{font-size:17px;font-weight:700;font-family:'Space Mono',monospace}
+.week-day-item.future{
+  color:rgba(255,255,255,0.3);pointer-events:none;cursor:default;opacity:0.3;
+}
+.week-calendar-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 4px 6px 4px;border-bottom:1px solid rgba(255,255,255,0.04);
+  margin-bottom:6px;position:relative;
+}
+.week-calendar-header .month{
+  font-size:13px;font-weight:700;color:#fff;
+}
+.week-calendar-header .progress{
+  font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);
+  font-family:'Space Mono',monospace;
+}
+.week-day-status{
+  position:absolute;left:50%;transform:translateX(-50%);
+  text-align:center;width:max-content;
+  font-size:13.75px;font-weight:700;color:rgba(255,255,255,0.5);
+  font-family:'Space Mono',monospace;
+}
+.week-day-status.today{
+  color:#fff;
+}
+
+/* ── RESPONSIVE: 2-column card grid on desktop ── */
+@media(min-width:1024px){
+  #trackerGrid{grid-template-columns:repeat(2,1fr)!important;gap:20px!important}
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#000}
+::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+
+/* ── TABS ── */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.tab-scroll{overflow-y:auto;height:calc(100dvh - 20px);padding-top:90px;padding-bottom:100px}
+
+/* ── TO-DO LIST ── */
+.todo-task{display:flex;align-items:center;gap:12px;padding:12px 16px;
+  background:#0d0d11;border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;transition:all .15s}
+.todo-task:hover{border-color:rgba(255,255,255,0.12)}
+.todo-checkbox{width:22px;height:22px;border-radius:6px;flex-shrink:0;
+  border:2px solid rgba(255,255,255,0.4);background:none;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s}
+.todo-checkbox.done{background:rgba(255,255,255,0.8);border-color:rgba(255,255,255,0.8)}
+.todo-checkbox svg{opacity:0;transition:opacity .15s}
+.todo-checkbox.done svg{opacity:1}
+.todo-text{flex:1;font-size:15px;color:#ffffff;font-weight:400;font-family:'DM Sans',system-ui,sans-serif}
+.todo-text.done{text-decoration:line-through;opacity:0.5}
+.todo-delete{width:28px;height:28px;border:none;background:none;
+  color:#636366;cursor:pointer;border-radius:6px;display:flex;
+  align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.todo-delete:hover{color:#ef4444;background:rgba(239,68,68,0.1)}
+
+/* ── BOTTOM NAV (compact grey bar, white active block) ── */
+/* ── BOTTOM NAV ── */
+@keyframes navIconPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.28); }
+  100% { transform: scale(1.18); }
+}
+.floating-nav {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 6px;
+  padding: 12px 16px;
+  width: 85%;
+  max-width: 420px;
+  border-radius: 34px;
+  background: rgba(10,10,12,0.15);
+  backdrop-filter: blur(25px) saturate(200%);
+  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+}
+.nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: color 0.25s ease, opacity 0.25s ease;
+}
+.nav-btn:hover {
+  color: rgba(255,255,255,0.7);
+}
+.nav-btn.active {
+  background: none;
+  color: #ffffff;
+}
+.nav-btn.active svg {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.9)) drop-shadow(0 0 12px rgba(255,255,255,0.5));
+  animation: navIconPop 0.3s ease forwards;
+}
+.nav-btn svg {
+  display: block;
+  transition: transform 0.25s ease, filter 0.25s ease, opacity 0.25s ease;
+}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  z-index:300;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-box{background:#000000;
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:18px;padding:28px;width:calc(100% - 32px);max-width:380px;
+  transform:translateY(20px);transition:transform .25s}
+.modal-overlay.open .modal-box{transform:translateY(0)}
+.modal-box-water{background:#000000}
+.modal-box-sleep{background:#000000}
+.modal-box-steps{background:#000000}
+.modal-box-pushups{background:#000000}
+.modal-box-caffeine{background:#000000}
+.modal-box-mood{background:#000000}
+
+/* ── HABIT GRID TABLE ── */
+/* ── HABIT GRID (CSS Grid layout, 7 columns) ── */
+#habitsGridContainerPos,#habitsGridContainerNeg{display:grid;
+  grid-template-columns:minmax(0, 1.8fr) repeat(7, minmax(0, 1fr));gap:6px;
+  width:100%;max-width:100%;overflow-x:hidden;margin:0 auto;align-items:center}
+
+.grid-header-name{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.04em;
+  padding:0 4px 4px 0;text-align:left;font-family:'Space Mono',monospace}
+
+.grid-header-letter{font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);
+  text-align:center;padding:0 0 4px;font-family:'Space Mono',monospace}
+
+.grid-row-name{font-size:13px;color:#9ca3af;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;padding-right:8px;min-width:0}
+
+/* ── WEEKLY GRID CELL (pure solid block, no outlines/icons) ── */
+.grid-cell-week{width:36px;height:36px;border-radius:6px;
+  background:#111115;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;opacity:.55;justify-self:center}
+.grid-cell-week:hover{opacity:.8}
+.grid-cell-week.is-done{opacity:1}
+.grid-cell-week.is-today{opacity:1}
+.grid-cell-week.is-done-neg{opacity:1}
+.grid-cell-week.is-today-neg{opacity:1}
+
+.grid-cell-week.is-past{opacity:.35}
+.grid-cell-week.is-future{opacity:.1;cursor:default}
+.grid-cell-week.is-future:hover{opacity:.1}
+
+/* ── WEEK NAV ARROWS ── */
+.week-nav-arrow{background:transparent;border:1px solid rgba(255,255,255,0.12);
+  color:#9ca3af;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;
+  font-family:'Space Mono',monospace;transition:all .15s}
+.week-nav-arrow:hover{border-color:#00FF66;color:#ffffff}
+
+/* ── PROGRESS RING ── */
+.ring-circle{transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1)}
+
+/* ── BARS ── */
+.fill-bar{transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* ── HABIT TOGGLE BTNS ── */
+.hcheck{width:24px;height:24px;border-radius:50%;border:2px solid #3d3027;
+  background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;flex-shrink:0}
+.hcheck.done{background:#00FF66;border-color:#00FF66}
+.hcheck svg{opacity:0;transition:opacity .15s}
+.hcheck.done svg{opacity:1}
+.hcheck:hover:not(.done){border-color:#00FF66}
+
+/* ── INPUT SHARED ── */
+.apex-input{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:12px;
+  color:#ffffff;font-size:28px;font-weight:700;text-align:center;
+  padding:12px;outline:none;width:100%;font-family:inherit}
+.apex-input:focus{border-color:rgba(255,255,255,0.2)}
+
+/* ── STEP-BTN ── */
+.step-btn{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:10px;
+  color:#ffffff;font-size:22px;font-weight:700;width:44px;height:44px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .15s;flex-shrink:0}
+.step-btn:hover{background:rgba(255,255,255,0.08)}
+
+/* ── GLASS BTN (Solid Performance) ── */
+.glass-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  position: relative;
+  z-index: 10;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ── QUICK BTNS ── */
+.qbtn{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:8px;
+  color:#a0a0a0;font-size:12px;padding:6px 0;cursor:pointer;
+  transition:all .15s;flex:1;font-family:inherit}
+.qbtn:hover{border-color:rgba(255,255,255,0.2);color:#fff}
+
+/* ── ACTION BTNS ── */
+.btn-cancel{flex:1;padding:12px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;
+  background:rgba(0,0,0,0.2);color:#ffffff;cursor:pointer;font-family:inherit;font-size:14px;
+  transition:background .15s}
+.btn-cancel:hover{background:rgba(255,255,255,0.06)}
+.btn-save{flex:1;padding:12px;border-radius:12px;
+  background:#ffffff;
+  border:none;color:#000000;font-weight:700;cursor:pointer;
+  font-family:inherit;font-size:14px;transition:background .15s}
+.btn-save:hover{background:#e5e7eb}
+.btn-danger{padding:8px 14px;border:1px solid #7f1d1d;border-radius:8px;
+  background:none;color:#ef4444;cursor:pointer;font-size:12px;
+  font-family:inherit;transition:all .15s}
+.btn-danger:hover{background:#7f1d1d22}
+.btn-primary{padding:8px 14px;border:1px solid rgba(255,255,255,0.6);border-radius:8px;
+  background:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;
+  font-family:inherit;transition:all .15s}
+.btn-primary:hover{border-color:#ffffff;color:#ffffff;background:rgba(255,255,255,.08)}
+.btn-icon{width:32px;height:32px;border:1px solid rgba(255,255,255,0.05);border-radius:8px;
+  background:rgba(0,0,0,0.2);color:#a0a0a0;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:all .15s;flex-shrink:0}
+.btn-icon:hover{border-color:rgba(255,255,255,0.15);color:#fff}
+.btn-icon.red:hover{border-color:#ef4444;color:#ef4444}
+
+/* ── PUSH-UP BAR ── */
+.pushup-bar{background:linear-gradient(90deg,#f97316,#ef4444);
+  border-radius:9999px;height:100%;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* ── CAFFEINE BAR ── */
+.caffeine-bar{background:linear-gradient(90deg,#ca8a04,#eab308);
+  border-radius:9999px;height:100%;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* ── TEXTAREA ── */
+textarea.apex-ta{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:10px;
+  color:#fff;padding:10px;outline:none;resize:none;font-family:inherit;
+  font-size:14px;width:100%}
+textarea.apex-ta:focus{border-color:rgba(255,255,255,0.2)}
+
+/* ── QUOTE WIDGET ── */
+#quoteWidget{
+  position:relative;overflow:hidden;text-align:center}
+#quoteWidget::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%, rgba(255,255,255,.03) 0%, transparent 60%);
+  pointer-events:none}
+#quoteTxt{
+  font-family:'Space Mono',monospace;font-size:15px;font-weight:700;
+  color:#ffffff;line-height:1.5;letter-spacing:-.01em}
+#quoteDay{
+  font-size:10px;color:#3f3f3f;text-transform:uppercase;letter-spacing:.1em;
+  margin-top:8px;font-family:'Space Mono',monospace}
+
+/* ── CAFFEINE WARNING ── */
+#caffeineWarning{
+  background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);
+  border-radius:10px;padding:10px 12px;margin-top:10px;
+  font-size:12px;color:#fbbf24;line-height:1.5;display:none}
+
+/* ── TROPHY CARD ── */
+.trophy-card{
+  background:#080604;border:1px solid #221d19;border-radius:14px;
+  padding:16px;display:flex;align-items:center;gap:14px}
+.trophy-icon{width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,#ca8a04,#f59e0b);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px}
+.trophy-score{font-size:22px;font-weight:800;color:#f59e0b}
+.trophy-label{font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px}
+
+/* ── ARCHIVE SECTION ── */
+#archiveSection{overflow:hidden;transition:max-height .35s ease}
+
+/* ── CAFFEINE CUPS VISUAL ── */
+.caff-cup{font-size:18px;opacity:.25;transition:opacity .2s}
+.caff-cup.filled{opacity:1}
+
+/* ── STAT MONO ── */
+.stat-mono{font-family:'Space Mono',monospace}
+
+/* ── MOOD SELECTOR BUTTONS ── */
+.mood-btn{
+  width:100%;padding:14px 18px;
+  background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:12px;
+  color:#a0a0a0;font-size:15px;font-weight:500;
+  cursor:pointer;text-align:center;
+  font-family:'DM Sans',system-ui,sans-serif;
+  transition:all .18s cubic-bezier(.4,0,.2,1);
+  letter-spacing:.01em;
+}
+.mood-btn:hover{border-color:rgba(255,255,255,0.15);color:#fff;background:rgba(255,255,255,0.06)}
+.mood-btn.selected{
+  background:rgba(255,255,255,0.15);
+  border-color:#ffffff;
+  color:#ffffff;
+  font-weight:700;
+}
+
+/* ── PREMIUM FROSTED GLASS TRACKER CARDS ── */
+.apex-glass-card {
+  position: relative;
+  overflow: hidden;
+  background: #0d0d11;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  min-height: 160px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.apex-glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── STATIC PROGRESS FILL (bottom-up, no waves, no animations) ── */
+.progress-fill{
+  position:absolute;left:0;right:0;bottom:0;top:auto;
+  width:100%;height:0%;
+  border-radius:0 0 18px 18px;
+  transition:height .4s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;z-index:1;
+}
+.progress-fill.water-fill{background:#0a2647}
+.progress-fill.sleep-fill{background:#1a0a2e}
+.progress-fill.steps-fill{background:#0a2e0a}
+.progress-fill.pushups-fill{background:#2e0a0a}
+.progress-fill.caffeine-fill{background:#1a0d00}
+.progress-fill.mood-fill{}
+
+/* ── GLOBAL GLASS CONTAINER ── */
+.apex-glass-container{
+  background:#0d0d11;
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:20px;padding:20px;
+  position:relative;
+}
+
+/* ── GLASS SECTION TITLE ── */
+.glass-title{
+  font-size:18px;font-weight:800;font-style:italic;
+  color:#ffffff;margin-bottom:4px;
+}
+.glass-title-sm{
+  font-size:14px;font-weight:800;font-style:italic;
+  color:#ffffff;margin-bottom:2px;
+}
+
+/* ── JOURNALING ── */
+.journal-grid{display:flex;flex-direction:column;gap:10px}
+.journal-card{
+  background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:14px;
+  padding:16px;transition:all .2s;position:relative
+}
+.journal-card:hover{border-color:rgba(255,255,255,0.12)}
+.journal-card-date{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;font-family:'Space Mono',monospace}
+.journal-card-text{font-size:13px;color:#d1d5db;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+.journal-card-edit{
+  position:absolute;top:10px;right:10px;width:28px;height:28px;
+  background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.25);cursor:pointer;
+  border:1px solid transparent;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;transition:all .15s
+}
+.journal-card-edit:hover{border-color:rgba(255,255,255,0.08);color:#ffffff}
+.journal-card-short{grid-column:span 1}
+.journal-card-med{grid-column:span 2}
+.journal-card-long{grid-column:span 3}
+@media(min-width:768px){
+  .journal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+}
+
+
+</style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+</head>
+<body>
+<div class="apex-global-bg"></div>
+
+<!-- ═══════════════════ MODALS ═══════════════════ -->
+
+<!-- SLEEP -->
+<div id="sleepModal" class="modal-overlay" onclick="if(event.target===this)closeSleepModal()">
+  <div class="modal-box modal-box-sleep">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Sleep</p>
+    <p style="font-size:13px;color:#a0a0a0;margin-bottom:20px">Total hours slept last night</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button class="step-btn" onclick="adjSleepTemp(-0.5)">−</button>
+      <div style="flex:1;text-align:center">
+        <span id="sleepInputVal" style="font-size:44px;font-weight:800;color:#ffffff;font-family:'Space Mono',monospace">7.5</span>
+        <span style="font-size:18px;color:#a0a0a0;margin-left:4px">hrs</span>
+      </div>
+      <button class="step-btn" onclick="adjSleepTemp(0.5)">+</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeSleepModal()">Cancel</button>
+      <button class="btn-save" onclick="saveSleep()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div id="stepsModal" class="modal-overlay" onclick="if(event.target===this)closeStepsModal()">
+  <div class="modal-box modal-box-steps">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Steps</p>
+    <p style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Enter today's step count</p>
+    <input id="stepsInput" type="number" class="apex-input" style="margin-bottom:10px" value="0" min="0" max="99999">
+    <div style="display:flex;gap:6px;margin-bottom:20px">
+      <button class="qbtn" onclick="addStepsQ(1000)">+1K</button>
+      <button class="qbtn" onclick="addStepsQ(2500)">+2.5K</button>
+      <button class="qbtn" onclick="addStepsQ(5000)">+5K</button>
+      <button class="qbtn" onclick="addStepsQ(10000)">10K</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeStepsModal()">Cancel</button>
+      <button class="btn-save" onclick="saveSteps()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PUSH-UPS -->
+<div id="pushupsModal" class="modal-overlay" onclick="if(event.target===this)closePushupsModal()">
+  <div class="modal-box modal-box-pushups">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Push-ups</p>
+    <p style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Total reps completed today</p>
+    <input id="pushupsInput" type="number" class="apex-input" style="margin-bottom:10px" value="0" min="0" max="9999">
+    <div style="display:flex;gap:6px;margin-bottom:20px">
+      <button class="qbtn" onclick="addPushupsQ(10)">+10</button>
+      <button class="qbtn" onclick="addPushupsQ(25)">+25</button>
+      <button class="qbtn" onclick="addPushupsQ(50)">+50</button>
+      <button class="qbtn" onclick="addPushupsQ(100)">+100</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closePushupsModal()">Cancel</button>
+      <button class="btn-save" onclick="savePushups()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- HABIT MANAGE -->
+<div id="habitMgmtModal" class="modal-overlay" onclick="if(event.target===this)closeHabitMgmt()">
+  <div class="modal-box" style="max-width:440px;max-height:85dvh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <p style="font-size:18px;font-weight:700">Manage Habits</p>
+      <button class="btn-icon" onclick="closeHabitMgmt()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="habitMgmtList" style="margin-bottom:20px"></div>
+    <div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:16px">
+      <p style="font-size:12px;color:#a0a0a0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Add New Habit</p>
+      <div style="display:flex;gap:8px">
+        <input id="newHabitInput" type="text" maxlength="40" placeholder="e.g. Cold Shower"
+          style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:10px;color:#fff;
+                 padding:10px 12px;outline:none;font-family:inherit;font-size:14px"
+          onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.05)'">
+        <button id="addHabitBtn" class="btn-save" style="padding:10px 18px;border-radius:10px">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HABIT EDIT -->
+<div id="habitEditModal" class="modal-overlay" onclick="if(event.target===this)closeHabitEdit()">
+  <div class="modal-box">
+    <p style="font-size:18px;font-weight:700;margin-bottom:16px">Rename Habit</p>
+    <input id="habitEditInput" type="text" maxlength="40" class="apex-input"
+      style="font-size:16px;color:#fff;margin-bottom:20px"
+      onkeydown="if(event.key==='Enter')saveHabitEdit()">
+    <input type="hidden" id="habitEditIdx">
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeHabitEdit()">Cancel</button>
+      <button class="btn-save" onclick="saveHabitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- DON'T DO IT! MANAGEMENT -->
+<div id="habitMgmtModalNeg" class="modal-overlay" onclick="if(event.target===this)closeHabitMgmtNeg()">
+  <div class="modal-box" style="max-width:440px;max-height:85dvh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <p style="font-size:18px;font-weight:700">Manage Don't Do It!</p>
+      <button class="btn-icon" onclick="closeHabitMgmtNeg()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="habitMgmtListNeg" style="margin-bottom:20px"></div>
+    <div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:16px">
+      <p style="font-size:12px;color:#a0a0a0;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Add New Negative Habit</p>
+      <div style="display:flex;gap:8px">
+        <input id="newHabitInputNeg" type="text" maxlength="40" placeholder="e.g. Snooze Alarm"
+          style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:10px;color:#fff;
+                 padding:10px 12px;outline:none;font-family:inherit;font-size:14px"
+          onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.05)'">
+        <button id="addHabitBtnNeg" class="btn-save" style="padding:10px 18px;border-radius:10px">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DON'T DO IT! EDIT -->
+<div id="habitEditModalNeg" class="modal-overlay" onclick="if(event.target===this)closeHabitEditNeg()">
+  <div class="modal-box">
+    <p style="font-size:18px;font-weight:700;margin-bottom:16px">Rename Negative Habit</p>
+    <input id="habitEditInputNeg" type="text" maxlength="40" class="apex-input"
+      style="font-size:16px;color:#fff;margin-bottom:20px"
+      onkeydown="if(event.key==='Enter')saveHabitEditNeg()">
+    <input type="hidden" id="habitEditIdxNeg">
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeHabitEditNeg()">Cancel</button>
+      <button class="btn-save" onclick="saveHabitEditNeg()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOOD LOG -->
+<div id="moodModal" class="modal-overlay" onclick="if(event.target===this)closeMoodModal()">
+  <div class="modal-box modal-box-mood">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Mood</p>
+    <p style="font-size:13px;color:#a0a0a0;margin-bottom:22px">Select your mindset level for today</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+      <button class="mood-btn" data-mood="5" data-label="Amazing" onclick="selectMood(this)">Amazing</button>
+      <button class="mood-btn" data-mood="4" data-label="Good"    onclick="selectMood(this)">Good</button>
+      <button class="mood-btn" data-mood="3" data-label="Neutral" onclick="selectMood(this)">Neutral</button>
+      <button class="mood-btn" data-mood="2" data-label="Low"     onclick="selectMood(this)">Low</button>
+      <button class="mood-btn" data-mood="1" data-label="Awful"   onclick="selectMood(this)">Awful</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeMoodModal()">Cancel</button>
+      <button class="btn-save"   onclick="saveMood()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- JOURNAL ENTRY MODAL -->
+<div id="journalModal" class="modal-overlay" onclick="if(event.target===this)closeJournalModal()">
+  <div class="modal-box" style="max-width:380px;padding:24px">
+    <p style="font-size:16px;font-weight:700;margin-bottom:4px">Journal Entry</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:16px" id="journalModalDate"></p>
+    <textarea id="journalModalInput"
+      style="width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+             color:#fff;padding:12px 14px;outline:none;font-family:inherit;font-size:14px;min-height:140px;resize:vertical;line-height:1.6"
+      placeholder="What's on your mind today?…"
+      onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"></textarea>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-cancel" onclick="closeJournalModal()">Cancel</button>
+      <button class="btn-save" onclick="saveJournalEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TO-DO ADD MODAL -->
+<div id="todoModal" class="modal-overlay" onclick="if(event.target===this)closeTodoModal()">
+  <div class="modal-box" style="max-width:320px;padding:24px">
+    <p style="font-size:16px;font-weight:700;margin-bottom:16px">New Task</p>
+    <input id="todoModalInput" type="text" maxlength="100" placeholder="Write a new task…"
+      style="width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;
+             color:#fff;padding:12px 14px;outline:none;font-family:inherit;font-size:15px;margin-bottom:18px"
+      onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+      onkeydown="if(event.key==='Enter')submitTodoItem()">
+    <button onclick="submitTodoItem()" class="btn-save" style="width:100%;padding:12px;border-radius:10px;font-size:15px">Add</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div style="position:relative;z-index:1;min-height:100dvh">
+
+  <!-- GLOBAL SHARED CALENDAR -->
+  <div id="globalCalendarWrapper" style="position:fixed;top:0;left:0;right:0;z-index:100;background:#000000;box-shadow:0 2px 12px rgba(0,0,0,0.4);padding:12px 16px 4px">
+    <div id="weeklyCalendarContainer" style="width:100%;display:flex;flex-direction:column;
+      background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:10px 12px;">
+      <div class="week-calendar-header">
+        <span class="month" id="weekMonthLabel">June</span>
+        <span class="week-day-status" id="weekStatusLabel"></span>
+        <span class="progress" id="weekProgressLabel">0%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <div id="weeklyCalendarStrip" style="display:flex;flex:1;justify-content:space-around;align-items:stretch;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── DASHBOARD TAB ──────── -->
+  <div id="tab-dashboard" class="tab-panel active tab-scroll">
+    <div style="padding:16px;display:flex;flex-direction:column;gap:14px;padding-bottom:80px">
+
+      <!-- Hidden elements to preserve JS compatibility -->
+      <div style="display: none;">
+        <span id="heroDay"></span>
+        <span id="startDateLabel"></span>
+        <div id="waterBar"></div>
+        <div id="sleepBar"></div>
+        <div id="pushupsBar"></div>
+        <div id="caffeineBar"></div>
+        <div id="moodBar"></div>
+      </div>
+
+      <!-- QUOTE WIDGET -->
+      <div id="quoteWidget" class="apex-glass-container" style="border-radius:16px;padding:18px 20px">
+        <div id="quoteTxt">Loading quote…</div>
+        <div id="quoteDay"></div>
+      </div>
+
+      <!-- MASTERY HERO -->
+      <div class="apex-glass-container" style="border-radius:20px;padding:24px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:24px" id="heroFlex">
+          <!-- Circular Ring -->
+          <div style="position:relative;width:180px;height:180px;flex-shrink:0">
+            <svg style="width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 180 180">
+              <circle cx="90" cy="90" r="78" stroke="rgba(255,255,255,0.05)" stroke-width="13" fill="none"/>
+              <circle id="masteryRing" class="ring-circle" cx="90" cy="90" r="78" stroke="#ffffff" stroke-width="13"
+                fill="none" stroke-linecap="round" stroke-dasharray="0 490.09"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.4">
+              <span id="masteryPct" class="stat-mono" style="font-size:38px;font-weight:700;color:#fff">0%</span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em">Mastery</span>
+            </div>
+          </div>
+          <!-- Clean Center Stats Layout -->
+          <div style="width: 100%; display:flex; justify-content:center; gap:32px; text-align:center;">
+            <div>
+              <div id="streakCount" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Streak</div>
+            </div>
+            <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
+            <div>
+              <div id="levelCount" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">1</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Level</div>
+            </div>
+            <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
+            <div>
+              <div id="apexPoints" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Apex Pts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACKER CARDS GRID -->
+      <div style="display:grid;grid-template-columns:1fr;gap:12px" id="trackerGrid">
+
+          <!-- WATER -->
+        <div class="apex-glass-card" id="cardWater">
+          <div class="progress-fill water-fill" id="waterFill"></div>
+          <!-- Card Content Overlay -->
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <!-- Card Header -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <!-- Primary tracking number top-left -->
+                <div style="display:flex; align-items:baseline;">
+                  <span id="waterVal" class="stat-mono" style="font-size:36px; font-weight:800; color:#fff;">2.0</span>
+                  <span style="font-size:16px; color:rgba(255,255,255,0.6); font-weight:500; margin-left:4px;">L</span>
+                </div>
+                <!-- Muted gray status/goal text directly below -->
+                <div id="waterSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: 3.5L | 1.5L to go</div>
+              </div>
+              <!-- Elegant icon top-right -->
+              <div style="background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                  <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/>
+                  <path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CAFFEINE -->
+        <div class="apex-glass-card" id="cardCaffeine">
+          <div class="progress-fill caffeine-fill" id="caffeineFill"></div>
+          <!-- Card Content Overlay -->
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <!-- Card Header -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <!-- Primary tracking number top-left -->
+                <div style="display:flex; align-items:baseline;">
+                  <span id="caffeineVal" class="stat-mono" style="font-size:36px; font-weight:800; color:#eab308;">0</span>
+                  <span style="font-size:16px; color:rgba(255,255,255,0.6); font-weight:500; margin-left:4px;">mg today</span>
+                </div>
+                <!-- Muted gray status/goal text directly below -->
+                <div id="caffeineSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: &lt; 400mg | 400mg remaining</div>
+              </div>
+              <!-- Elegant icon top-right -->
+              <div style="background:rgba(234,179,8,0.1); border:1px solid rgba(234,179,8,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2">
+                  <path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/>
+                  <line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Coffee cups indicator list -->
+            <div id="caffeineCups" style="display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; position:relative; z-index:11;"></div>
+            
+            <!-- Late-night warning -->
+            <div id="caffeineWarning" style="margin-top:10px; position:relative; z-index:11; background:rgba(234,179,8,.07); border:1px solid rgba(234,179,8,.25); border-radius:10px; padding:10px 12px; font-size:12px; color:#fbbf24; line-height:1.5; display:none;">
+              ☕ Drinking caffeine this late might compromise your Sleep Quality tonight!
+            </div>
+          </div>
+        </div>
+
+        <!-- SLEEP -->
+        <div class="apex-glass-card" id="cardSleep">
+          <div class="progress-fill sleep-fill" id="sleepFill"></div>
+          <!-- Card Content Overlay -->
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <!-- Card Header -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <!-- Primary tracking number top-left -->
+                <div id="sleepDisplay" class="stat-mono" style="font-size:36px; font-weight:800; color:#fff;">–</div>
+                <!-- Muted gray status/goal text directly below -->
+                <div id="sleepSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">No sleep logged yet</div>
+              </div>
+              <!-- Elegant icon top-right -->
+              <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+                  <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEPS -->
+        <div class="apex-glass-card" id="cardSteps">
+          <div class="progress-fill steps-fill" id="stepsFill"></div>
+          <!-- Card Content Overlay -->
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <!-- Card Header -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <!-- Primary tracking number top-left -->
+                <div style="display:flex; align-items:baseline;">
+                  <span id="stepsVal" class="stat-mono" style="font-size:36px; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:16px; color:rgba(255,255,255,0.6); font-weight:500; margin-left:4px;">/ 10K</span>
+                </div>
+                <!-- Muted gray status/goal text directly below -->
+                <div id="stepsSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: 10K | 10,000 to go</div>
+              </div>
+              <!-- Elegant icon top-right -->
+              <div style="background:rgba(0,255,102,0.1); border:1px solid rgba(0,255,102,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2">
+                  <path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/>
+                  <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/>
+                  <path d="M16 17h4"/><path d="M4 13h4"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Hidden original stepsBars container for JS compatibility -->
+            <div id="stepsBars" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- PUSH-UPS -->
+        <div class="apex-glass-card" id="cardPushups">
+          <div class="progress-fill pushups-fill" id="pushupsFill"></div>
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <div style="display:flex; align-items:baseline;">
+                  <span id="pushupsVal" class="stat-mono" style="font-size:36px; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:16px; color:rgba(255,255,255,0.6); font-weight:500; margin-left:4px;">reps today</span>
+                </div>
+                <div id="pushupsSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: 100 reps | 100 to go</div>
+              </div>
+              <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                  <path d="M14.5 2c1.12 0 1.5.5 1.5 1.5v2c0 .5-.5 1.5-1.5 1.5h-5C8.5 7 8 6 8 5.5v-2C8 2.5 8.38 2 9.5 2h5z"/>
+                  <path d="M4 12.5V18a1 1 0 0 0 2 0v-3.5"/><path d="M20 12.5V18a1 1 0 0 1-2 0v-3.5"/>
+                  <path d="M4 13h16"/><path d="M7 7v3a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V7"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOOD / MINDSET -->
+        <div class="apex-glass-card" id="cardMood">
+          <div class="progress-fill mood-fill" id="moodFill"></div>
+          <!-- Card Content Overlay -->
+          <div style="position:relative; z-index:10; padding:20px; display:flex; flex-direction:column; justify-content:space-between; height:100%; flex:1;">
+            <!-- Card Header -->
+            <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+              <div>
+                <!-- Primary tracking number top-left -->
+                <div style="display:flex; align-items:baseline; gap:6px;">
+                  <span id="moodDisplay" class="stat-mono" style="font-size:36px; font-weight:800; color:#ffffff;">–</span>
+                </div>
+                <!-- Muted gray status/goal text directly below -->
+                <div id="moodSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">No mood logged yet</div>
+              </div>
+              <!-- Elegant icon top-right -->
+              <div style="background:rgba(0,255,102,0.1); border:1px solid rgba(0,255,102,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/>
+                  <line x1="15" x2="15.01" y1="9" y2="9"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /trackerGrid -->
+
+      <!-- TODAY'S HABITS -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-size:14px;font-weight:800;font-style:italic;color:#ffffff;margin-bottom:0">Do It!</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="habitsCompletedLabel" style="font-size:12px;color:#ffffff;font-weight:600">0 / 0</span>
+            <button onclick="openHabitMgmt()" class="btn-icon" title="Manage habits">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="todayHabitsList"></div>
+        <div id="noHabitsMsg" style="display:none;text-align:center;padding:20px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No habits yet. Tap ⚙ to add some.
+        </div>
+      </div>
+
+      <!-- DON'T DO IT! (Today) -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-size:14px;font-weight:800;font-style:italic;color:#ffffff;margin-bottom:0">Don't Do It!</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="habitsCompletedLabelNeg" style="font-size:12px;color:#00FF66;font-weight:600">0 / 0</span>
+            <button onclick="openHabitMgmtNeg()" class="btn-icon" title="Manage negative habits">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FF66" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="todayHabitsListNeg"></div>
+        <div id="noHabitsMsgNeg" style="display:none;text-align:center;padding:20px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No negative habits yet. Tap ⚙ to add some.
+        </div>
+      </div>
+
+      <!-- WEEKLY GOALS -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <h3 style="font-size:14px;font-weight:800;font-style:italic;color:#ffffff;margin-bottom:14px">Weekly Goals</h3>
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2">
+            <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/>
+            <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/>
+            <path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/>
+            <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/>
+            <path d="M6 9H4.5a1 1 0 0 1 0-5H6"/>
+          </svg>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="glass-title-sm" style="margin-bottom:0">Weekly Steps Challenge</span>
+              <span id="weeklyStepsPct" style="font-size:13px;color:#6b7280">0%</span>
+            </div>
+            <div style="height:10px;background:#161210;border-radius:9999px;overflow:hidden">
+              <div id="weeklyStepsBar" class="fill-bar" style="height:100%;background:linear-gradient(90deg,#ea580c,#fb923c);width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESET CHALLENGE -->
+      <div style="text-align: center; margin-top: 24px; margin-bottom: 12px;">
+        <button onclick="resetChallenge()" class="btn-danger" style="border-radius: 9999px; padding: 8px 24px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 1.5px solid #7f1d1d; color: #ef4444; background: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.08)'" onmouseout="this.style.background='none'">
+          Reset Challenge Progress
+        </button>
+      </div>
+
+    </div>
+  </div><!-- /tab-dashboard -->
+
+  <!-- ──────── HABITS GRID TAB ──────── -->
+  <div id="tab-habits" class="tab-panel tab-scroll">
+    <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Shared week navigation header -->
+      <div class="apex-glass-container" style="border-radius:20px;padding:16px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <p id="gridWeekHeader" style="font-size:12px;color:#ffffff;margin:0"></p>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="shiftWeek(-1)" class="week-nav-arrow" id="gridPrevWeek">&lt;-</button>
+            <button onclick="shiftWeek(1)" class="week-nav-arrow" id="gridNextWeek">-&gt;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DO IT! Grid -->
+      <div class="apex-glass-container" style="overflow-x:hidden;width:100%;border-radius:20px;padding:20px;max-width:500px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h2 class="glass-title" style="margin:0;color:#ffffff">Do It!</h2>
+        </div>
+        <div id="habitsGridContainerPos"><!-- built by JS --></div>
+        <div id="noHabitsGridPos" style="display:none;text-align:center;padding:24px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No positive habits yet.
+        </div>
+      </div>
+
+      <!-- DON'T DO IT! Grid -->
+      <div class="apex-glass-container" style="overflow-x:hidden;width:100%;border-radius:20px;padding:20px;max-width:500px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h2 class="glass-title" style="margin:0;color:#ffffff">Don't Do It!</h2>
+        </div>
+        <div id="habitsGridContainerNeg"><!-- built by JS --></div>
+        <div id="noHabitsGridNeg" style="display:none;text-align:center;padding:24px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No negative habits yet.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JOURNALING -->
+  <div id="tab-journaling" class="tab-panel tab-scroll">
+    <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px">
+
+      <div class="apex-glass-container" style="border-radius:20px;padding:20px">
+        <h2 class="glass-title" style="margin-bottom:0">Journaling</h2>
+      </div>
+
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div id="journalEntries" class="journal-grid"></div>
+        <div id="journalEmpty" style="text-align:center;padding:24px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No journal entries yet.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ──────── TO-DO LIST TAB ──────── -->
+  <div id="tab-todo" class="tab-panel tab-scroll">
+    <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:14px">
+      <div class="apex-glass-container" style="border-radius:20px;padding:20px">
+        <h2 class="glass-title" style="margin-bottom:0">To-Do List</h2>
+        <p style="font-size:12px;color:#ffffff;margin-top:4px">
+          Select Day: <span id="todoDateLabel">Today</span>
+        </p>
+      </div>
+
+      <div class="apex-glass-container" style="border-radius:20px;padding:20px">
+        <div id="todoList"><!-- rendered by JS --></div>
+        <div id="todoEmpty" style="text-align:center;padding:24px 0;color:rgba(255,255,255,0.4);font-size:13px">
+          No tasks for this day. Tap the To-Do icon to add one.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── ANALYTICS TAB ──────── -->
+  <div id="tab-analytics" class="tab-panel tab-scroll">
+    <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px">
+
+      <div class="apex-glass-container" style="border-radius:20px;padding:20px">
+        <h2 class="glass-title" style="margin-bottom:0">Analytics</h2>
+        <p style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px">Live charts driven from your logged data.</p>
+      </div>
+
+      <!-- HABIT COMPLETION -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Habit Completion Rate</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Daily completion % — green: Do It!, red: Don't Do It!</div>
+        <div style="display:flex;gap:20px;margin-bottom:14px;font-size:11px;font-family:'Space Mono',monospace">
+          <span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#00FF66"></span> Positive Progress</span>
+          <span style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444"></span> Avoided</span>
+        </div>
+        <div style="position:relative;height:180px"><canvas id="chartHabits"></canvas></div>
+      </div>
+
+      <!-- INDIVIDUAL HABIT TREND -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff;margin-bottom:4px">Individual Habit Trend</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:14px">
+          Daily completion over the month — one habit at a time
+        </div>
+
+        <!-- Navigator -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px">
+          <button id="habitTrendPrev" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'Space Mono',monospace;cursor:pointer;padding:4px 8px;opacity:0.7">&lt;</button>
+          <span id="habitTrendLabel" style="font-size:13px;font-weight:600;color:#ffffff;font-family:'DM Sans',sans-serif;min-width:120px;text-align:center">–</span>
+          <button id="habitTrendNext" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'Space Mono',monospace;cursor:pointer;padding:4px 8px;opacity:0.7">&gt;</button>
+        </div>
+
+        <!-- Chart -->
+        <div style="position:relative;height:180px"><canvas id="chartHabitTrend"></canvas></div>
+      </div>
+
+      <!-- TO-DO COMPLETION RATE -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">To-Do Completion Rate</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Daily task completion % — 0% if no tasks exist for that day</div>
+        <div style="position:relative;height:180px"><canvas id="chartTodos"></canvas></div>
+      </div>
+
+      <!-- WATER -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Water Intake</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Litres per day (goal 3.5L)</div>
+        <div style="position:relative;height:180px"><canvas id="chartWater"></canvas></div>
+      </div>
+
+      <!-- STEPS -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Daily Steps</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Steps per day (goal 10,000)</div>
+        <div style="position:relative;height:180px"><canvas id="chartSteps"></canvas></div>
+      </div>
+
+      <!-- SLEEP -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Sleep Score</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Hours slept per day (goal 8h)</div>
+        <div style="position:relative;height:180px"><canvas id="chartSleep"></canvas></div>
+      </div>
+
+      <!-- PUSH-UPS -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Push-ups Progress</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Daily reps (goal 100)</div>
+        <div style="position:relative;height:180px"><canvas id="chartPushups"></canvas></div>
+      </div>
+
+      <!-- CAFFEINE -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Caffeine Intake</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">mg per day (80mg = 1 cup)</div>
+        <div style="position:relative;height:180px"><canvas id="chartCaffeine"></canvas></div>
+      </div>
+
+      <!-- MOOD TREND -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff">Mood & Mindset</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Daily mindset level — 1 Awful → 5 Amazing</div>
+        <div style="position:relative;height:180px"><canvas id="chartMood"></canvas></div>
+      </div>
+
+      <!-- SUMMARY STATS -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <div class="glass-title-sm" style="color:#ffffff;margin-bottom:16px">30-Day Summary</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Water</div>
+            <div id="statAvgWater" class="stat-mono" style="font-size:22px;font-weight:700;color:#fb923c">–</div>
+          </div>
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Steps</div>
+            <div id="statAvgSteps" class="stat-mono" style="font-size:22px;font-weight:700;color:#ffffff">–</div>
+          </div>
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Sleep</div>
+            <div id="statAvgSleep" class="stat-mono" style="font-size:22px;font-weight:700;color:#a855f7">–</div>
+          </div>
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Habit Rate</div>
+            <div id="statHabitRate" class="stat-mono" style="font-size:22px;font-weight:700;color:#fff">–</div>
+          </div>
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Push-ups</div>
+            <div id="statAvgPushups" class="stat-mono" style="font-size:22px;font-weight:700;color:#f97316">–</div>
+          </div>
+          <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
+            <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Caffeine</div>
+            <div id="statAvgCaffeine" class="stat-mono" style="font-size:22px;font-weight:700;color:#eab308">–</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAST CHALLENGES ARCHIVE -->
+      <div class="apex-glass-container" style="border-radius:14px;padding:20px">
+        <button onclick="toggleArchive()"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;
+                 background:none;border:none;cursor:pointer;padding:0;font-family:inherit">
+          <div>
+            <div class="glass-title-sm" style="margin-bottom:0;text-align:left">Past Challenges Archive</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.6);text-align:left;margin-top:2px">Your long-term growth history</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="archiveBadge" style="font-size:11px;color:#f59e0b;background:rgba(245,158,11,.1);
+              border:1px solid rgba(245,158,11,.2);border-radius:20px;padding:2px 8px"></span>
+            <svg id="archiveChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"
+              style="transition:transform .3s"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </button>
+
+        <div id="archiveSection" style="max-height:0;overflow:hidden;transition:max-height .35s ease">
+          <div style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.04);margin-top:16px">
+            <div id="archiveList"></div>
+            <div id="noArchiveMsg" style="text-align:center;padding:20px 0;color:rgba(255,255,255,0.4);font-size:13px">
+              No completed challenges yet. Finish your 30-day run to earn a trophy!
+            </div>
+            <button onclick="archiveCurrentChallenge()"
+              style="margin-top:14px;width:100%;padding:10px;border:1px solid #713f12;border-radius:10px;
+                     background:none;color:#f59e0b;font-size:13px;cursor:pointer;font-family:inherit;
+                     transition:background .15s"
+              onmouseover="this.style.background='rgba(245,158,11,.06)'"
+              onmouseout="this.style.background='none'">
+              🏆 Archive Current Challenge Progress
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /tab-analytics -->
+
+  <!-- FLOATING GLASS BUBBLE NAV -->
+  <nav class="floating-nav">
+    <button id="nav-dashboard" class="nav-btn active" onclick="switchTab('dashboard')">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="4" width="7" height="7" rx="1.5"/>
+        <rect x="3" y="15" width="7" height="7" rx="1.5"/>
+        <rect x="14" y="15" width="7" height="7" rx="1.5"/>
+      </svg>
+    </button>
+    <button id="nav-todo" class="nav-btn" onclick="handleTodoNav()">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>
+        <path d="M6 8h.01"/><path d="M6 12h.01"/><path d="M6 16h.01"/>
+      </svg>
+    </button>
+    <button id="nav-habits" class="nav-btn" data-nav="habits">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
+      </svg>
+    </button>
+    <button id="nav-journaling" class="nav-btn" data-nav="journaling">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        <line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/>
+      </svg>
+    </button>
+    <button id="nav-analytics" class="nav-btn" onclick="switchTab('analytics')">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 3v16a2 2 0 0 0 2 2h16"/>
+        <path d="M7 16l4-4 4 4 5-5"/>
+        <path d="M7 11l4-4 4 4"/>
+      </svg>
+    </button>
+  </nav>
+</div><!-- /app -->
+
+<!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
+<script>
+'use strict';
+
+// ── SINGLE SOURCE OF TRUTH for today's date (frozen at script parse)
+const TODAY = new Date();
+
+// ── CONSTANTS
+const TOTAL_DAYS   = 30;
+const WATER_GOAL   = 3.5;
+const STEPS_GOAL   = 10000;
+const SLEEP_GOAL   = 8;
+const PUSHUPS_GOAL = 100;
+const CAFF_GOAL    = 400;  // mg; 5 cups = 400mg upper safe limit
+
+const DEFAULT_HABITS = [
+  'Morning Meditation',
+  'Read 20 Pages',
+  'Strength Training',
+  'Deep Work',
+  'Coding Practice'
+];
+
+// ── QUOTES — one per calendar day-of-year (cycles via modulo)
+const QUOTES = [
+  "Consistency beats talent.",
+  "Day 1 or One Day? You decide.",
+  "Discipline is freedom.",
+  "Small actions. Compounding results.",
+  "You don't rise to your goals — you fall to your systems.",
+  "One more rep. One more page. One more day.",
+  "The pain of discipline or the pain of regret. Choose.",
+  "Progress is built in the dark, before anyone sees it.",
+  "Comfort is the enemy of growth.",
+  "Hard now. Easy later.",
+  "Motion beats meditation.",
+  "You are what you repeatedly do.",
+  "Win the morning. Win the day.",
+  "The grind is the gift.",
+  "Average is a choice.",
+  "Build the person the world hasn't met yet.",
+  "Earn your rest.",
+  "Obsession looks like passion until it works.",
+  "Do it tired. Do it scared. Just do it.",
+  "Your future self is watching.",
+  "Show up when motivation doesn't.",
+  "One percent better every day.",
+  "The only bad workout is the one you skipped.",
+  "Silence the doubt with action.",
+  "Be harder to kill than yesterday.",
+  "No excuses survive the mirror.",
+  "Stack the wins. Stack the reps.",
+  "Momentum is maintained, not found.",
+  "The scoreboard doesn't lie.",
+  "Mastery is a marathon. Lace up."
+];
+
+// ── STATE
+let S = {
+  startDate:       null,
+  dayIndex:        0,
+  habits:          [],
+  habitsNegative:  [],
+  waterHistory:    [],   // float[30]
+  stepsHistory:    [],   // int[30]
+  sleepHistory:    [],   // float[30]
+  pushupsHistory:  [],   // int[30]
+  caffeineHistory: [],   // int[30]
+  moodHistory:     [],   // int[30]  0=unlogged, 1-5
+  habitsHistory:   [],   // bool[30][habits.length]
+  habitsHistoryNegative: [], // bool[30][habitsNegative.length]
+  pastChallenges:  [],   // archive
+  journalHistory:  {},   // { dayIndex: "entry text" }
+};
+
+// Chart refs
+let chartHabits, chartWater, chartSteps, chartSleep, chartPushups, chartCaffeine, chartMood, chartTodos, chartHabitTrend;
+
+// Temp vars
+let sleepTmp = 7.5;
+
+// SYSTEM_TODAY — frozen at boot so it never shifts when browsing past days
+let SYSTEM_TODAY = 0;
+let moodTmp  = 0;   // 0 = nothing selected yet
+let archiveOpen = false;
+
+// ──────────────────────────────────────────────────────────────
+// LOCALSTORAGE
+// ──────────────────────────────────────────────────────────────
+function saveState() {
+  localStorage.setItem('challengeStartDate', S.startDate);
+  localStorage.setItem('habits',           JSON.stringify(S.habits));
+  localStorage.setItem('habitsNegative',   JSON.stringify(S.habitsNegative));
+  localStorage.setItem('waterHistory',     JSON.stringify(S.waterHistory));
+  localStorage.setItem('stepsHistory',     JSON.stringify(S.stepsHistory));
+  localStorage.setItem('sleepHistory',     JSON.stringify(S.sleepHistory));
+  localStorage.setItem('pushupsHistory',   JSON.stringify(S.pushupsHistory));
+  localStorage.setItem('caffeineHistory',  JSON.stringify(S.caffeineHistory));
+  localStorage.setItem('moodHistory',      JSON.stringify(S.moodHistory));
+  localStorage.setItem('habitsHistory',    JSON.stringify(S.habitsHistory));
+  localStorage.setItem('habitsHistoryNegative', JSON.stringify(S.habitsHistoryNegative));
+  localStorage.setItem('pastChallenges',   JSON.stringify(S.pastChallenges));
+  localStorage.setItem('todos',            JSON.stringify(S.todos));
+  localStorage.setItem('journalHistory',   JSON.stringify(S.journalHistory));
+}
+
+function numArr(key, len, def) {
+  const r = localStorage.getItem(key);
+  if (r) {
+    const a = JSON.parse(r);
+    while (a.length < len) a.push(def);
+    return a.slice(0, len);
+  }
+  return new Array(len).fill(def);
+}
+
+function loadState() {
+  let sd = localStorage.getItem('challengeStartDate') || todayISO();
+  localStorage.setItem('challengeStartDate', sd);
+  S.startDate = sd;
+
+  const diff = Math.floor(
+    (new Date(todayISO()+'T00:00:00') - new Date(sd+'T00:00:00')) / 86400000
+  );
+  S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, diff));
+
+  const rawH = localStorage.getItem('habits');
+  S.habits = rawH ? JSON.parse(rawH) : [...DEFAULT_HABITS];
+
+  const rawHN = localStorage.getItem('habitsNegative');
+  S.habitsNegative = rawHN ? JSON.parse(rawHN) : [];
+
+  S.waterHistory    = numArr('waterHistory',    TOTAL_DAYS, 0);
+  S.stepsHistory    = numArr('stepsHistory',    TOTAL_DAYS, 0);
+  S.sleepHistory    = numArr('sleepHistory',    TOTAL_DAYS, 0);
+  S.pushupsHistory  = numArr('pushupsHistory',  TOTAL_DAYS, 0);
+  S.caffeineHistory = numArr('caffeineHistory', TOTAL_DAYS, 0);
+  S.moodHistory     = numArr('moodHistory',     TOTAL_DAYS, 0);
+
+  // habitsHistory — 2D: [day][habitIdx]
+  const rawHH = localStorage.getItem('habitsHistory');
+  S.habitsHistory = rawHH ? JSON.parse(rawHH) : [];
+  while (S.habitsHistory.length < TOTAL_DAYS) S.habitsHistory.push([]);
+  S.habitsHistory = S.habitsHistory.map(row => {
+    while (row.length < S.habits.length) row.push(false);
+    return row;
+  });
+
+  // habitsHistoryNegative — 2D: [day][habitIdx]
+  const rawHHN = localStorage.getItem('habitsHistoryNegative');
+  S.habitsHistoryNegative = rawHHN ? JSON.parse(rawHHN) : [];
+  while (S.habitsHistoryNegative.length < TOTAL_DAYS) S.habitsHistoryNegative.push([]);
+  S.habitsHistoryNegative = S.habitsHistoryNegative.map(row => {
+    while (row.length < S.habitsNegative.length) row.push(false);
+    return row;
+  });
+
+  // Past challenges archive
+  const rawPC = localStorage.getItem('pastChallenges');
+  S.pastChallenges = rawPC ? JSON.parse(rawPC) : [];
+
+  // To-Do data: { dayIdx: [ { text, done }, ... ] }
+  const rawTD = localStorage.getItem('todos');
+  S.todos = rawTD ? JSON.parse(rawTD) : {};
+
+  // Journal entries: { dayIndex: "text" }
+  const rawJ = localStorage.getItem('journalHistory');
+  S.journalHistory = rawJ ? JSON.parse(rawJ) : {};
+}
+
+// ──────────────────────────────────────────────────────────────
+// UTILITY
+// ──────────────────────────────────────────────────────────────
+function todayISO() {
+  return TODAY.getFullYear()+'-'+String(TODAY.getMonth()+1).padStart(2,'0')+'-'+String(TODAY.getDate()).padStart(2,'0');
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return mn[+m-1]+' '+parseInt(d)+', '+y;
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── DATE NAVIGATION HELPERS ──
+function getRealDayIndex() {
+  if (!S.startDate) return 0;
+  const diff = Math.floor(
+    (new Date(todayISO()+'T00:00:00') - new Date(S.startDate+'T00:00:00')) / 86400000
+  );
+  return Math.max(0, Math.min(TOTAL_DAYS - 1, diff));
+}
+
+function getNavigatedDateString(dayIndex) {
+  if (!S.startDate) return '';
+  const [y, m, d] = S.startDate.split('-');
+  const date = new Date(+y, +m - 1, +d);
+  date.setDate(date.getDate() + dayIndex);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return months[date.getMonth()] + ' ' + date.getDate();
+}
+
+
+function renderDateNav() {
+  const strip = document.getElementById('weeklyCalendarStrip');
+  if (!strip) return;
+  strip.innerHTML = '';
+
+  const [y, m, d] = (S.startDate || todayISO()).split('-');
+  const startDate = new Date(+y, +m - 1, +d);
+  const baseDate = new Date(startDate);
+  baseDate.setDate(baseDate.getDate() + S.dayIndex);
+
+  // ── Month label ──
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthLabel = document.getElementById('weekMonthLabel');
+  if (monthLabel) monthLabel.textContent = months[baseDate.getMonth()];
+
+  // ── Status label ──
+  const statusLabel = document.getElementById('weekStatusLabel');
+  if (statusLabel) {
+    if (S.dayIndex === SYSTEM_TODAY) {
+      statusLabel.textContent = 'Today';
+      statusLabel.className = 'week-day-status today';
+    } else {
+      const diff = SYSTEM_TODAY - S.dayIndex;
+      statusLabel.textContent = 'Before ' + diff + ' Day' + (diff > 1 ? 's' : '');
+      statusLabel.className = 'week-day-status';
+    }
+  }
+
+  // ── Progress ──
+  const progressLabel = document.getElementById('weekProgressLabel');
+  if (progressLabel) {
+    const pct = Math.round(((S.dayIndex + 1) / TOTAL_DAYS) * 100);
+    progressLabel.textContent = pct + '%';
+  }
+
+  // ── Build 7-day sliding window centered on S.dayIndex ──
+  const half = 3;
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  for (let i = -half; i <= half; i++) {
+    const offset = S.dayIndex + i;
+    const day = new Date(startDate);
+    day.setDate(startDate.getDate() + offset);
+
+    const dayIndex = offset;
+    const isActive = dayIndex === S.dayIndex;
+    const isOutOfRange = dayIndex < 0 || dayIndex > TOTAL_DAYS - 1;
+    const isFutureDate = dayIndex > SYSTEM_TODAY;
+    const isBeforeYesterday = dayIndex < SYSTEM_TODAY - 1;
+
+    // Only Today and Yesterday are selectable
+    const isSelectable = dayIndex >= 0 && dayIndex <= SYSTEM_TODAY && dayIndex >= SYSTEM_TODAY - 1;
+
+    const item = document.createElement('div');
+    let cls = 'week-day-item';
+    if (isActive) {
+      cls += ' active';
+    } else if (isOutOfRange || isFutureDate || isBeforeYesterday) {
+      cls += ' future';
+    }
+    item.className = cls;
+
+    item.innerHTML =
+      '<div class="week-day-name">' + dayNames[day.getDay()] + '</div>' +
+      '<div class="week-day-date">' + day.getDate() + '</div>';
+
+    // Clickable only for Today or Yesterday (and not the active one)
+    if (isSelectable && dayIndex !== S.dayIndex) {
+      item.addEventListener('click', function() {
+        S.dayIndex = dayIndex;
+        renderAll();
+        renderTodoList();
+        const habitsTab = document.getElementById('tab-habits');
+        if (habitsTab && habitsTab.classList.contains('active')) { weekOffset = 0; buildHabitsGrid(); }
+      });
+    }
+
+    strip.appendChild(item);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// QUOTE WIDGET
+// ──────────────────────────────────────────────────────────────
+function renderQuote() {
+  const start = new Date(TODAY.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((TODAY - start) / 86400000);
+  const idx   = dayOfYear % QUOTES.length;
+  document.getElementById('quoteTxt').textContent = '"' + QUOTES[idx] + '"';
+  document.getElementById('quoteDay').textContent =
+    TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+}
+
+// ──────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ──────────────────────────────────────────────────────────────
+function handleTodoNav() {
+  const todoTab = document.getElementById('tab-todo');
+  if (todoTab && todoTab.classList.contains('active')) {
+    openTodoModal();
+  } else {
+    switchTab('todo');
+  }
+}
+
+// ── Habits nav: tap once = "Do It!" manage, double tap = "Don't Do It!" manage
+let habitsTapCount = 0;
+let habitsTapTimer = null;
+
+function handleHabitsNav() {
+  const habitsTab = document.getElementById('tab-habits');
+  const onHabits = habitsTab && habitsTab.classList.contains('active');
+
+  if (!onHabits) {
+    switchTab('habits');
+    habitsTapCount = 0;
+    return;
+  }
+
+  habitsTapCount++;
+  clearTimeout(habitsTapTimer);
+
+  habitsTapTimer = setTimeout(() => {
+    if (habitsTapCount === 1) {
+      openHabitMgmt();
+    } else if (habitsTapCount >= 2) {
+      openHabitMgmtNeg();
+    }
+    habitsTapCount = 0;
+  }, 300);
+}
+
+function openTodoModal() {
+  document.getElementById('todoModal').classList.add('open');
+  const inp = document.getElementById('todoModalInput');
+  inp.value = '';
+  inp.focus();
+}
+
+function closeTodoModal() {
+  document.getElementById('todoModal').classList.remove('open');
+}
+
+function submitTodoItem() {
+  const input = document.getElementById('todoModalInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const d = S.dayIndex;
+  const items = getDayTodos(d);
+  items.push({ text: text, done: false });
+  saveState();
+  closeTodoModal();
+  renderTodoList();
+  if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+}
+
+// ── JOURNALING ──
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let journalEditingDay = null;
+
+function openJournalModal(dayIndex) {
+  const d = (dayIndex !== undefined) ? dayIndex : SYSTEM_TODAY;
+  journalEditingDay = d;
+  const dt = new Date(S.startDate);
+  dt.setDate(dt.getDate() + d);
+  document.getElementById('journalModalDate').textContent =
+    dt.getDate() + ' ' + MONTHS_SHORT[dt.getMonth()] + ' ' + dt.getFullYear();
+  document.getElementById('journalModalInput').value = S.journalHistory[d] || '';
+  document.getElementById('journalModal').classList.add('open');
+  setTimeout(() => document.getElementById('journalModalInput').focus(), 100);
+}
+
+function closeJournalModal() {
+  document.getElementById('journalModal').classList.remove('open');
+}
+
+function saveJournalEntry() {
+  const input = document.getElementById('journalModalInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const d = journalEditingDay !== null ? journalEditingDay : SYSTEM_TODAY;
+  S.journalHistory[d] = text;
+  saveState();
+  closeJournalModal();
+  renderJournalEntries();
+}
+
+function handleJournalNav() {
+  if (document.getElementById('tab-journaling').classList.contains('active')) {
+    openJournalModal(SYSTEM_TODAY);
+  } else {
+    switchTab('journaling');
+  }
+}
+
+function renderJournalEntries() {
+  const container = document.getElementById('journalEntries');
+  const empty = document.getElementById('journalEmpty');
+
+  container.innerHTML = '';
+  const entries = [];
+  for (const key in S.journalHistory) {
+    entries.push({ dayIndex: parseInt(key), text: S.journalHistory[key] });
+  }
+  entries.sort((a, b) => a.dayIndex - b.dayIndex);
+
+  if (entries.length === 0) {
+    empty.style.display = '';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  entries.forEach(e => {
+    const dt = new Date(S.startDate);
+    dt.setDate(dt.getDate() + e.dayIndex);
+    const dateStr = dt.getDate() + ' ' + MONTHS_SHORT[dt.getMonth()];
+    const len = e.text.length;
+
+    let sizeClass = '';
+    if (len <= 80) sizeClass = 'journal-card-short';
+    else if (len <= 200) sizeClass = 'journal-card-med';
+    else sizeClass = 'journal-card-long';
+
+    const card = document.createElement('div');
+    card.className = 'journal-card ' + sizeClass;
+    card.innerHTML = '<div class="journal-card-date">' + dateStr + '</div>' +
+      '<div class="journal-card-text">' + escHtml(e.text) + '</div>';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'journal-card-edit';
+    editBtn.title = 'Edit';
+    editBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    editBtn.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      openJournalModal(e.dayIndex);
+    });
+    card.appendChild(editBtn);
+    container.appendChild(card);
+  });
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+
+  // Calendar visible only on Dashboard and To-Do pages
+  const cal = document.getElementById('globalCalendarWrapper');
+  const calVisible = (name === 'dashboard' || name === 'todo');
+  if (cal) cal.style.display = calVisible ? '' : 'none';
+  // Adjust tab padding so content doesn't hide under fixed calendar
+  const tab = document.getElementById('tab-'+name);
+  if (tab) tab.style.paddingTop = calVisible ? '90px' : '0';
+
+  if (name === 'habits')    { weekOffset = 0; buildHabitsGrid(); }
+  if (name === 'todo')      { renderTodoList(); }
+  if (name === 'journaling'){ renderJournalEntries(); }
+  if (name === 'analytics') { setTimeout(() => { syncCharts(); updateSummary(); renderArchive(); renderHabitTrendChart(); }, 30); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// DASHBOARD RENDER
+// ──────────────────────────────────────────────────────────────
+function renderAll() {
+  const d = S.dayIndex;
+  renderDateNav();
+  document.getElementById('heroDay').textContent        = d + 1;
+  document.getElementById('startDateLabel').textContent = fmtDate(S.startDate);
+  updateMasteryUI();
+  renderWater();
+  renderSleep();
+  renderSteps();
+  renderPushups();
+  renderCaffeine();
+  renderMood();
+  renderTodayHabits();
+  renderWeeklySteps();
+  renderQuote();
+}
+
+function updateMasteryUI() {
+  const d = S.dayIndex;
+
+  // MODULE A: Don't Do It — same positive progression as Do It (max 25%)
+  // completed = true = avoided successfully = 1 point; false = 0
+  const totalNeg = S.habitsNegative.length;
+  const doneNeg = totalNeg > 0 ? (S.habitsHistoryNegative[d]||[]).filter(Boolean).length : 0;
+  const dontDoScore = totalNeg > 0 ? (doneNeg / totalNeg) * 25 : 0;
+
+  // MODULE B: Do It — action ecosystem (max 25%)
+  const totalHabits = S.habits.length;
+  const doneDoIt = totalHabits > 0 ? (S.habitsHistory[d]||[]).filter(Boolean).length : 0;
+  const doItScore = totalHabits > 0 ? Math.min((doneDoIt / totalHabits) * 25, 25) : 0;
+
+  // MODULE C: 4 card metrics (12.5% each)
+  const waterScore   = Math.min((S.waterHistory[d] / WATER_GOAL) * 12.5, 12.5);
+  const sleepScore   = S.sleepHistory[d] > 0 ? Math.min((S.sleepHistory[d] / SLEEP_GOAL) * 12.5, 12.5) : 0;
+  const stepsScore   = Math.min((S.stepsHistory[d] / STEPS_GOAL) * 12.5, 12.5);
+  const pushupsScore = Math.min((S.pushupsHistory[d] / PUSHUPS_GOAL) * 12.5, 12.5);
+
+  let TotalProgress = Math.round(dontDoScore + doItScore + waterScore + sleepScore + stepsScore + pushupsScore);
+  if (isNaN(TotalProgress)) TotalProgress = 0;
+  TotalProgress = Math.max(0, Math.min(100, TotalProgress));
+
+  document.getElementById('masteryPct').textContent = TotalProgress + '%';
+
+  const circ = 2 * Math.PI * 78;
+  const dash = (TotalProgress / 100) * circ;
+  document.getElementById('masteryRing').setAttribute(
+    'stroke-dasharray', dash.toFixed(2) + ' ' + circ.toFixed(2));
+
+  document.getElementById('streakCount').textContent = computeStreak();
+  const pts = apexPoints();
+  document.getElementById('apexPoints').textContent = pts.toLocaleString();
+  document.getElementById('levelCount').textContent = Math.floor(pts/500)+1;
+  const done = (S.habitsHistory[S.dayIndex]||[]).filter(Boolean).length;
+  document.getElementById('habitsCompletedLabel').textContent = done+' / '+S.habits.length;
+}
+
+function renderWater() {
+  const v = S.waterHistory[S.dayIndex];
+  document.getElementById('waterVal').textContent = v.toFixed(1);
+  const pct = clamp((v / WATER_GOAL) * 100, 0, 100);
+  document.getElementById('waterBar').style.width = pct.toFixed(1) + '%';
+  const fill = document.getElementById('waterFill');
+  if (fill) fill.style.height = pct.toFixed(1) + '%';
+  const waterSub = document.getElementById('waterSub');
+  if (waterSub) {
+    waterSub.textContent = v >= WATER_GOAL ? '✓ Goal reached!' : 'Goal: ' + WATER_GOAL + 'L | ' + (WATER_GOAL - v).toFixed(1) + 'L to go';
+  }
+}
+
+function renderSleep() {
+  const v = S.sleepHistory[S.dayIndex];
+  const fill = document.getElementById('sleepFill');
+  if (!v) {
+    document.getElementById('sleepDisplay').textContent = '–';
+    document.getElementById('sleepSub').textContent     = 'No sleep logged yet';
+    document.getElementById('sleepBar').style.width     = '0%';
+    if (fill) fill.style.height = '0%';
+  } else {
+    const h = Math.floor(v), m = Math.round((v-h)*60);
+    document.getElementById('sleepDisplay').textContent = h+'h '+String(m).padStart(2,'0')+'m';
+    document.getElementById('sleepSub').textContent     = v>=SLEEP_GOAL ? '✓ Goal reached!' : (SLEEP_GOAL-v).toFixed(1)+'h remaining';
+    const pct = clamp((v / SLEEP_GOAL) * 100, 0, 100);
+    document.getElementById('sleepBar').style.width     = pct.toFixed(1) + '%';
+    if (fill) fill.style.height = pct.toFixed(1) + '%';
+  }
+}
+
+function renderSteps() {
+  const v = S.stepsHistory[S.dayIndex];
+  document.getElementById('stepsVal').textContent = v.toLocaleString();
+  const pct = clamp((v / STEPS_GOAL) * 100, 0, 100);
+  const fill = document.getElementById('stepsFill');
+  if (fill) fill.style.height = pct.toFixed(1) + '%';
+  const stepsSub = document.getElementById('stepsSub');
+  if (stepsSub) {
+    stepsSub.textContent = v >= STEPS_GOAL ? '✓ Goal reached!' : 'Goal: 10K | ' + (STEPS_GOAL - v).toLocaleString() + ' to go';
+  }
+  const el = document.getElementById('stepsBars');
+  if (el) {
+    el.innerHTML = '';
+    const from = Math.max(0, S.dayIndex-6);
+    for (let i = from; i <= S.dayIndex; i++) {
+      const bar = document.createElement('div');
+      const h = Math.max(4, Math.round(clamp(S.stepsHistory[i]/STEPS_GOAL,0,1)*100));
+      bar.style.cssText = `flex:1;border-radius:3px 3px 0 0;height:${h}%;
+        background:${i===S.dayIndex?'#00FF66':'rgba(0,255,102,.35)'};transition:height .3s`;
+      el.appendChild(bar);
+    }
+  }
+}
+
+function renderPushups() {
+  const v = S.pushupsHistory[S.dayIndex];
+  document.getElementById('pushupsVal').textContent = v;
+  const pct = clamp((v / PUSHUPS_GOAL) * 100, 0, 100);
+  const fill = document.getElementById('pushupsFill');
+  if (fill) fill.style.height = pct.toFixed(1) + '%';
+  document.getElementById('pushupsBar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('pushupsSub').textContent = v >= PUSHUPS_GOAL
+    ? '✓ Goal reached! ('+v+' reps)' : 'Goal: '+PUSHUPS_GOAL+' reps | '+(PUSHUPS_GOAL-v)+' to go';
+}
+
+function renderCaffeine() {
+  const v   = S.caffeineHistory[S.dayIndex];
+  const cups = Math.round(v / 80);
+  document.getElementById('caffeineVal').textContent = v;
+  const pct = clamp((v / CAFF_GOAL) * 100, 0, 100);
+  document.getElementById('caffeineBar').style.width = pct.toFixed(1) + '%';
+  const fill = document.getElementById('caffeineFill');
+  if (fill) fill.style.height = pct.toFixed(1) + '%';
+  
+  const caffeineSub = document.getElementById('caffeineSub');
+  if (caffeineSub) {
+    caffeineSub.textContent = v >= CAFF_GOAL ? '⚠️ Upper safe limit reached!' : 'Goal: < ' + CAFF_GOAL + 'mg | ' + (CAFF_GOAL - v) + 'mg remaining';
+  }
+
+  // Cup icons
+  const el = document.getElementById('caffeineCups');
+  el.innerHTML = '';
+  const maxShow = 6;
+  for (let i = 0; i < maxShow; i++) {
+    const span = document.createElement('span');
+    span.className = 'caff-cup' + (i < cups ? ' filled' : '');
+    span.textContent = '☕';
+    el.appendChild(span);
+  }
+
+  // Late-night warning: if current hour ≥ 18 AND caffeine was added today
+  const hour = TODAY.getHours();
+  const warn = document.getElementById('caffeineWarning');
+  warn.style.display = (hour >= 18 && v > 0) ? 'block' : 'none';
+}
+
+// ──────────────────────────────────────────────────────────────
+// MOOD
+// ──────────────────────────────────────────────────────────────
+const MOOD_LABELS = {5:'Amazing',4:'Good',3:'Neutral',2:'Low',1:'Awful',0:'–'};
+
+function renderMood() {
+  const v    = S.moodHistory[S.dayIndex] || 0;
+  const disp = document.getElementById('moodDisplay');
+  const sub  = document.getElementById('moodSub');
+  const bar  = document.getElementById('moodBar');
+  const fill = document.getElementById('moodFill');
+  
+  const MOOD_COLORS = {5:'#00FF66',4:'#00FF66',3:'#52525b',2:'#f97316',1:'#ef4444'};
+  const MOOD_FILL_COLORS = {5:'#05201b',4:'#0a2411',3:'#16161a',2:'#2e1707',1:'#2c0d0d'};
+  const MOOD_FILL_HEIGHTS = {5:100,4:75,3:55,2:35,1:15};
+  
+  if (!v) {
+    disp.textContent = '–';
+    sub.textContent  = 'No mood logged yet';
+    if (bar) bar.style.width  = '0%';
+    disp.style.color = 'rgba(255,255,255,0.6)';
+    if (fill) { fill.style.height = '0%'; fill.style.background = ''; }
+  } else {
+    disp.textContent = MOOD_LABELS[v];
+    sub.textContent  = 'Logged for today';
+    const c  = MOOD_COLORS[v];
+    const fc = MOOD_FILL_COLORS[v];
+    const h  = MOOD_FILL_HEIGHTS[v];
+    disp.style.color = c;
+    if (bar) {
+      bar.style.width  = h + '%';
+      bar.style.background = `linear-gradient(90deg,${c}99,${c})`;
+    }
+    if (fill) {
+      fill.style.height    = h + '%';
+      fill.style.background = fc;
+    }
+  }
+}
+
+function openMoodModal() {
+  // Pre-select today's value if already logged
+  moodTmp = S.moodHistory[S.dayIndex] || 0;
+  document.querySelectorAll('.mood-btn').forEach(btn => {
+    const val = parseInt(btn.dataset.mood);
+    btn.classList.toggle('selected', val === moodTmp);
+  });
+  document.getElementById('moodModal').classList.add('open');
+}
+function closeMoodModal() { document.getElementById('moodModal').classList.remove('open'); }
+
+function selectMood(btn) {
+  moodTmp = parseInt(btn.dataset.mood);
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function saveMood() {
+  if (!moodTmp) { closeMoodModal(); return; }
+  const d = S.dayIndex;
+  S.moodHistory[d] = moodTmp;
+  saveState();
+  renderMood();
+  updateMasteryUI();
+  closeMoodModal();
+  if (chartMood) {
+    // Fill only logged values (0 stays null for gap rendering)
+    chartMood.data.datasets[0].data[d] = moodTmp;
+    chartMood.update('none');
+  }
+}
+
+function renderTodayHabits() {
+  const list  = document.getElementById('todayHabitsList');
+  const noMsg = document.getElementById('noHabitsMsg');
+  list.innerHTML = '';
+  const row  = S.habitsHistory[S.dayIndex] || [];
+  const done = row.filter(Boolean).length;
+  document.getElementById('habitsCompletedLabel').textContent = done+' / '+S.habits.length;
+
+  if (!S.habits.length) { noMsg.style.display='block'; return; }
+  noMsg.style.display = 'none';
+
+  S.habits.forEach((habit, i) => {
+    const isDone = !!row[i];
+    const item   = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.04)';
+    item.innerHTML = `
+      <span style="font-size:14px;color:#e5e7eb">${escHtml(habit)}</span>
+      <button class="hcheck${isDone?' done':''}" onclick="toggleHabit(${i})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12l5 5 9-9"/>
+        </svg>
+      </button>`;
+    list.appendChild(item);
+  });
+  if (list.lastChild) list.lastChild.style.borderBottom = 'none';
+}
+
+function renderTodayHabitsNeg() {
+  const list  = document.getElementById('todayHabitsListNeg');
+  const noMsg = document.getElementById('noHabitsMsgNeg');
+  list.innerHTML = '';
+  const row  = S.habitsHistoryNegative[S.dayIndex] || [];
+  const done = row.filter(Boolean).length;
+  document.getElementById('habitsCompletedLabelNeg').textContent = done+' / '+S.habitsNegative.length;
+
+  if (!S.habitsNegative.length) { noMsg.style.display='block'; return; }
+  noMsg.style.display = 'none';
+
+  S.habitsNegative.forEach((habit, i) => {
+    const isDone = !!row[i];
+    const item   = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.04)';
+    item.innerHTML = `
+      <span style="font-size:14px;color:#e5e7eb">${escHtml(habit)}</span>
+      <button class="hcheck${isDone?' done':''}" onclick="toggleHabitNeg(${i})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12l5 5 9-9"/>
+        </svg>
+      </button>`;
+    list.appendChild(item);
+  });
+  if (list.lastChild) list.lastChild.style.borderBottom = 'none';
+}
+
+function renderWeeklySteps() {
+  const from = Math.max(0, S.dayIndex-6);
+  let tot = 0;
+  for (let i = from; i <= S.dayIndex; i++) tot += S.stepsHistory[i];
+  const pct = clamp(Math.round((tot/(STEPS_GOAL*7))*100),0,100);
+  document.getElementById('weeklyStepsPct').textContent = pct+'%';
+  document.getElementById('weeklyStepsBar').style.width = pct+'%';
+}
+
+// ──────────────────────────────────────────────────────────────
+// WATER
+// ──────────────────────────────────────────────────────────────
+function adjustWater(delta) {
+  const d = S.dayIndex;
+  S.waterHistory[d] = clamp(+(S.waterHistory[d]+delta).toFixed(1), 0, 10);
+  saveState(); renderWater(); updateMasteryUI();
+  if (chartWater) { chartWater.data.datasets[0].data[d] = S.waterHistory[d]; chartWater.update('none'); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// SLEEP
+// ──────────────────────────────────────────────────────────────
+function openSleepModal() {
+  sleepTmp = S.sleepHistory[S.dayIndex] || 7.5;
+  document.getElementById('sleepInputVal').textContent = sleepTmp.toFixed(1);
+  document.getElementById('sleepModal').classList.add('open');
+}
+function closeSleepModal() { document.getElementById('sleepModal').classList.remove('open'); }
+function adjSleepTemp(d)  {
+  sleepTmp = clamp(+(sleepTmp+d).toFixed(1), 0, 16);
+  document.getElementById('sleepInputVal').textContent = sleepTmp.toFixed(1);
+}
+function saveSleep() {
+  const d = S.dayIndex;
+  S.sleepHistory[d] = sleepTmp;
+  saveState(); renderSleep(); updateMasteryUI(); closeSleepModal();
+  if (chartSleep) { chartSleep.data.datasets[0].data[d] = sleepTmp; chartSleep.update('none'); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// STEPS
+// ──────────────────────────────────────────────────────────────
+function openStepsModal() {
+  document.getElementById('stepsInput').value = S.stepsHistory[S.dayIndex];
+  document.getElementById('stepsModal').classList.add('open');
+}
+function closeStepsModal() { document.getElementById('stepsModal').classList.remove('open'); }
+function addStepsQ(n) {
+  const el = document.getElementById('stepsInput');
+  el.value = clamp((parseInt(el.value)||0)+n, 0, 99999);
+}
+function saveSteps() {
+  const d = S.dayIndex;
+  const v = clamp(parseInt(document.getElementById('stepsInput').value)||0, 0, 99999);
+  S.stepsHistory[d] = v;
+  saveState(); renderSteps(); renderWeeklySteps(); updateMasteryUI(); closeStepsModal();
+  if (chartSteps) {
+    chartSteps.data.datasets[0].data[d] = v;
+    chartSteps.data.datasets[0].backgroundColor[d] = v>=STEPS_GOAL?'#00FF66':'rgba(0,255,102,.4)';
+    chartSteps.update('none');
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// PUSH-UPS
+// ──────────────────────────────────────────────────────────────
+function openPushupsModal() {
+  document.getElementById('pushupsInput').value = S.pushupsHistory[S.dayIndex];
+  document.getElementById('pushupsModal').classList.add('open');
+}
+function closePushupsModal() { document.getElementById('pushupsModal').classList.remove('open'); }
+function addPushupsQ(n) {
+  const el = document.getElementById('pushupsInput');
+  el.value = clamp((parseInt(el.value)||0)+n, 0, 9999);
+}
+function savePushups() {
+  const d = S.dayIndex;
+  const v = clamp(parseInt(document.getElementById('pushupsInput').value)||0, 0, 9999);
+  S.pushupsHistory[d] = v;
+  saveState(); renderPushups(); updateMasteryUI(); closePushupsModal();
+  if (chartPushups) { chartPushups.data.datasets[0].data[d] = v; chartPushups.update('none'); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// CAFFEINE
+// ──────────────────────────────────────────────────────────────
+function adjustCaffeine(delta) {
+  const d = S.dayIndex;
+  S.caffeineHistory[d] = clamp(S.caffeineHistory[d]+delta, 0, 9999);
+  saveState(); renderCaffeine(); updateMasteryUI();
+  if (chartCaffeine) { chartCaffeine.data.datasets[0].data[d] = S.caffeineHistory[d]; chartCaffeine.update('none'); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// HABIT TOGGLE
+// ──────────────────────────────────────────────────────────────
+function toggleHabit(hi) {
+  const d = S.dayIndex;
+  if (!S.habitsHistory[d]) S.habitsHistory[d] = [];
+  S.habitsHistory[d][hi] = !S.habitsHistory[d][hi];
+  saveState(); renderTodayHabits(); updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) { chartHabits.data.datasets[0].data[d] = dayHabitPct(d); chartHabits.update('none'); }
+}
+
+function toggleHabitNeg(hi) {
+  const d = S.dayIndex;
+  if (!S.habitsHistoryNegative[d]) S.habitsHistoryNegative[d] = [];
+  S.habitsHistoryNegative[d][hi] = !S.habitsHistoryNegative[d][hi];
+  saveState(); renderTodayHabitsNeg(); updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) { chartHabits.data.datasets[1].data[d] = dayHabitPctNeg(d); chartHabits.update('none'); }
+}
+
+// ──────────────────────────────────────────────────────────────
+// WEEKLY HABIT GRID  (7-column strip with week navigation)
+// ──────────────────────────────────────────────────────────────
+let weekOffset = 0;
+
+function getWeekDayIndex(offset) {
+  const [y, m, d] = S.startDate.split('-');
+  const date = new Date(+y, +m - 1, +d);
+  date.setDate(date.getDate() + SYSTEM_TODAY);
+  const dow = date.getDay();
+  return SYSTEM_TODAY - dow + offset * 7;
+}
+
+function getWeekRange(offset) {
+  const startDay = getWeekDayIndex(offset);
+  const endDay = startDay + 6;
+  const [y, m, d] = S.startDate.split('-');
+  const sDate = new Date(+y, +m - 1, +d);
+  sDate.setDate(sDate.getDate() + startDay);
+  const eDate = new Date(+y, +m - 1, +d);
+  eDate.setDate(eDate.getDate() + Math.min(endDay, TOTAL_DAYS - 1));
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekNum = offset > 0 ? 'Week +' + offset : offset < 0 ? 'Week ' + offset : 'Current Week';
+  return {
+    startDay: Math.max(0, startDay),
+    endDay: Math.min(endDay, TOTAL_DAYS - 1),
+    weekNum: weekNum,
+    label: months[sDate.getMonth()] + ' ' + sDate.getDate() + ' – ' + months[eDate.getMonth()] + ' ' + eDate.getDate()
+  };
+}
+
+function shiftWeek(dir) {
+  const [y, m, d] = S.startDate.split('-');
+  const sysDate = new Date(+y, +m - 1, +d);
+  sysDate.setDate(sysDate.getDate() + SYSTEM_TODAY);
+  const dow = sysDate.getDay();
+
+  const maxOffset = 0;
+  const minOffset = Math.ceil((-6 - SYSTEM_TODAY + dow) / 7);
+
+  const proposed = weekOffset + dir;
+  if (proposed > maxOffset || proposed < minOffset) return;
+  weekOffset = proposed;
+  buildHabitsGrid();
+}
+
+function buildHabitsGrid() {
+  buildHabitsGridPos();
+  buildHabitsGridNeg();
+}
+
+function buildHabitsGridPos() {
+  const grid   = document.getElementById('habitsGridContainerPos');
+  const noGrid = document.getElementById('noHabitsGridPos');
+  const header = document.getElementById('gridWeekHeader');
+
+  grid.innerHTML = '';
+
+  if (!S.habits.length) {
+    grid.style.display  = 'none';
+    noGrid.style.display = 'block';
+    if (header) header.textContent = '';
+    return;
+  }
+  grid.style.display  = 'grid';
+  noGrid.style.display = 'none';
+
+  const dayLetters = ['S','M','T','W','T','F','S'];
+
+  // Get real calendar date for SYSTEM_TODAY (frozen at boot)
+  const [sy, sm, sd] = S.startDate.split('-');
+  const sysRealDate = new Date(+sy, +sm - 1, +sd);
+  sysRealDate.setDate(sysRealDate.getDate() + SYSTEM_TODAY);
+  sysRealDate.setHours(0, 0, 0, 0);
+
+  // Sunday of the current real week, adjusted by weekOffset
+  const dow = sysRealDate.getDay();
+  const weekStart = new Date(sysRealDate);
+  weekStart.setDate(sysRealDate.getDate() - dow + weekOffset * 7);
+  weekStart.setHours(0, 0, 0, 0);
+
+  // Reference date for day-index conversion
+  const startRef = new Date(+sy, +sm - 1, +sd);
+  startRef.setHours(0, 0, 0, 0);
+
+  // Week header label
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekNum = weekOffset === 0 ? 'Current Week' : weekOffset > 0 ? 'Week +' + weekOffset : 'Week ' + weekOffset;
+  const weekLabel = months[weekStart.getMonth()] + ' ' + weekStart.getDate() + ' – ' + months[weekEnd.getMonth()] + ' ' + weekEnd.getDate();
+  if (header) header.textContent = weekNum + ' · ' + weekLabel;
+
+  // Navigation bounds
+  const [y0, m0, d0] = S.startDate.split('-');
+  const sysDate0 = new Date(+y0, +m0 - 1, +d0);
+  sysDate0.setDate(sysDate0.getDate() + SYSTEM_TODAY);
+  const dow0 = sysDate0.getDay();
+  const maxOff = 0;
+  const minOff = Math.ceil((-6 - SYSTEM_TODAY + dow0) / 7);
+  const prevBtn = document.getElementById('gridPrevWeek');
+  const nextBtn = document.getElementById('gridNextWeek');
+  const atMin = weekOffset <= minOff;
+  const atMax = weekOffset >= maxOff;
+  prevBtn.disabled = atMin;
+  prevBtn.style.opacity = atMin ? '0.3' : '1';
+  prevBtn.style.pointerEvents = atMin ? 'none' : 'auto';
+  nextBtn.disabled = atMax;
+  nextBtn.style.opacity = atMax ? '0.3' : '1';
+  nextBtn.style.pointerEvents = atMax ? 'none' : 'auto';
+
+  // ── HEADER ROW ──
+  const nameH = document.createElement('div');
+  nameH.className = 'grid-header-name';
+  nameH.textContent = 'HABIT';
+  grid.appendChild(nameH);
+
+  for (let col = 0; col < 7; col++) {
+    const colDate = new Date(weekStart);
+    colDate.setDate(weekStart.getDate() + col);
+    const isToday = colDate.toDateString() === sysRealDate.toDateString();
+    const hl = document.createElement('div');
+    hl.className = 'grid-header-letter';
+    hl.textContent = dayLetters[col];
+    if (isToday) { hl.style.color = '#ffffff'; hl.style.filter = 'drop-shadow(0 0 4px rgba(255,255,255,0.8))'; }
+    grid.appendChild(hl);
+  }
+
+  // ── BODY ROWS ──
+  S.habits.forEach((habit, hi) => {
+    const nameEl = document.createElement('div');
+    nameEl.className = 'grid-row-name';
+    nameEl.textContent = habit;
+    nameEl.title = habit;
+    grid.appendChild(nameEl);
+
+    for (let col = 0; col < 7; col++) {
+      const colDate = new Date(weekStart);
+      colDate.setDate(weekStart.getDate() + col);
+      const colDayIndex = Math.round((colDate - startRef) / 86400000);
+      const isToday = colDate.toDateString() === sysRealDate.toDateString();
+      const isFuture = colDate > sysRealDate;
+      const isValidDay = colDayIndex >= 0 && colDayIndex < TOTAL_DAYS;
+      const done = isValidDay && (S.habitsHistory[colDayIndex]?.[hi] === true);
+
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell-week'
+        + (done   ? ' is-done'   : '')
+        + (isToday  ? ' is-today'  : '')
+        + (isFuture ? ' is-future' : '')
+        + (!isFuture && !isToday && colDate < sysRealDate && isValidDay ? ' is-past' : '')
+        + (!isValidDay ? ' is-future' : '');
+      cell.dataset.d = colDayIndex;
+      cell.dataset.h = hi;
+      cell.textContent = '';
+
+      if (isFuture || !isValidDay) {
+        cell.style.background = '#111115';
+        cell.style.opacity = 0.15;
+      } else if (done && isToday) {
+        cell.style.background = '#00FF66';
+        cell.style.opacity = 1;
+      } else if (done && !isToday) {
+        cell.style.background = '#0d2e0d';
+        cell.style.opacity = 1;
+      } else {
+        cell.style.background = '#111115';
+        cell.style.opacity = '';
+      }
+
+      if (isValidDay && !isFuture) {
+        cell.addEventListener('click', function() {
+          if (!S.habitsHistory[colDayIndex]) S.habitsHistory[colDayIndex] = [];
+          S.habitsHistory[colDayIndex][hi] = !S.habitsHistory[colDayIndex][hi];
+          const on = S.habitsHistory[colDayIndex][hi];
+          cell.classList.toggle('is-done', on);
+          if (on) {
+            cell.style.background = isToday ? '#00FF66' : '#0d2e0d';
+            cell.style.opacity = 1;
+          } else {
+            cell.style.background = '#111115';
+            cell.style.opacity = '';
+          }
+          saveState();
+          if (colDayIndex === S.dayIndex) { renderTodayHabits(); updateMasteryUI(); }
+          if (chartHabits) { chartHabits.data.datasets[0].data[colDayIndex] = dayHabitPct(colDayIndex); chartHabits.update('none'); }
+        });
+      }
+      grid.appendChild(cell);
+    }
+  });
+}
+
+function buildHabitsGridNeg() {
+  const grid   = document.getElementById('habitsGridContainerNeg');
+  const noGrid = document.getElementById('noHabitsGridNeg');
+
+  grid.innerHTML = '';
+
+  if (!S.habitsNegative.length) {
+    grid.style.display  = 'none';
+    noGrid.style.display = 'block';
+    return;
+  }
+  grid.style.display  = 'grid';
+  noGrid.style.display = 'none';
+
+  const dayLetters = ['S','M','T','W','T','F','S'];
+
+  // Get real calendar date for SYSTEM_TODAY (frozen at boot)
+  const [sy, sm, sd] = S.startDate.split('-');
+  const sysRealDate = new Date(+sy, +sm - 1, +sd);
+  sysRealDate.setDate(sysRealDate.getDate() + SYSTEM_TODAY);
+  sysRealDate.setHours(0, 0, 0, 0);
+
+  // Sunday of the current real week, adjusted by weekOffset
+  const dow = sysRealDate.getDay();
+  const weekStart = new Date(sysRealDate);
+  weekStart.setDate(sysRealDate.getDate() - dow + weekOffset * 7);
+  weekStart.setHours(0, 0, 0, 0);
+
+  // Reference date for day-index conversion
+  const startRef = new Date(+sy, +sm - 1, +sd);
+  startRef.setHours(0, 0, 0, 0);
+
+  // ── HEADER ROW ──
+  const nameH = document.createElement('div');
+  nameH.className = 'grid-header-name';
+  nameH.textContent = 'HABIT';
+  grid.appendChild(nameH);
+
+  for (let col = 0; col < 7; col++) {
+    const colDate = new Date(weekStart);
+    colDate.setDate(weekStart.getDate() + col);
+    const isToday = colDate.toDateString() === sysRealDate.toDateString();
+    const hl = document.createElement('div');
+    hl.className = 'grid-header-letter';
+    hl.textContent = dayLetters[col];
+    if (isToday) { hl.style.color = '#ffffff'; hl.style.filter = 'drop-shadow(0 0 4px rgba(255,255,255,0.8))'; }
+    grid.appendChild(hl);
+  }
+
+  // ── BODY ROWS ──
+  S.habitsNegative.forEach((habit, hi) => {
+    const nameEl = document.createElement('div');
+    nameEl.className = 'grid-row-name';
+    nameEl.textContent = habit;
+    nameEl.title = habit;
+    grid.appendChild(nameEl);
+
+    for (let col = 0; col < 7; col++) {
+      const colDate = new Date(weekStart);
+      colDate.setDate(weekStart.getDate() + col);
+      const colDayIndex = Math.round((colDate - startRef) / 86400000);
+      const isToday = colDate.toDateString() === sysRealDate.toDateString();
+      const isFuture = colDate > sysRealDate;
+      const isValidDay = colDayIndex >= 0 && colDayIndex < TOTAL_DAYS;
+      const done = isValidDay && (S.habitsHistoryNegative[colDayIndex]?.[hi] === true);
+
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell-week'
+        + (done   ? ' is-done-neg' : '')
+        + (isToday  ? ' is-today-neg' : '')
+        + (isFuture ? ' is-future' : '')
+        + (!isFuture && !isToday && colDate < sysRealDate && isValidDay ? ' is-past' : '')
+        + (!isValidDay ? ' is-future' : '');
+      cell.dataset.d = colDayIndex;
+      cell.dataset.h = hi;
+      cell.textContent = '';
+
+      if (isFuture || !isValidDay) {
+        cell.style.background = '#111115';
+        cell.style.opacity = 0.15;
+      } else if (done && isToday) {
+        cell.style.background = '#ff1a1a';
+        cell.style.opacity = 1;
+      } else if (done && !isToday) {
+        cell.style.background = '#2d0a0a';
+        cell.style.opacity = 1;
+      } else {
+        cell.style.background = '#111115';
+        cell.style.opacity = '';
+      }
+
+      if (isValidDay && !isFuture) {
+        cell.addEventListener('click', function() {
+          if (!S.habitsHistoryNegative[colDayIndex]) S.habitsHistoryNegative[colDayIndex] = [];
+          S.habitsHistoryNegative[colDayIndex][hi] = !S.habitsHistoryNegative[colDayIndex][hi];
+          const on = S.habitsHistoryNegative[colDayIndex][hi];
+          cell.classList.toggle('is-done-neg', on);
+          if (on) {
+            cell.style.background = isToday ? '#ff1a1a' : '#2d0a0a';
+            cell.style.opacity = 1;
+          } else {
+            cell.style.background = '#111115';
+            cell.style.opacity = '';
+          }
+          saveState();
+          if (colDayIndex === S.dayIndex) { renderTodayHabitsNeg(); updateMasteryUI(); }
+          if (chartHabits) { chartHabits.data.datasets[1].data[colDayIndex] = dayHabitPctNeg(colDayIndex); chartHabits.update('none'); }
+        });
+      }
+      grid.appendChild(cell);
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// HABIT MANAGEMENT MODAL
+// ──────────────────────────────────────────────────────────────
+function openHabitMgmt()  { renderHabitMgmtList(); document.getElementById('habitMgmtModal').classList.add('open'); }
+function closeHabitMgmt() { document.getElementById('habitMgmtModal').classList.remove('open'); }
+
+function renderHabitMgmtList() {
+  const el = document.getElementById('habitMgmtList');
+  el.innerHTML = '';
+
+  if (!S.habits.length) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'font-size:13px;color:#a0a0a0;text-align:center;padding:12px 0';
+    empty.textContent = 'No habits yet. Add one below.';
+    el.appendChild(empty);
+    return;
+  }
+
+  S.habits.forEach((habit, i) => {
+    // ── Row container
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)';
+
+    // ── Label
+    const label = document.createElement('span');
+    label.style.cssText = 'flex:1;font-size:13px;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    label.title       = habit;
+    label.textContent = habit;
+    row.appendChild(label);
+
+    // ── Rename button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-icon';
+    editBtn.title     = 'Rename';
+    editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>`;
+    (function(idx){
+      editBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openHabitEdit(idx);
+      });
+    })(i);
+    row.appendChild(editBtn);
+
+    // ── Delete button
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-icon red';
+    delBtn.title     = 'Delete';
+    delBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>`;
+    (function(idx){
+      delBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        deleteHabit(idx);
+      });
+    })(i);
+    row.appendChild(delBtn);
+
+    el.appendChild(row);
+  });
+
+  // Remove divider from last row
+  if (el.lastElementChild) {
+    el.lastElementChild.style.borderBottom = 'none';
+  }
+}
+
+function addHabit() {
+  const inp  = document.getElementById('newHabitInput');
+  const name = inp.value.trim();
+  if (!name) return;
+
+  // Push new habit name
+  S.habits.push(name);
+
+  // Extend every existing day-row with a false entry for the new habit
+  for (let d = 0; d < TOTAL_DAYS; d++) {
+    if (!Array.isArray(S.habitsHistory[d])) S.habitsHistory[d] = [];
+    // Pad to current length (covers gaps) then add the new slot
+    while (S.habitsHistory[d].length < S.habits.length - 1) S.habitsHistory[d].push(false);
+    S.habitsHistory[d].push(false);
+  }
+
+  inp.value = '';
+  saveState();
+
+  // Refresh every affected surface
+  renderHabitMgmtList();
+  renderTodayHabits();
+  updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) syncCharts();
+}
+
+function deleteHabit(idx) {
+  const habitName = S.habits[idx];
+  if (!habitName) return; // guard against stale index
+  if (!window.confirm('Delete "' + habitName + '"?\nThis removes all 30 days of its history.')) return;
+
+  // Remove from habits list
+  S.habits.splice(idx, 1);
+
+  // Remove the column at idx from every day row
+  for (let d = 0; d < TOTAL_DAYS; d++) {
+    if (Array.isArray(S.habitsHistory[d])) {
+      S.habitsHistory[d].splice(idx, 1);
+    }
+  }
+
+  saveState();
+
+  // Rebuild every affected surface
+  renderHabitMgmtList();
+  renderTodayHabits();
+  updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) syncCharts();
+}
+
+function openHabitEdit(idx) {
+  document.getElementById('habitEditInput').value = S.habits[idx];
+  document.getElementById('habitEditIdx').value   = idx;
+  document.getElementById('habitEditModal').classList.add('open');
+  setTimeout(() => document.getElementById('habitEditInput').focus(), 100);
+}
+function closeHabitEdit() { document.getElementById('habitEditModal').classList.remove('open'); }
+function saveHabitEdit() {
+  const idx  = parseInt(document.getElementById('habitEditIdx').value);
+  const name = document.getElementById('habitEditInput').value.trim();
+  if (!name || isNaN(idx) || idx < 0 || idx >= S.habits.length) return;
+  S.habits[idx] = name;
+  saveState();
+  closeHabitEdit();
+  renderHabitMgmtList();
+  renderTodayHabits();
+  buildHabitsGrid(); // always rebuild so name cell updates immediately
+}
+
+// ── NEGATIVE HABIT MANAGEMENT ──
+function openHabitMgmtNeg()  { renderHabitMgmtListNeg(); document.getElementById('habitMgmtModalNeg').classList.add('open'); }
+function closeHabitMgmtNeg() { document.getElementById('habitMgmtModalNeg').classList.remove('open'); }
+
+function renderHabitMgmtListNeg() {
+  const el = document.getElementById('habitMgmtListNeg');
+  el.innerHTML = '';
+
+  if (!S.habitsNegative.length) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'font-size:13px;color:#a0a0a0;text-align:center;padding:12px 0';
+    empty.textContent = 'No negative habits yet. Add one below.';
+    el.appendChild(empty);
+    return;
+  }
+
+  S.habitsNegative.forEach((habit, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)';
+    const label = document.createElement('span');
+    label.style.cssText = 'flex:1;font-size:13px;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    label.title = habit;
+    label.textContent = habit;
+    row.appendChild(label);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-icon';
+    editBtn.title = 'Rename';
+    editBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>`;
+    (function(idx){ editBtn.addEventListener('click', function(e) { e.stopPropagation(); openHabitEditNeg(idx); }); })(i);
+    row.appendChild(editBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-icon red';
+    delBtn.title = 'Delete';
+    delBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>`;
+    (function(idx){ delBtn.addEventListener('click', function(e) { e.stopPropagation(); deleteHabitNeg(idx); }); })(i);
+    row.appendChild(delBtn);
+
+    el.appendChild(row);
+  });
+  if (el.lastElementChild) el.lastElementChild.style.borderBottom = 'none';
+}
+
+function addHabitNeg() {
+  const inp  = document.getElementById('newHabitInputNeg');
+  const name = inp.value.trim();
+  if (!name) return;
+  S.habitsNegative.push(name);
+  for (let d = 0; d < TOTAL_DAYS; d++) {
+    if (!Array.isArray(S.habitsHistoryNegative[d])) S.habitsHistoryNegative[d] = [];
+    while (S.habitsHistoryNegative[d].length < S.habitsNegative.length - 1) S.habitsHistoryNegative[d].push(false);
+    S.habitsHistoryNegative[d].push(false);
+  }
+  inp.value = '';
+  saveState();
+  renderHabitMgmtListNeg();
+  renderTodayHabitsNeg();
+  updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) syncCharts();
+}
+
+function deleteHabitNeg(idx) {
+  const habitName = S.habitsNegative[idx];
+  if (!habitName) return;
+  if (!window.confirm('Delete "' + habitName + '"?\nThis removes all 30 days of its history.')) return;
+  S.habitsNegative.splice(idx, 1);
+  for (let d = 0; d < TOTAL_DAYS; d++) {
+    if (Array.isArray(S.habitsHistoryNegative[d])) {
+      S.habitsHistoryNegative[d].splice(idx, 1);
+    }
+  }
+  saveState();
+  renderHabitMgmtListNeg();
+  renderTodayHabitsNeg();
+  updateMasteryUI();
+  buildHabitsGrid();
+  if (chartHabits) syncCharts();
+}
+
+function openHabitEditNeg(idx) {
+  document.getElementById('habitEditInputNeg').value = S.habitsNegative[idx];
+  document.getElementById('habitEditIdxNeg').value   = idx;
+  document.getElementById('habitEditModalNeg').classList.add('open');
+  setTimeout(() => document.getElementById('habitEditInputNeg').focus(), 100);
+}
+function closeHabitEditNeg() { document.getElementById('habitEditModalNeg').classList.remove('open'); }
+function saveHabitEditNeg() {
+  const idx  = parseInt(document.getElementById('habitEditIdxNeg').value);
+  const name = document.getElementById('habitEditInputNeg').value.trim();
+  if (!name || isNaN(idx) || idx < 0 || idx >= S.habitsNegative.length) return;
+  S.habitsNegative[idx] = name;
+  saveState();
+  closeHabitEditNeg();
+  renderHabitMgmtListNeg();
+  renderTodayHabitsNeg();
+  buildHabitsGrid();
+}
+
+// ──────────────────────────────────────────────────────────────
+// COMPUTED METRICS
+// ──────────────────────────────────────────────────────────────
+function dayHabitPct(di) {
+  if (!S.habits.length) return 0;
+  const row = S.habitsHistory[di] || [];
+  return Math.round((row.filter(Boolean).length / S.habits.length) * 100);
+}
+function dayHabitPctNeg(di) {
+  if (!S.habitsNegative.length) return 0;
+  const row = S.habitsHistoryNegative[di] || [];
+  return Math.round((row.filter(Boolean).length / S.habitsNegative.length) * 100);
+}
+function dayTodoPct(di) {
+  const tasks = (S.todos||{})[di];
+  if (!tasks || !tasks.length) return 0;
+  const done = tasks.filter(t => t.done).length;
+  return Math.round(Math.min((done / tasks.length) * 100, 100));
+}
+function masteryPct() {
+  const d = S.dayIndex;
+
+  // MODULE A: Don't Do It — same positive progression as Do It (max 25%)
+  // completed = true = avoided successfully = 1 point; false = 0
+  const totalNeg = S.habitsNegative.length;
+  const doneNeg = totalNeg > 0 ? (S.habitsHistoryNegative[d]||[]).filter(Boolean).length : 0;
+  const dontDoScore = totalNeg > 0 ? (doneNeg / totalNeg) * 25 : 0;
+
+  // MODULE B: Do It — action ecosystem (max 25%)
+  const totalHabits = S.habits.length;
+  const doneDoIt = totalHabits > 0 ? (S.habitsHistory[d]||[]).filter(Boolean).length : 0;
+  const doItScore = totalHabits > 0 ? Math.min((doneDoIt / totalHabits) * 25, 25) : 0;
+
+  // MODULE C: 4 card metrics (12.5% each)
+  const waterScore   = Math.min((S.waterHistory[d] / WATER_GOAL) * 12.5, 12.5);
+  const sleepScore   = S.sleepHistory[d] > 0 ? Math.min((S.sleepHistory[d] / SLEEP_GOAL) * 12.5, 12.5) : 0;
+  const stepsScore   = Math.min((S.stepsHistory[d] / STEPS_GOAL) * 12.5, 12.5);
+  const pushupsScore = Math.min((S.pushupsHistory[d] / PUSHUPS_GOAL) * 12.5, 12.5);
+
+  let TotalProgress = Math.round(dontDoScore + doItScore + waterScore + sleepScore + stepsScore + pushupsScore);
+  if (isNaN(TotalProgress)) TotalProgress = 0;
+  return Math.max(0, Math.min(100, TotalProgress));
+}
+function computeStreak() {
+  let s = 0;
+  for (let i = S.dayIndex; i >= 0; i--) {
+    if (dayHabitPct(i) === 100) s++; else break;
+  }
+  return s;
+}
+function apexPoints() {
+  let pts = 0;
+  for (let i = 0; i <= S.dayIndex; i++) {
+    pts += (S.habitsHistory[i]||[]).filter(Boolean).length * 20;
+    if (S.waterHistory[i]    >= WATER_GOAL)    pts += 15;
+    if (S.stepsHistory[i]    >= STEPS_GOAL)    pts += 25;
+    if (S.sleepHistory[i]    >= SLEEP_GOAL)    pts += 15;
+    if (S.pushupsHistory[i]  >= PUSHUPS_GOAL)  pts += 10;
+  }
+  return pts;
+}
+
+// ──────────────────────────────────────────────────────────────
+// CHARTS
+// ──────────────────────────────────────────────────────────────
+const CDEFS = {
+  responsive: true, maintainAspectRatio: false,
+  animation:  { duration: 300 },
+  plugins: {
+    legend: { display: false },
+    tooltip: { backgroundColor:'#1a1a1a', borderColor:'#333', borderWidth:1,
+               titleColor:'#fff', bodyColor:'#aaa', padding:10 }
+  },
+  scales: {
+    x: { grid:{ color:'#111' }, ticks:{ color:'#555', font:{size:9}, maxTicksLimit:10 } },
+    y: { grid:{ color:'#111' }, ticks:{ color:'#555', font:{size:10} } }
+  }
+};
+
+function dayLabels() { return Array.from({length:TOTAL_DAYS},(_,i)=>'D'+(i+1)); }
+
+function initCharts() {
+  const L = dayLabels();
+
+  chartHabits = new Chart(document.getElementById('chartHabits'),{
+    type:'line', data:{ labels:L, datasets:[{
+      label:'Positive Progress',
+      data: Array.from({length:TOTAL_DAYS},(_,i)=>dayHabitPct(i)),
+      borderColor:'#00FF66', backgroundColor:'rgba(0,255,102,.07)', fill:true,
+      tension:.4, pointRadius:2, pointBackgroundColor:'#00FF66', borderWidth:2
+    },{
+      label:'Avoided',
+      data: Array.from({length:TOTAL_DAYS},(_,i)=>dayHabitPctNeg(i)),
+      borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.07)', fill:true,
+      tension:.4, pointRadius:2, pointBackgroundColor:'#ef4444', borderWidth:2
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, max:100, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'%'}}}}
+  });
+
+  chartWater = new Chart(document.getElementById('chartWater'),{
+    type:'bar', data:{ labels:L, datasets:[{
+      data:[...S.waterHistory],
+      backgroundColor:S.waterHistory.map(v=>v>=WATER_GOAL?'#00FF66':'rgba(234,88,12,.7)'),
+      borderRadius:3, borderSkipped:false
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, max:WATER_GOAL+1, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'L'}}}}
+  });
+
+  chartSteps = new Chart(document.getElementById('chartSteps'),{
+    type:'bar', data:{ labels:L, datasets:[{
+      data:[...S.stepsHistory],
+      backgroundColor:S.stepsHistory.map(v=>v>=STEPS_GOAL?'#00FF66':'rgba(0,255,102,.4)'),
+      borderRadius:3, borderSkipped:false
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, ticks:{...CDEFS.scales.y.ticks, callback:v=>(v/1000).toFixed(0)+'K'}}}}
+  });
+
+  chartSleep = new Chart(document.getElementById('chartSleep'),{
+    type:'line', data:{ labels:L, datasets:[{
+      data:[...S.sleepHistory],
+      borderColor:'#a855f7', backgroundColor:'rgba(168,85,247,.07)', fill:true,
+      tension:.4, pointRadius:2, pointBackgroundColor:'#a855f7', borderWidth:2
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, max:12, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'h'}}}}
+  });
+
+  chartPushups = new Chart(document.getElementById('chartPushups'),{
+    type:'bar', data:{ labels:L, datasets:[{
+      data:[...S.pushupsHistory],
+      backgroundColor:S.pushupsHistory.map(v=>v>=PUSHUPS_GOAL?'#f97316':'rgba(249,115,22,.5)'),
+      borderRadius:3, borderSkipped:false
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0}}}
+  });
+
+  chartCaffeine = new Chart(document.getElementById('chartCaffeine'),{
+    type:'bar', data:{ labels:L, datasets:[{
+      data:[...S.caffeineHistory],
+      backgroundColor:S.caffeineHistory.map(v=>v>=CAFF_GOAL?'#ef4444':'rgba(234,179,8,.6)'),
+      borderRadius:3, borderSkipped:false
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'mg'}}}}
+  });
+
+  // Map 0 → null so Chart.js draws gaps for unlogged days
+  const moodData = S.moodHistory.map(v => v > 0 ? v : null);
+  const MOOD_Y_TICKS = { 1:'Awful', 2:'Low', 3:'Neutral', 4:'Good', 5:'Amazing' };
+  chartMood = new Chart(document.getElementById('chartMood'),{
+    type:'line', data:{ labels:L, datasets:[{
+      data: moodData,
+      borderColor:'#00FF66',
+      backgroundColor:'rgba(0,255,102,.06)',
+      fill:true,
+      tension:.4,
+      pointRadius: moodData.map(v => v !== null ? 4 : 0),
+      pointBackgroundColor:'#00FF66',
+      pointBorderColor:'#000',
+      pointBorderWidth:1,
+      borderWidth:2,
+      spanGaps:false
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y,
+         min:0.5, max:5.5,
+         ticks:{...CDEFS.scales.y.ticks,
+           stepSize:1,
+           callback: v => MOOD_Y_TICKS[v] || ''
+         }
+      }
+    }}
+  });
+
+  chartTodos = new Chart(document.getElementById('chartTodos'),{
+    type:'line', data:{ labels:L, datasets:[{
+      label:'To-Do Completion',
+      data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)),
+      borderColor:'#ffffff', backgroundColor:'rgba(255,255,255,0.04)', fill:true,
+      tension:.4, pointRadius:2, pointBackgroundColor:'#ffffff', borderWidth:2
+    }]},
+    options:{...CDEFS, scales:{...CDEFS.scales,
+      y:{...CDEFS.scales.y, min:0, max:100, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'%'}}}}
+  });
+
+  renderHabitTrendChart();
+}
+
+// ── INDIVIDUAL HABIT TREND ──
+let habitTrendIndex = 0;
+
+function getAllHabitsFlat() {
+  const pos = (S.habits || []).map(h => ({ name: h.name || h, type: 'positive' }));
+  const neg = (S.habitsNegative || []).map(h => ({ name: h.name || h, type: 'negative' }));
+  return [...pos, ...neg];
+}
+
+function renderHabitTrendChart() {
+  const all = getAllHabitsFlat();
+  if (all.length === 0) {
+    document.getElementById('habitTrendLabel').textContent = 'No habits yet';
+    if (chartHabitTrend) { chartHabitTrend.destroy(); chartHabitTrend = null; }
+    return;
+  }
+
+  if (habitTrendIndex < 0) habitTrendIndex = all.length - 1;
+  if (habitTrendIndex >= all.length) habitTrendIndex = 0;
+
+  const habit = all[habitTrendIndex];
+  const isPos = habit.type === 'positive';
+  const lineColor = isPos ? '#00FF66' : '#ef4444';
+
+  const data = Array.from({ length: TOTAL_DAYS }, (_, dayIdx) => {
+    if (isPos) {
+      const posIdx = habitTrendIndex;
+      return (S.habitsHistory[dayIdx]?.[posIdx] === true) ? 1 : 0;
+    } else {
+      const negIdx = habitTrendIndex - (S.habits || []).length;
+      return (S.habitsHistoryNegative[dayIdx]?.[negIdx] === true) ? 1 : 0;
+    }
+  });
+
+  const labels = Array.from({ length: TOTAL_DAYS }, (_, i) => 'D' + (i + 1));
+
+  document.getElementById('habitTrendLabel').textContent = habit.name;
+
+  if (chartHabitTrend) { chartHabitTrend.destroy(); chartHabitTrend = null; }
+
+  const ctx = document.getElementById('chartHabitTrend').getContext('2d');
+  chartHabitTrend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: lineColor,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: 'rgba(255,255,255,0.3)',
+            font: { size: 9 },
+            maxTicksLimit: 10
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          min: 0, max: 1,
+          ticks: {
+            stepSize: 1,
+            color: 'rgba(255,255,255,0.3)',
+            font: { size: 9 },
+            callback: v => v === 1 ? 'Yes' : 'No'
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+}
+
+// Wire up nav buttons (after DOM ready, but safe to run early)
+(function() {
+  const prev = document.getElementById('habitTrendPrev');
+  const next = document.getElementById('habitTrendNext');
+  if (prev) prev.addEventListener('click', () => { habitTrendIndex--; renderHabitTrendChart(); });
+  if (next) next.addEventListener('click', () => { habitTrendIndex++; renderHabitTrendChart(); });
+})();
+
+function syncCharts() {
+  if (!chartHabits) return;
+
+  chartHabits.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayHabitPct(i));
+  chartHabits.data.datasets[1].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayHabitPctNeg(i));
+  chartHabits.update('none');
+
+  chartWater.data.datasets[0].data = [...S.waterHistory];
+  chartWater.data.datasets[0].backgroundColor = S.waterHistory.map(v=>v>=WATER_GOAL?'#00FF66':'rgba(234,88,12,.7)');
+  chartWater.update('none');
+
+  chartSteps.data.datasets[0].data = [...S.stepsHistory];
+  chartSteps.data.datasets[0].backgroundColor = S.stepsHistory.map(v=>v>=STEPS_GOAL?'#00FF66':'rgba(0,255,102,.4)');
+  chartSteps.update('none');
+
+  chartSleep.data.datasets[0].data = [...S.sleepHistory];
+  chartSleep.update('none');
+
+  chartPushups.data.datasets[0].data = [...S.pushupsHistory];
+  chartPushups.data.datasets[0].backgroundColor = S.pushupsHistory.map(v=>v>=PUSHUPS_GOAL?'#f97316':'rgba(249,115,22,.5)');
+  chartPushups.update('none');
+
+  chartCaffeine.data.datasets[0].data = [...S.caffeineHistory];
+  chartCaffeine.data.datasets[0].backgroundColor = S.caffeineHistory.map(v=>v>=CAFF_GOAL?'#ef4444':'rgba(234,179,8,.6)');
+  chartCaffeine.update('none');
+
+  if (chartMood) {
+    const md = S.moodHistory.map(v => v > 0 ? v : null);
+    chartMood.data.datasets[0].data = md;
+    chartMood.data.datasets[0].pointRadius = md.map(v => v !== null ? 4 : 0);
+    chartMood.update('none');
+  }
+
+  if (chartTodos) {
+    chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+    chartTodos.update('none');
+  }
+}
+
+function updateSummary() {
+  const n    = S.dayIndex + 1;
+  const avgW = (S.waterHistory.slice(0,n).reduce((a,b)=>a+b,0)/n).toFixed(1);
+  const avgSt= Math.round(S.stepsHistory.slice(0,n).reduce((a,b)=>a+b,0)/n);
+  const slV  = S.sleepHistory.slice(0,n).filter(v=>v>0);
+  const avgSl= slV.length ? (slV.reduce((a,b)=>a+b,0)/slV.length).toFixed(1)+'h' : '–';
+  const habR = S.habits.length
+    ? Math.round(S.habitsHistory.slice(0,n).flatMap(r=>r).filter(Boolean).length/(n*S.habits.length)*100)+'%'
+    : '–';
+  const puV  = S.pushupsHistory.slice(0,n).filter(v=>v>0);
+  const avgPu= puV.length ? Math.round(puV.reduce((a,b)=>a+b,0)/puV.length)+' reps' : '–';
+  const caV  = S.caffeineHistory.slice(0,n);
+  const avgCa= Math.round(caV.reduce((a,b)=>a+b,0)/n)+'mg';
+
+  document.getElementById('statAvgWater').textContent    = avgW+'L';
+  document.getElementById('statAvgSteps').textContent    = avgSt.toLocaleString();
+  document.getElementById('statAvgSleep').textContent    = avgSl;
+  document.getElementById('statHabitRate').textContent   = habR;
+  document.getElementById('statAvgPushups').textContent  = avgPu;
+  document.getElementById('statAvgCaffeine').textContent = avgCa;
+}
+
+// ──────────────────────────────────────────────────────────────
+// PAST CHALLENGES ARCHIVE
+// ──────────────────────────────────────────────────────────────
+function toggleArchive() {
+  archiveOpen = !archiveOpen;
+  const sec  = document.getElementById('archiveSection');
+  const chev = document.getElementById('archiveChevron');
+  if (archiveOpen) {
+    sec.style.maxHeight  = '600px';
+    chev.style.transform = 'rotate(180deg)';
+    renderArchive();
+  } else {
+    sec.style.maxHeight  = '0';
+    chev.style.transform = 'rotate(0deg)';
+  }
+}
+
+function renderArchive() {
+  const list    = document.getElementById('archiveList');
+  const noMsg   = document.getElementById('noArchiveMsg');
+  const badge   = document.getElementById('archiveBadge');
+  const count   = S.pastChallenges.length;
+  badge.textContent = count > 0 ? count+' trophy'+(count>1?'ies':'') : '';
+  list.innerHTML = '';
+
+  if (!count) { noMsg.style.display='block'; return; }
+  noMsg.style.display = 'none';
+
+  S.pastChallenges.slice().reverse().forEach(ch => {
+    const card = document.createElement('div');
+    card.className = 'trophy-card';
+    card.style.marginBottom = '10px';
+    // Score colour
+    const score = ch.score;
+    const col   = score >= 80 ? '#00FF66' : score >= 50 ? '#f59e0b' : '#ef4444';
+    card.innerHTML = `
+      <div class="trophy-icon">${score>=80?'🏆':score>=50?'🥈':'🎖️'}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#e5e7eb">${escHtml(ch.label)}</div>
+        <div class="trophy-score" style="color:${col}">${score}%</div>
+        <div class="trophy-label">${escHtml(ch.detail)}</div>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function archiveCurrentChallenge() {
+  const n     = S.dayIndex + 1;
+  const score = masteryPct();
+  const totalW= S.waterHistory.slice(0,n).reduce((a,b)=>a+b,0).toFixed(1);
+  const label = TODAY.toLocaleDateString('en-US',{month:'long',year:'numeric'})+' Challenge';
+  const detail= 'Day '+n+' · '+totalW+'L water · '+apexPoints()+' Apex Pts';
+  S.pastChallenges.push({ label, score, detail, date: todayISO() });
+  saveState();
+  renderArchive();
+}
+
+// ──────────────────────────────────────────────────────────────
+// RESET
+// ──────────────────────────────────────────────────────────────
+function resetChallenge() {
+  if (!confirm('Reset the 30-day challenge? All progress will be cleared.')) return;
+  ['startDate','habits','habitsNegative','waterHistory','stepsHistory',
+   'sleepHistory','pushupsHistory','caffeineHistory','moodHistory','habitsHistory','habitsHistoryNegative'].forEach(k=>localStorage.removeItem(k));
+  // Preserve pastChallenges across reset
+  location.reload();
+}
+
+// ──────────────────────────────────────────────────────────────
+// RESPONSIVE LAYOUT
+// ──────────────────────────────────────────────────────────────
+function setHeroLayout() {
+  const f = document.getElementById('heroFlex');
+  if (window.innerWidth >= 768) {
+    f.style.flexDirection = 'row';
+    f.style.alignItems    = 'center';
+  } else {
+    f.style.flexDirection = 'column';
+    f.style.alignItems    = 'center';
+  }
+}
+function setGridCols() {
+  const g = document.getElementById('trackerGrid');
+  g.style.gridTemplateColumns = '1fr';
+}
+
+// ──────────────────────────────────────────────────────────────
+// TO-DO LIST
+// ──────────────────────────────────────────────────────────────
+function getDayTodos(dayIdx) {
+  if (!S.todos) S.todos = {};
+  if (!S.todos[dayIdx]) S.todos[dayIdx] = [];
+  return S.todos[dayIdx];
+}
+
+function renderTodoList() {
+  const d = S.dayIndex;
+  const list = document.getElementById('todoList');
+  const empty = document.getElementById('todoEmpty');
+  const label = document.getElementById('todoDateLabel');
+  if (!list) return;
+
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const [y, m, d2] = (S.startDate || todayISO()).split('-');
+  const sDate = new Date(+y, +m - 1, +d2);
+  const dayDate = new Date(sDate);
+  dayDate.setDate(sDate.getDate() + d);
+  if (label) label.textContent = months[dayDate.getMonth()] + ' ' + dayDate.getDate();
+
+  const items = getDayTodos(d);
+  list.innerHTML = '';
+
+  if (!items.length) {
+    list.style.display = 'none';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  list.style.display = 'flex';
+  list.style.flexDirection = 'column';
+  list.style.gap = '8px';
+  if (empty) empty.style.display = 'none';
+
+  items.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'todo-task';
+
+    const cb = document.createElement('div');
+    cb.className = 'todo-checkbox' + (item.done ? ' done' : '');
+    cb.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    cb.addEventListener('click', () => {
+      S.todos[d][idx].done = !S.todos[d][idx].done;
+      saveState();
+      renderTodoList();
+      if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+    });
+
+    const txt = document.createElement('span');
+    txt.className = 'todo-text' + (item.done ? ' done' : '');
+    txt.textContent = item.text;
+
+    const del = document.createElement('button');
+    del.className = 'todo-delete';
+    del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    del.addEventListener('click', () => {
+      S.todos[d].splice(idx, 1);
+      if (!S.todos[d].length) delete S.todos[d];
+      saveState();
+      renderTodoList();
+      if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+    });
+
+    div.appendChild(cb);
+    div.appendChild(txt);
+    div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// BOOT
+// ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  SYSTEM_TODAY = getRealDayIndex();
+  setHeroLayout();
+  setGridCols();
+  renderAll();
+  initCharts();
+  renderJournalEntries();
+  window.addEventListener('resize', () => { setHeroLayout(); setGridCols(); });
+
+  // ── Habit management: wire Add button and Enter key here so there's
+  //    zero reliance on inline onclick inside the modal overlay context
+  document.getElementById('addHabitBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    addHabit();
+  });
+  document.getElementById('newHabitInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addHabit(); }
+  });
+
+  // ── Negative habit management: wire Add button and Enter key
+  document.getElementById('addHabitBtnNeg').addEventListener('click', function(e) {
+    e.stopPropagation();
+    addHabitNeg();
+  });
+  document.getElementById('newHabitInputNeg').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addHabitNeg(); }
+  });
+
+  // ── Habits nav tap detection
+  document.getElementById('nav-habits').addEventListener('click', function(e) {
+    e.preventDefault();
+    handleHabitsNav();
+  });
+
+  // ── Journaling nav tap detection
+  document.getElementById('nav-journaling').addEventListener('click', function(e) {
+    e.preventDefault();
+    handleJournalNav();
+  });
+
+  // ── Card tap gestures ──────────────────────────────────────
+
+  // WATER: single tap +0.5L, double tap -0.5L
+  (function() {
+    const card = document.getElementById('cardWater');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    let tapCount = 0, tapTimer = null;
+    card.addEventListener('click', function(e) {
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => {
+        if (tapCount === 1) adjustWater(0.5);
+        else if (tapCount >= 2) adjustWater(-0.5);
+        tapCount = 0;
+        card.style.borderColor = 'rgba(255,255,255,0.4)';
+        setTimeout(() => card.style.borderColor = '', 150);
+      }, 280);
+    });
+  })();
+
+  // CAFFEINE: single tap +80mg, double tap -80mg
+  (function() {
+    const card = document.getElementById('cardCaffeine');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    let tapCount = 0, tapTimer = null;
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('#caffeineWarning') || e.target.closest('#caffeineCups')) return;
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => {
+        if (tapCount === 1) adjustCaffeine(80);
+        else if (tapCount >= 2) adjustCaffeine(-80);
+        tapCount = 0;
+        card.style.borderColor = 'rgba(255,255,255,0.4)';
+        setTimeout(() => card.style.borderColor = '', 150);
+      }, 280);
+    });
+  })();
+
+  // SLEEP: single tap → openSleepModal
+  (function() {
+    const card = document.getElementById('cardSleep');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function(e) { openSleepModal(); });
+  })();
+
+  // STEPS: single tap → openStepsModal
+  (function() {
+    const card = document.getElementById('cardSteps');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function(e) { openStepsModal(); });
+  })();
+
+  // PUSH-UPS: single tap → openPushupsModal
+  (function() {
+    const card = document.getElementById('cardPushups');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function(e) { openPushupsModal(); });
+  })();
+
+  // MOOD: single tap → openMoodModal
+  (function() {
+    const card = document.getElementById('cardMood');
+    if (!card) return;
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function(e) { openMoodModal(); });
+  })();
+});
+</script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker Registered!'))
+          .catch(err => console.log('Service Worker Error: ', err));
+      });
+    }
+  </script>
+</body>
+</html>
