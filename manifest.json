@@ -1,19 +1,20 @@
 {
-  "name": "اسم تطبيقك الكامل",
-  "short_name": "اسم مختصر",
-  "start_url": "/اسم-المستودع-نتاعك-في-جيتهاب/",
+  "name": "APEX Tracker",
+  "short_name": "APEX",
+  "id": "/LT/",
+  "start_url": "/LT/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "images/icon-192.png",
+      "src": "icon-192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "images/icon-512.png",
+      "src": "icon-512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
