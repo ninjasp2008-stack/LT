@@ -1039,7 +1039,7 @@ let currentUID = null;
           </div>
         </div>
       </div>
-<div id="auth-btn" style="margin:16px;padding:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(167,139,250,0.2);border-radius:20px;display:flex;flex-direction:column;align-items:center;gap:12px;"></div>
+<div id="auth-btn" style="margin:16px;padding:14px 18px;background:rgba(255,255,255,0.03);border:1px solid rgba(167,139,250,0.2);border-radius:20px;display:flex;align-items:center;width:calc(100% - 32px);box-sizing:border-box;"></div>
 
       <!-- RESET CHALLENGE -->
       <div style="text-align: center; margin-top: 24px; margin-bottom: 12px;">
@@ -1539,14 +1539,53 @@ function updateAuthUI(user) {
   const btn = document.getElementById('auth-btn');
   if (user) {
     btn.innerHTML = `
-      <img src="${user.photoURL}" style="width:22px;height:22px;border-radius:50%;">
-      <span style="color:#a78bfa">${user.displayName.split(' ')[0]}</span>
-      <button onclick="syncFromCloud()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:11px;">↻ Sync</button>
-      <button onclick="signOutUser()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:11px;">✕</button>
-    `;
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="${user.photoURL}" style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(167,139,250,0.4);">
+      <span style="color:#e2e8f0;font-size:14px;font-weight:600;">${user.displayName}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button onclick="syncFromCloud()" style="background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.5);color:#a78bfa;border-radius:10px;padding:8px 20px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0.5px;">↻ Sync</button>
+      <button onclick="signOutUser()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#666;border-radius:10px;padding:8px 12px;cursor:pointer;font-size:13px;">Sign out</button>
+    </div>
+  </div>
+`;
+    getDominantColor(user.photoURL, function(r, g, b) {
+      const authContainer = document.getElementById('auth-btn');
+      authContainer.style.background = `rgba(${r},${g},${b},0.06)`;
+      authContainer.style.borderColor = `rgba(${r},${g},${b},0.35)`;
+    });
   } else {
     btn.innerHTML = `<button onclick="signInWithGoogle()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:8px;padding:4px 12px;cursor:pointer;font-size:12px;">Sign in with Google</button>`;
   }
+}
+
+function getDominantColor(imgUrl, callback) {
+  const img = new Image();
+  img.crossOrigin = 'Anonymous';
+  img.src = imgUrl;
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let r = 0, g = 0, b = 0, count = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      r += data[i];
+      g += data[i+1];
+      b += data[i+2];
+      count++;
+    }
+    r = Math.round(r / count);
+    g = Math.round(g / count);
+    b = Math.round(b / count);
+    callback(r, g, b);
+  };
+  img.onerror = function() {
+    callback(167, 139, 250); // fallback to purple
+  };
 }
 
 auth.onAuthStateChanged(async (user) => {
