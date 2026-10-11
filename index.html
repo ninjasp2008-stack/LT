@@ -1,12 +1,106 @@
 <!--
-VERSION: index27.html
-BASED ON: index26.html
-CHANGES: Added day navigation arrows to Journal popup modal.
-         - Left/right arrows to switch between days
-         - Right arrow disabled on today (no future journals)
-         - Left arrow disabled on day 0 (first day of cycle)
-         - Auto-saves current day before switching
-         - Each day has exactly one journal entry (existing model)
+VERSION: index17.html
+BASED ON: index16.html
+CHANGES: [index17 · pass 1] To-Do tab — each column is its own compact glass card.
+         - Removed the .todo-outer big wrapper div entirely (open + close);
+           .todo-split-wrapper now sits directly in #tab-todo
+         - .todo-col (all 3 columns) gets card chrome: background #0d0d11,
+           1px rgba(255,255,255,0.07) border, radius 18px — desktop AND mobile
+         - .todo-col desktop padding 18px 16px; #pomodoroBlock margin:0,
+           padding:0, gap:12px; chart wrapper 180px -> 160px
+         - .todo-divider hidden with display:none !important (elements kept in
+           HTML for renderPomodoroBlock()'s querySelector); gradient rule removed
+
+         [index17 · pass 2] Three equal, top-and-bottom aligned cards (CSS only).
+         - .todo-split-wrapper is a CSS GRID at >=768px:
+           grid-template-columns: repeat(3, minmax(0,1fr)),
+           grid-template-rows: minmax(0,1fr), align-items:stretch, gap:16px,
+           padding:16px, margin:20px 16px, and ONE shared height:
+           calc(100dvh - var(--cal-header-h) - 156px)
+           (tab-scroll is 100dvh-20 tall, minus cal-header clearance, minus the
+           100px nav clearance, minus the wrapper's 36px vertical margin).
+           min-height:0 cancels the mobile base min-height so the height is exact.
+           Grid stretch => all three cards share top edge, bottom edge and
+           height; no per-card heights anywhere.
+         - .todo-col gets min-width:0, min-height:0 and overflow:hidden so
+           content can never stretch or overflow a card.
+         - Left card: #todoList flex:1 1 auto / min-height:0 / overflow-y:auto
+           -> the date heading stays pinned and only the task list scrolls
+           inside the card (verified: 14 tasks scroll, heading never moves).
+         - Right card: the chart wrapper (div[style*="height:160px"]) gets
+           flex:1 1 auto + min-height:160px -> it fills the card but never
+           shrinks below 160px; Chart.js (responsive, maintainAspectRatio:false)
+           re-fills on resize. The canvas can no longer set the card height.
+         - Center card: justify-content:center (was flex-start) so the timer is
+           vertically centered in the shared height; overflow-y:auto keeps the
+           controls reachable on very short windows.
+         - Timer ring stays at its native 160px below 1024px so three equal
+           columns always have room for it (>=224px per column at 768px); the
+           220px ring + 44px countdown now apply at >=1024px only.
+         - Mobile (<768px) untouched: flex column, order 1 timer / 2 list /
+           3 chart, full-width cards, natural heights, no horizontal scroll.
+         Verified in a real browser at 1400/1200/1024/960/900/820/780/700/480px:
+         every >=768px width reports identical card tops (164.5), bottoms (748)
+         and heights (583.5), no horizontal overflow, list scrolls internally.
+         No HTML or JS changes in pass 2 — script blocks byte-identical to
+         index16; other tabs untouched.
+
+         [index17 · pass 3] Pomodoro pause-and-navigation fix (Firebase only —
+         no localStorage / sessionStorage / IndexedDB added; same document
+         users/{uid}/pomodoro/liveSession, same 8 fields).
+         - NEW pomLiveSnapshot() + pomWriteLiveSession(): writes are serialised
+           through a promise chain and a queued write is dropped once a newer
+           one is requested (pomWriteQueued), so an in-flight write can never
+           land on top of a newer timer state. The snapshot is read at write
+           time. Failed writes only console.warn — in-memory state is kept.
+         - NEW pomSessionValid flag (state block): true on Start, on Pause and
+           on a successful restore; cleared only by pomReset().
+         - togglePomodoro(): the Pause branch now calls pomWriteLiveSession()
+           unconditionally (exact secondsLeft + phase, no 1-minute gate) in
+           addition to the existing pomLogPartial() minute bookkeeping.
+         - renderPomodoroBlock(): restores only when !pomRunning &&
+           !pomSessionValid (fresh page load). A valid paused timer is never
+           reset by navigation and is never overwritten by a slower read.
+         - pomRestoreSession(): returns 'restored' | 'missing' | 'invalid' |
+           'error' | 'stale' instead of true/false; a pomRestoreSeq counter
+           plus pomRunning/pomSessionValid checks abandon stale or superseded
+           reads; secondsLeft is clamped to [0, total]; it no longer deletes
+           the document itself.
+         - Reset/clear now happens only for 'missing' or 'invalid'. A read
+           failure ('error') neither resets the timer nor deletes a valid
+           paused session — with nothing in memory it just restores a usable
+           default value in memory, leaving Firestore alone; 'stale' results
+           are dropped entirely.
+         pomAutoSave(), pomLogPartial(), pomLogSession(), pomClearLiveSession(),
+         savePomodoroSettings() and selectDay() keep their existing behaviour.
+
+         [index17 · pass 4] Pomodoro button group morph animation (CSS + one
+         line of JS; HTML unchanged apart from the button row's attributes).
+         - Row gets id="pomodoroBtnRow". Its inline gap:10px moved to
+           margin-right:10px on #pomodoroSetBtn; flex:1 + padding:11px (Set),
+           flex:2 + padding:11px + transition:background .15s (Start) moved from
+           the inline styles into new #pomodoroSetBtn / #pomodoroStartBtn CSS
+           rules so the running state can override them without extra
+           !important. (padding stays at 11px on both, so the idle row height
+           and both box floors — and therefore the idle widths — are unchanged.)
+         - Idle geometry is unchanged: grow 1 / grow 2 + 10px gutter inside the
+           same 100%-max 260px row => 91.3px + 10px + 158.7px, still centred by
+           #pomodoroBlock's align-items:center.
+         - NEW #pomodoroBtnRow.is-running (toggled by pomUpdateUI(), so it stays
+           correct on start, pause, tab switches and restores): Set animates
+           flex-grow, margin, side padding and side borders to 0, fades out and
+           goes pointer-events:none; Start animates flex-grow 2 -> 1 and owns
+           the whole 260px row — exactly Set + gutter + Start — as the Pause
+           button.
+         - All transitions share .3s cubic-bezier(.4,0,.2,1); only horizontal
+           properties change, so Set+gutter+Start add up to 260px at every
+           instant and the row box (and therefore the ring above it) never
+           moves or resizes. Row height is constant too: the top/bottom padding
+           and borders of both buttons are never animated.
+         Only the glass border's two side widths and Set's fade-out use
+         !important: .glass-btn already forces its border !important, and
+         renderPomodoroBlock() writes an inline opacity:1 on the buttons.
+         Timer logic, Firebase wiring and the rest of the markup are untouched.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -110,11 +204,15 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 .tab-panel.active{display:block}
 :root{--cal-header-h:104px}
 .tab-scroll{overflow-y:auto;height:calc(100dvh - 20px);padding-top:var(--cal-header-h);padding-bottom:100px}
+/* Tabs that hide the calendar (habits, journaling, analytics) don't need the
+   header clearance — switched on/off by switchTab() */
+.tab-scroll.no-cal-header{padding-top:20px}
 
 /* ── TO-DO LIST ── */
 .todo-task{display:flex;align-items:center;gap:12px;padding:12px 16px;
-  background:#0d0d11;border:1px solid rgba(255,255,255,0.06);
-  border-radius:12px;transition:all .15s}
+  background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
+  border-radius:0;transition:all .15s}
+.todo-task:last-child{border-bottom:none}
 .todo-task:hover{border-color:rgba(255,255,255,0.12)}
 .todo-checkbox{width:22px;height:22px;border-radius:6px;flex-shrink:0;
   border:2px solid rgba(255,255,255,0.4);background:none;
@@ -521,6 +619,180 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .journal-day-nav-btn:disabled{opacity:0.25;cursor:default;pointer-events:none}
 .journal-day-nav-date{font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);min-width:120px;text-align:center}
 
+/* ══ TO-DO TAB: 3-COLUMN SPLIT ══ */
+
+/* ── BASE (mobile first) ── */
+.todo-split-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin: 16px;
+  min-height: calc(100dvh - var(--cal-header-h) - 80px);
+}
+
+.todo-col {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Dividers are obsolete — every column is its own bordered card.
+   Elements stay in the HTML (renderPomodoroBlock() queries .todo-divider). */
+.todo-divider {
+  display: none !important;
+}
+
+/* ── POMODORO BUTTON GROUP: idle ⇄ running morph ──
+   Idle    : [Set][Start] — flex-grow 1 / 2 with a 10px gutter, i.e. the
+             original geometry (83.3px + 10px + 166.7px = the 260px row).
+   Running : Set collapses to zero width (gutter, side padding and side borders
+             animate to 0, its label is clipped, pointer events are off) while
+             Start grows to the whole row and becomes the single Pause button.
+   Only horizontal properties are animated and every transition below shares
+   the same duration + easing, so Set+gutter+Start still add up to exactly
+   260px at every instant — the row box never changes size, which keeps the
+   button group centred and the timer ring above it perfectly still.
+   (flex/padding/transition live here rather than inline so the running state
+    can override them without !important; only the glass border needs it.) */
+#pomodoroSetBtn {
+  flex: 1 1 0;
+  min-width: 0;        /* may shrink past its label instead of refusing to */
+  overflow: hidden;    /* clip "Set" while it collapses */
+  padding: 11px;
+  margin-right: 10px;  /* was gap:10px on the row — animated away when running */
+  transition: flex-grow .3s cubic-bezier(.4, 0, .2, 1),
+              margin-right .3s cubic-bezier(.4, 0, .2, 1),
+              padding-left .3s cubic-bezier(.4, 0, .2, 1),
+              padding-right .3s cubic-bezier(.4, 0, .2, 1),
+              border-left-width .3s cubic-bezier(.4, 0, .2, 1),
+              border-right-width .3s cubic-bezier(.4, 0, .2, 1),
+              opacity .3s cubic-bezier(.4, 0, .2, 1);
+}
+
+#pomodoroStartBtn {
+  flex: 2 1 0;
+  padding: 11px;       /* keeps the original 43.5px row height + box floor */
+  transition: background .15s,
+              flex-grow .3s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Running: Set is gone, Pause owns the full row (top/bottom box kept so the
+   row height — and therefore everything above it — never moves) */
+#pomodoroBtnRow.is-running #pomodoroSetBtn {
+  flex-grow: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-left-width: 0 !important;  /* .glass-btn forces its border !important */
+  border-right-width: 0 !important;
+  opacity: 0 !important;   /* renderPomodoroBlock() writes an inline opacity:1 */
+  pointer-events: none;
+}
+
+#pomodoroBtnRow.is-running #pomodoroStartBtn {
+  flex-grow: 1;
+}
+
+/* ── TABLET + DESKTOP (>=768px): card chrome + shared height ── */
+@media (min-width: 768px) {
+  .todo-split-wrapper {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+    margin: 20px 16px;
+    /* One viewport-derived height shared by all three cards.
+       (tab-scroll: 100dvh - 20px tall, minus the calendar clearance and the
+        100px nav clearance, minus this wrapper's 36px of vertical margin) */
+    min-height: 0;
+    height: calc(100dvh - var(--cal-header-h) - 156px);
+  }
+
+  /* Every column is its own compact glass card */
+  .todo-col {
+    min-width: 0;
+    min-height: 0;
+    padding: 18px 16px;
+    overflow: hidden;
+    background: #0d0d11;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+  }
+
+  /* Left card: date heading stays pinned, the task list scrolls inside */
+  .todo-col-left #todoList {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Right card: heading pinned, chart fills the space left over */
+  .todo-col-right div[style*="height:160px"] {
+    flex: 1 1 auto;
+    min-height: 160px;
+  }
+
+  /* Center card: timer block centered in the shared card height.
+     overflow-y:auto keeps the controls reachable on very short windows. */
+  .todo-col-center {
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+  }
+
+  /* Pomodoro block fills center column — compact, no extra vertical space.
+     (!important on padding + gap: #pomodoroBlock carries inline padding:20px
+      and gap:16px) */
+  .todo-col-center #pomodoroBlock {
+    width: 100%;
+    max-width: 340px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0 !important;
+    gap: 12px !important;
+  }
+
+  /* The timer ring keeps its native 160px below 1024px so three equal
+     columns always stay wide enough for it (>=224px per column at 768px). */
+}
+
+/* ── DESKTOP (>=1024px): roomier timer ring + countdown ── */
+@media (min-width: 1024px) {
+  /* Enlarge timer ring
+     (!important: the ring wrapper + svg carry inline sizing) */
+  .todo-col-center #pomodoroBlock div[style*="width:160px"] {
+    width: 220px !important;
+    height: 220px !important;
+  }
+
+  .todo-col-center #pomodoroBlock svg[viewBox="0 0 160 160"] {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .todo-col-center #pomodoroDisplay {
+    font-size: 44px !important;
+  }
+}
+
+/* ── MOBILE: vertical order ──
+   1. Timer, 2. Todo list, 3. Chart */
+@media (max-width: 767px) {
+  .todo-col-center { order: 1; }
+  .todo-col-left   { order: 2; }
+  .todo-col-right  { order: 3; }
+
+  /* Stacked columns are cards too */
+  .todo-col {
+    background: #0d0d11;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+    margin-bottom: 12px;
+  }
+}
 
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -730,6 +1002,101 @@ let currentUID = null;
       onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
       onkeydown="if(event.key==='Enter')submitTodoItem()">
     <button onclick="submitTodoItem()" class="btn-save" style="width:100%;padding:12px;border-radius:10px;font-size:15px">Add</button>
+  </div>
+</div>
+
+<!-- SET POMODORO MODAL -->
+<div id="pomodoroSetModal" class="modal-overlay" onclick="if(event.target===this)closePomodoroSetPanel()">
+  <div class="modal-box" style="max-width:360px;padding:24px">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <p style="font-size:18px;font-weight:700;margin:0">Set Pomodoro</p>
+      <span class="stat-mono" style="font-size:11px;color:rgba(255,255,255,0.35)">Max 99min</span>
+    </div>
+
+    <!-- Focus duration -->
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:600;color:#ffffff">Focus</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.4)">Max 99 min</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="step-btn" onclick="adjPomFocus(-5)">−</button>
+        <div style="flex:1;text-align:center">
+          <span id="pomFocusVal" class="stat-mono" style="font-size:36px;font-weight:700;color:#fff">25</span>
+          <span style="font-size:14px;color:rgba(255,255,255,0.5);margin-left:4px">min</span>
+        </div>
+        <button class="step-btn" onclick="adjPomFocus(5)">+</button>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:rgba(255,255,255,0.05);margin-bottom:16px"></div>
+
+    <!-- Break duration -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:600;color:#ffffff">Break</span>
+        <span style="font-size:11px;color:rgba(255,255,255,0.4)">Min 5 · Max 30 min</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="step-btn" onclick="adjPomBreak(-5)">−</button>
+        <div style="flex:1;text-align:center">
+          <span id="pomBreakVal" class="stat-mono" style="font-size:36px;font-weight:700;color:#fff">5</span>
+          <span style="font-size:14px;color:rgba(255,255,255,0.5);margin-left:4px">min</span>
+        </div>
+        <button class="step-btn" onclick="adjPomBreak(5)">+</button>
+      </div>
+    </div>
+
+    <!-- Target selector -->
+    <div style="margin-bottom:20px">
+      <p style="font-size:13px;font-weight:600;color:#ffffff;margin-bottom:10px">Target</p>
+      <div id="pomTargetList" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
+        scrollbar-width:none;-ms-overflow-style:none">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Save button -->
+    <button onclick="savePomodoroSettings()"
+      style="width:100%;padding:13px;background:#ffffff;border:none;border-radius:12px;
+      color:#000000;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;
+      transition:background .15s" onmouseover="this.style.background='#e5e7eb'"
+      onmouseout="this.style.background='#ffffff'">
+      Set Pomodoro
+    </button>
+
+  </div>
+</div>
+
+<!-- NEW TARGET MODAL -->
+<div id="newTargetModal" class="modal-overlay" onclick="if(event.target===this)closeNewTargetModal()">
+  <div class="modal-box" style="max-width:320px;padding:24px">
+
+    <p style="font-size:17px;font-weight:700;margin-bottom:16px">New Target</p>
+
+    <!-- Name input -->
+    <input id="newTargetNameInput" type="text" maxlength="30"
+      placeholder="Target name…"
+      style="width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);
+             border-radius:10px;color:#fff;padding:12px 14px;outline:none;
+             font-family:inherit;font-size:15px;margin-bottom:16px"
+      onfocus="this.style.borderColor='rgba(255,255,255,0.2)'"
+      onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
+      onkeydown="if(event.key==='Enter')createNewTarget()">
+
+    <!-- Color swatches -->
+    <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:10px;font-weight:600">Color</p>
+    <div id="newTargetColorRow" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+      <!-- rendered by JS -->
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeNewTargetModal()">Cancel</button>
+      <button class="btn-save" onclick="createNewTarget()">Create</button>
+    </div>
   </div>
 </div>
 
@@ -1115,26 +1482,177 @@ let currentUID = null;
 
   <!-- ──────── TO-DO LIST TAB ──────── -->
   <div id="tab-todo" class="tab-panel tab-scroll">
-    <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:14px">
-      <div class="mission-glass-container" style="border-radius:20px;padding:20px">
-        <h2 class="glass-title" style="margin-bottom:0">To-Do List</h2>
-        <p style="font-size:12px;color:#ffffff;margin-top:4px">
-          Select Day: <span id="todoDateLabel">Today</span>
-        </p>
-      </div>
+    <div class="todo-split-wrapper">
 
-      <div class="mission-glass-container" style="border-radius:20px;padding:20px">
+      <!-- COLUMN 1: Todo List (left) -->
+      <div class="todo-col todo-col-left">
+        <p id="todoDateLabel" style="font-size:11px;font-weight:700;
+          color:rgba(255,255,255,0.35);text-transform:uppercase;
+          letter-spacing:.08em;margin:0 0 16px 2px">October 10</p>
+
         <div id="todoList"><!-- rendered by JS --></div>
-        <div id="todoEmpty" style="text-align:center;padding:24px 0;color:rgba(255,255,255,0.4);font-size:13px">
+        <div id="todoEmpty" style="text-align:center;padding:24px 0;
+          color:rgba(255,255,255,0.4);font-size:13px">
           No tasks for this day. Tap the To-Do icon to add one.
         </div>
+
+        <!-- Past day read-only banner (inserted by JS) -->
       </div>
-    </div>
+
+      <!-- DIVIDER left -->
+      <div class="todo-divider"></div>
+
+      <!-- COLUMN 2: Pomodoro Timer (center) -->
+      <div class="todo-col todo-col-center">
+
+      <div id="pomodoroBlock" class="mission-glass-container" style="border-radius:20px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:16px">
+
+        <!-- Past-day read-only banner (hidden by default) -->
+        <div id="pomodoroPastBanner" style="display:none;font-size:12px;color:rgba(255,255,255,0.4);
+          background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
+          border-radius:10px;padding:8px 14px;text-align:center;width:100%">
+          ⏳ Pomodoro is not available for past days
+        </div>
+
+        <!-- Active target chip -->
+        <div id="pomodoroTargetChip" style="display:flex;align-items:center;gap:8px;
+          background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+          border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;color:#ffffff;
+          font-family:'DM Sans',sans-serif;cursor:pointer" onclick="openPomodoroSetPanel()">
+          <span id="pomodoroTargetDot" style="width:8px;height:8px;border-radius:50%;
+            background:rgba(255,255,255,0.3);display:inline-block"></span>
+          <span id="pomodoroTargetLabel">No Target</span>
+        </div>
+
+        <!-- Circular timer ring -->
+        <div style="position:relative;width:160px;height:160px">
+          <svg style="width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="68" stroke="rgba(255,255,255,0.05)" stroke-width="10" fill="none"/>
+            <circle id="pomodoroRing" cx="80" cy="80" r="68"
+              stroke="#ffffff" stroke-width="10" fill="none"
+              stroke-linecap="round" stroke-dasharray="427.26 427.26"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;gap:2px">
+            <span id="pomodoroDisplay" class="stat-mono"
+              style="font-size:32px;font-weight:700;color:#fff">25:00</span>
+            <span id="pomodoroPhaseLabel"
+              style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;
+              letter-spacing:.08em">Focus</span>
+          </div>
+        </div>
+
+        <!-- Buttons row (idle: Set + Start · running: full-width Pause) -->
+        <div id="pomodoroBtnRow" style="display:flex;width:100%;max-width:260px">
+          <button id="pomodoroSetBtn" onclick="openPomodoroSetPanel()"
+            class="glass-btn" style="border-radius:12px;font-size:13px;
+            font-weight:700;font-family:inherit">
+            Set
+          </button>
+          <button id="pomodoroStartBtn" onclick="togglePomodoro()"
+            style="border-radius:12px;font-size:14px;font-weight:700;
+            font-family:inherit;background:#ffffff;border:none;color:#000000;cursor:pointer">
+            Start
+          </button>
+        </div>
+
+      </div>
+
+      </div><!-- /todo-col-center -->
+
+      <!-- DIVIDER right -->
+      <div class="todo-divider"></div>
+
+      <!-- COLUMN 3: Todo Chart (right) -->
+      <div class="todo-col todo-col-right">
+        <p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);
+          text-transform:uppercase;letter-spacing:.08em;margin:0 0 16px 2px">
+          Completion
+        </p>
+        <div style="position:relative;height:160px">
+          <canvas id="chartTodosSide"></canvas>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);
+          margin-top:10px;text-align:center">
+          Daily task completion % — 0% if no tasks
+        </div>
+      </div><!-- /todo-col-right -->
+    </div><!-- /todo-split-wrapper -->
   </div>
 
   <!-- ──────── ANALYTICS TAB ──────── -->
   <div id="tab-analytics" class="tab-panel tab-scroll">
     <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- POMODORO ANALYTICS CARD -->
+      <div class="mission-glass-container" style="border-radius:14px;padding:20px">
+
+        <!-- Day view calendar (moved inside this card) -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <p style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);
+              text-transform:uppercase;letter-spacing:.06em;margin:0">Day View</p>
+            <span id="pomAnalyticsDayLabel"
+              style="font-size:10px;color:rgba(255,255,255,0.4);font-family:'Space Mono',monospace"></span>
+          </div>
+          <div id="pomAnalyticsStrip" style="display:flex;gap:4px;overflow-x:auto;
+            scrollbar-width:none;-ms-overflow-style:none;padding:2px 0"></div>
+          <div style="height:1px;background:rgba(255,255,255,0.05);margin-top:12px"></div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="glass-title-sm" style="color:#ffffff;margin:0">Target Focus</div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="pomAnalyticsEmpty" style="text-align:center;padding:24px 0;
+          color:rgba(255,255,255,0.4);font-size:13px">
+          No sessions for this day.
+        </div>
+
+        <!-- Chart + legend (hidden when empty) -->
+        <div id="pomAnalyticsContent" style="display:none">
+
+          <!-- Donut chart -->
+          <div style="position:relative;height:180px;margin-bottom:16px">
+            <canvas id="chartPomodoro"></canvas>
+            <div id="pomDonutCenter" style="position:absolute;inset:0;display:flex;
+              flex-direction:column;align-items:center;justify-content:center">
+              <span id="pomTotalMins" class="stat-mono"
+                style="font-size:28px;font-weight:700;color:#fff">0</span>
+              <span style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;
+                letter-spacing:.06em">min focus</span>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div id="pomAnalyticsLegend" style="display:flex;flex-direction:column;gap:8px;
+            margin-bottom:16px"></div>
+
+          <!-- Summary row -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);
+              border-radius:10px;padding:10px;text-align:center">
+              <div id="pomStatSessions" class="stat-mono"
+                style="font-size:18px;font-weight:700;color:#fff">0</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">Sessions</div>
+            </div>
+            <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);
+              border-radius:10px;padding:10px;text-align:center">
+              <div id="pomStatTotal" class="stat-mono"
+                style="font-size:18px;font-weight:700;color:#fff">0m</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">Total Focus</div>
+            </div>
+            <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);
+              border-radius:10px;padding:10px;text-align:center">
+              <div id="pomStatAvg" class="stat-mono"
+                style="font-size:18px;font-weight:700;color:#fff">0m</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px">Avg Session</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
 
       <div class="mission-glass-container" style="border-radius:20px;padding:20px">
         <h2 class="glass-title" style="margin-bottom:0">Analytics</h2>
@@ -1461,10 +1979,22 @@ let S = {
   cycleArchivedStartDate: null, // guard against double-archiving
   todos:           {},   // { "YYYY-MM-DD": [{text, done}] }
   journalHistory:  {},   // { dayIndex: "entry text" }
+  pomodoro: {
+    targets: [            // default targets on init
+      { id: "study",     name: "Study",     color: "#a855f7" },
+      { id: "freelance", name: "Freelance", color: "#f97316" }
+    ],
+    sessions: {},   // { "dayIndex": [ { targetId, focusMins, breakMins, completedAt, focusDone } ] }
+    settings: {
+      focusMins: 25,       // default focus duration in minutes
+      breakMins: 5,        // default break duration in minutes
+      activeTargetId: null // currently selected target id
+    }
+  },
 };
 
 // Chart refs
-let chartHabits, chartWater, chartSteps, chartSleep, chartPushups, chartCaffeine, chartMood, chartTodos, chartHabitTrend;
+let chartHabits, chartWater, chartSteps, chartSleep, chartPushups, chartCaffeine, chartMood, chartTodos, chartHabitTrend, chartTodosSide;
 let chartsInitialized = false;
 
 // Temp vars
@@ -1497,6 +2027,9 @@ function saveState() {
   localStorage.setItem('journalHistory',   JSON.stringify(S.journalHistory));
   localStorage.setItem('cycles',           JSON.stringify(S.cycles));
   localStorage.setItem('cycleArchivedStartDate', S.cycleArchivedStartDate || '');
+  localStorage.setItem('pomodoroTargets',  JSON.stringify(S.pomodoro.targets));
+  localStorage.setItem('pomodoroSessions', JSON.stringify(S.pomodoro.sessions));
+  localStorage.setItem('pomodoroSettings', JSON.stringify(S.pomodoro.settings));
   syncToCloud();
 }
 async function syncToCloud() {
@@ -1708,6 +2241,31 @@ function loadState() {
   let parsedJ = {};
   try { parsedJ = rawJ ? JSON.parse(rawJ) : {}; } catch(e) {}
   S.journalHistory = (parsedJ && typeof parsedJ === 'object' && !Array.isArray(parsedJ)) ? parsedJ : {};
+
+  // Load pomodoro targets
+  const rawPT = localStorage.getItem('pomodoroTargets');
+  let parsedPT = [];
+  try { parsedPT = rawPT ? JSON.parse(rawPT) : []; } catch(e) {}
+
+  // Load pomodoro sessions
+  const rawPS = localStorage.getItem('pomodoroSessions');
+  let parsedPS = {};
+  try { parsedPS = rawPS ? JSON.parse(rawPS) : {}; } catch(e) {}
+
+  // Load pomodoro settings
+  const rawPSet = localStorage.getItem('pomodoroSettings');
+  let parsedPSet = { focusMins: 25, breakMins: 5, activeTargetId: null };
+  try { parsedPSet = rawPSet ? JSON.parse(rawPSet) : parsedPSet; } catch(e) {}
+
+  // Apply — use defaults if empty
+  S.pomodoro = {
+    targets:  parsedPT.length ? parsedPT : [
+      { id: "study",     name: "Study",     color: "#a855f7" },
+      { id: "freelance", name: "Freelance", color: "#f97316" }
+    ],
+    sessions: (parsedPS && typeof parsedPS === 'object') ? parsedPS : {},
+    settings: Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null }, parsedPSet)
+  };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1726,10 +2284,20 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 // Debounced resize handler
 let _resizeTimer = null;
+// Keep --cal-header-h in sync with the real rendered height of the fixed
+// calendar header (the static 104px in :root is only a fallback).
+function updateCalHeaderHeight() {
+  const cal = document.getElementById('globalCalendarWrapper');
+  if (!cal) return;
+  const h = cal.getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--cal-header-h', h + 'px');
+}
+
 function debounceResize() {
   if (_resizeTimer) return;
   _resizeTimer = setTimeout(() => {
     _resizeTimer = null;
+    updateCalHeaderHeight();
     setHeroLayout();
     setGridCols();
 
@@ -1931,6 +2499,12 @@ function selectDay(dayIndex) {
     const itemWidth = item.offsetWidth;
     strip.scrollLeft = itemLeft - (containerWidth / 2) + (itemWidth / 2);
   }
+
+  // Reset pomodoro only if day changed and timer is not running
+  if (!pomRunning) {
+    pomReset();
+    pomUpdateUI();
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -2008,6 +2582,11 @@ function submitTodoItem() {
   renderTodoList();
   updateStreakUI();
   if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+  if (chartTodosSide) {
+    chartTodosSide.data.datasets[0].data =
+      Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+    chartTodosSide.update('none');
+  }
 }
 
 // ── JOURNALING ──
@@ -2210,15 +2789,81 @@ function switchTab(name) {
   // Calendar visible only on Dashboard and To-Do pages
   const cal = document.getElementById('globalCalendarWrapper');
   const calVisible = (name === 'dashboard' || name === 'todo');
-  if (cal) cal.style.display = calVisible ? '' : 'none';
-  // Adjust tab padding so content doesn't hide under fixed calendar
   const tab = document.getElementById('tab-'+name);
-  if (tab) tab.style.paddingTop = calVisible ? getComputedStyle(document.documentElement).getPropertyValue('--cal-header-h').trim() : '0';
+  if (tab) {
+    tab.style.paddingTop = '';  // clear any inline override — let CSS class handle it
+  }
+  // Calendar visibility only
+  if (cal) cal.style.display = calVisible ? '' : 'none';
+
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('no-cal-header');
+  });
+  if (!calVisible) {
+    if (tab) tab.classList.add('no-cal-header');
+  }
 
   if (name === 'habits')    { weekOffset = 0; buildHabitsGrid(); }
-  if (name === 'todo')      { renderTodoList(); }
+  if (name === 'todo') {
+    renderTodoList();
+    // Init side chart if not yet initialized
+    setTimeout(() => {
+      if (!chartTodosSide &&
+          document.getElementById('chartTodosSide')) {
+        // Call initCharts()-style init for this chart only
+        chartTodosSide = new Chart(
+          document.getElementById('chartTodosSide'), {
+          type: 'line',
+          data: {
+            labels: dayLabels(),
+            datasets: [{
+              label: 'To-Do Completion',
+              data: Array.from({length:TOTAL_DAYS},
+                    (_,i)=>dayTodoPct(i)),
+              borderColor: '#ffffff',
+              backgroundColor: 'rgba(255,255,255,0.04)',
+              fill: true,
+              tension: .4,
+              pointRadius: 2,
+              pointBackgroundColor: '#ffffff',
+              borderWidth: 2
+            }]
+          },
+          options: {
+            ...CDEFS,
+            scales: {
+              ...CDEFS.scales,
+              y: {
+                ...CDEFS.scales.y,
+                min: 0, max: 100,
+                ticks: {
+                  ...CDEFS.scales.y.ticks,
+                  callback: v => v + '%'
+                }
+              }
+            }
+          }
+        });
+      } else if (chartTodosSide) {
+        chartTodosSide.data.datasets[0].data =
+          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+        chartTodosSide.update('none');
+      }
+    }, 50);
+  }
   if (name === 'journaling'){ renderJournalEntries(); }
-  if (name === 'analytics') { setTimeout(() => { initCharts(); syncCharts(); updateSummary(); renderArchive(); renderHabitTrendChart(); }, 30); }
+  if (name === 'analytics') {
+    setTimeout(() => {
+      pomAnalyticsDay = SYSTEM_TODAY;
+      buildPomAnalyticsStrip();
+      renderPomodoroAnalytics();
+      initCharts();
+      syncCharts();
+      updateSummary();
+      renderArchive();
+      renderHabitTrendChart();
+    }, 30);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -3459,6 +4104,39 @@ function initCharts() {
     }]
   });
 
+  chartTodosSide = new Chart(
+    document.getElementById('chartTodosSide'), {
+    type: 'line',
+    data: {
+      labels: dayLabels(),
+      datasets: [{
+        label: 'To-Do Completion',
+        data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)),
+        borderColor: '#ffffff',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        fill: true,
+        tension: .4,
+        pointRadius: 2,
+        pointBackgroundColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      ...CDEFS,
+      scales: {
+        ...CDEFS.scales,
+        y: {
+          ...CDEFS.scales.y,
+          min: 0, max: 100,
+          ticks: {
+            ...CDEFS.scales.y.ticks,
+            callback: v => v + '%'
+          }
+        }
+      }
+    }
+  });
+
   renderHabitTrendChart();
 }
 
@@ -3668,6 +4346,19 @@ function syncCharts() {
       chartTodos.data.datasets[0].data = chartTodos.data.datasets[0].data.slice(r.start, r.end);
     }
     chartTodos.update('none');
+  }
+
+  // To-Dos (To-Do tab side chart — independent copy)
+  if (chartTodosSide) {
+    const tdFull = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+    chartTodosSide.data.labels = dayLabels();
+    chartTodosSide.data.datasets[0].data = tdFull;
+    if (weekMode.todos) {
+      const r = getCurrentWeekRange();
+      chartTodosSide.data.labels = chartTodosSide.data.labels.slice(r.start, r.end);
+      chartTodosSide.data.datasets[0].data = chartTodosSide.data.datasets[0].data.slice(r.start, r.end);
+    }
+    chartTodosSide.update('none');
   }
 }
 
@@ -4153,6 +4844,7 @@ function getDayTodos(dayIdx) {
 }
 
 function renderTodoList() {
+  renderPomodoroBlock();
   const d = todoDay;
   const list = document.getElementById('todoList');
   const empty = document.getElementById('todoEmpty');
@@ -4165,6 +4857,24 @@ function renderTodoList() {
   const dayDate = new Date(sDate);
   dayDate.setDate(sDate.getDate() + d);
   if (label) label.textContent = months[dayDate.getMonth()] + ' ' + dayDate.getDate();
+
+  // Read-only indicator for past days
+  const readonlyBanner = document.getElementById('todoReadonlyBanner');
+  if (todoDay < SYSTEM_TODAY) {
+    if (!readonlyBanner) {
+      const banner = document.createElement('div');
+      banner.id = 'todoReadonlyBanner';
+      banner.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.3);' +
+        'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);' +
+        'border-radius:8px;padding:6px 12px;margin-bottom:12px;text-align:center';
+      banner.textContent = '🔒 Past day — you can mark tasks complete but not delete them';
+      const rightPanel = document.querySelector('.todo-right-panel') ||
+                         document.getElementById('todoList').parentElement;
+      if (rightPanel) rightPanel.insertBefore(banner, rightPanel.firstChild.nextSibling);
+    }
+  } else {
+    if (readonlyBanner) readonlyBanner.remove();
+  }
 
   const items = getDayTodos(d);
   list.innerHTML = '';
@@ -4192,13 +4902,15 @@ function renderTodoList() {
     txt.className = 'todo-text' + (item.done ? ' done' : '');
     txt.textContent = item.text;
 
-    const del = document.createElement('button');
-    del.className = 'todo-delete';
-    del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    if (todoDay >= SYSTEM_TODAY) {
+      const del = document.createElement('button');
+      del.className = 'todo-delete';
+      del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+      div.appendChild(del);
+    }
 
     div.appendChild(cb);
     div.appendChild(txt);
-    div.appendChild(del);
     list.appendChild(div);
   });
 }
@@ -4214,8 +4926,33 @@ document.addEventListener('click', function(e) {
   const idx = parseInt(todoItem.dataset.todoIdx);
   if (isNaN(idx)) return;
 
-  // Read-only guard: only allow edits on past and today, not future
+  // Future days: fully blocked
   if (todoDay > SYSTEM_TODAY) return;
+
+  // Past days: ONLY allow checkbox toggle — no delete
+  if (todoDay < SYSTEM_TODAY) {
+    if (e.target.closest('.todo-checkbox')) {
+      // Allow toggle done/undone on past days
+      S.todos[todoDay][idx].done = !S.todos[todoDay][idx].done;
+      saveState();
+      renderTodoList();
+      updateStreakUI();
+      if (chartTodos) {
+        chartTodos.data.datasets[0].data =
+          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+        chartTodos.update('none');
+      }
+      if (chartTodosSide) {
+        chartTodosSide.data.datasets[0].data =
+          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+        chartTodosSide.update('none');
+      }
+    }
+    // Block everything else (delete, etc.)
+    return;
+  }
+
+  // Today: full functionality continues below (existing code unchanged)
 
   // Checkbox click
   if (e.target.closest('.todo-checkbox')) {
@@ -4224,6 +4961,11 @@ document.addEventListener('click', function(e) {
     renderTodoList();
     updateStreakUI();
     if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+    if (chartTodosSide) {
+      chartTodosSide.data.datasets[0].data =
+        Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+      chartTodosSide.update('none');
+    }
     return;
   }
 
@@ -4235,6 +4977,11 @@ document.addEventListener('click', function(e) {
     renderTodoList();
     updateStreakUI();
     if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+    if (chartTodosSide) {
+      chartTodosSide.data.datasets[0].data =
+        Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+      chartTodosSide.update('none');
+    }
     return;
   }
 });
@@ -4253,6 +5000,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setGridCols();
   renderAll();
   updateStreakUI();
+  // Measure the real calendar height once it has rendered
+  updateCalHeaderHeight();
   window.addEventListener('resize', debounceResize);
 
   // ── Habit management: wire Add button and Enter key here so there's
@@ -4390,6 +5139,613 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   })();
 });
+
+// ── POMODORO TIMER STATE ──
+let pomTimer = null;          // setInterval handle
+let pomSecondsLeft = 0;       // current countdown in seconds
+let pomPhase = 'focus';       // 'focus' | 'break'
+let pomRunning = false;
+// True once the in-memory timer holds a real session (started, paused or
+// restored from Firestore). Navigation uses it as a shield: a valid paused
+// timer is never reset and never overwritten by a slower Firestore read.
+let pomSessionValid = false;
+
+function pomTotalSeconds() {
+  const s = S.pomodoro.settings;
+  return pomPhase === 'focus'
+    ? (s.focusMins * 60)
+    : (s.breakMins * 60);
+}
+
+function pomReset() {
+  clearInterval(pomTimer);
+  pomTimer = null;
+  pomRunning = false;
+  pomPhase = 'focus';
+  pomSecondsLeft = pomTotalSeconds();
+  pomSessionValid = false; // nothing in memory worth preserving any more
+  pomClearLiveSession(); // async — fire and forget
+  pomUpdateUI();
+}
+
+function pomUpdateUI() {
+  const mins = String(Math.floor(pomSecondsLeft / 60)).padStart(2, '0');
+  const secs = String(pomSecondsLeft % 60).padStart(2, '0');
+  const disp = document.getElementById('pomodoroDisplay');
+  const phase = document.getElementById('pomodoroPhaseLabel');
+  const ring = document.getElementById('pomodoroRing');
+  const startBtn = document.getElementById('pomodoroStartBtn');
+
+  if (disp) disp.textContent = mins + ':' + secs;
+  if (phase) phase.textContent = pomPhase === 'focus' ? 'Focus' : 'Break';
+  if (startBtn) startBtn.textContent = pomRunning ? 'Pause' : 'Start';
+
+  // Button group morph — CSS animates the layout, this only flips the state:
+  // running → Set collapses and Start grows into the full-width Pause button;
+  // idle/paused → the original two-button layout slides back in.
+  const btnRow = document.getElementById('pomodoroBtnRow');
+  if (btnRow) btnRow.classList.toggle('is-running', pomRunning);
+
+  // Ring progress
+  if (ring) {
+    const total = pomTotalSeconds();
+    const pct = total > 0 ? pomSecondsLeft / total : 1;
+    const circ = 2 * Math.PI * 68; // r=68
+    ring.setAttribute('stroke-dasharray', (pct * circ).toFixed(2) + ' ' + circ.toFixed(2));
+    // Color: focus = white, break = target color or green
+    const activeTarget = S.pomodoro.targets.find(t => t.id === S.pomodoro.settings.activeTargetId);
+    const isDesktop = window.innerWidth >= 768;
+    const focusColor = isDesktop ? '#ffffff' : (activeTarget ? activeTarget.color : '#ffffff');
+    ring.setAttribute('stroke', pomPhase === 'focus' ? focusColor : '#00FF66');
+  }
+
+  // Target chip
+  const chip = document.getElementById('pomodoroTargetChip');
+  const dot = document.getElementById('pomodoroTargetDot');
+  const label = document.getElementById('pomodoroTargetLabel');
+  const activeTarget = S.pomodoro.targets.find(t => t.id === S.pomodoro.settings.activeTargetId);
+  if (dot) dot.style.background = activeTarget ? activeTarget.color : 'rgba(255,255,255,0.3)';
+  if (label) label.textContent = activeTarget ? activeTarget.name : 'No Target';
+}
+
+function togglePomodoro() {
+  if (todoDay < SYSTEM_TODAY) return; // guard: past days only read-only
+  if (!pomRunning) {
+    // Start
+    pomRunning = true;
+    pomSessionValid = true; // in-memory state is now authoritative
+    let _pomLastMinute = pomElapsedMins();
+    pomTimer = setInterval(() => {
+      if (pomSecondsLeft <= 0) {
+        if (pomPhase === 'focus') {
+          pomLogSession();
+          pomPhase = 'break';
+        } else {
+          pomPhase = 'focus';
+        }
+        pomSecondsLeft = pomTotalSeconds();
+        _pomLastMinute = 0;
+      } else {
+        pomSecondsLeft--;
+        // Auto-save every new elapsed minute (focus phase only)
+        if (pomPhase === 'focus') {
+          const currentMinute = pomElapsedMins();
+          if (currentMinute > _pomLastMinute && currentMinute >= 1) {
+            _pomLastMinute = currentMinute;
+            pomAutoSave(); // async — fire and forget
+          }
+        }
+      }
+      pomUpdateUI();
+    }, 1000);
+  } else {
+    // Pause
+    clearInterval(pomTimer);
+    pomTimer = null;
+    pomRunning = false;
+    pomSessionValid = true;
+    // Save partial progress if at least 1 minute elapsed
+    if (pomPhase === 'focus') {
+      const mins = pomElapsedMins();
+      if (mins >= 1) {
+        pomLogPartial(mins);
+      }
+    }
+    // Persist the EXACT remaining seconds + phase right now (no minute gate),
+    // so leaving the tab — or the page — never loses or resets the pause.
+    pomWriteLiveSession(); // async — fire and forget
+  }
+  pomUpdateUI();
+}
+
+function pomLogSession() {
+  const d = todoDay;
+  if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
+  // Remove last partial entry for this target if it exists (it's now fully complete)
+  const sessions = S.pomodoro.sessions[d];
+  const lastIdx = sessions.length - 1;
+  if (lastIdx >= 0 && sessions[lastIdx].partial === true &&
+      sessions[lastIdx].targetId === S.pomodoro.settings.activeTargetId) {
+    sessions.splice(lastIdx, 1);
+  }
+  sessions.push({
+    targetId:    S.pomodoro.settings.activeTargetId,
+    focusMins:   S.pomodoro.settings.focusMins,
+    breakMins:   S.pomodoro.settings.breakMins,
+    completedAt: new Date().toISOString(),
+    focusDone:   true,
+    partial:     false
+  });
+  saveState();
+  pomClearLiveSession(); // session complete — no longer needs live snapshot
+}
+
+function renderPomodoroBlock() {
+  const block = document.getElementById('pomodoroBlock');
+  const banner = document.getElementById('pomodoroPastBanner');
+  const startBtn = document.getElementById('pomodoroStartBtn');
+  const setBtn = document.getElementById('pomodoroSetBtn');
+  const ring = document.getElementById('pomodoroRing');
+  const chip = document.getElementById('pomodoroTargetChip');
+  const disp = document.getElementById('pomodoroDisplay');
+
+  if (!block) return;
+  const isPast = todoDay < SYSTEM_TODAY;
+
+  // Hide entire pomodoro block on past days, show only on today
+  if (block) block.style.display = isPast ? 'none' : 'flex';
+
+  if (!isPast) {
+    if (banner) banner.style.display = 'none';
+    if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = '1'; }
+    if (setBtn)   { setBtn.disabled = false;   setBtn.style.opacity = '1'; }
+    if (chip)     chip.style.pointerEvents = 'auto';
+  }
+
+  const divider = document.querySelector('.todo-divider');
+  if (divider) divider.style.opacity = isPast ? '0' : '1';
+
+  // On past days, give right panel full width
+  const leftPanel = document.querySelector('.todo-left-panel');
+  if (leftPanel) leftPanel.style.display = isPast ? 'none' : '';
+
+  // Restore a persisted session ONLY when the in-memory timer has nothing
+  // worth keeping (fresh page load). A valid paused/running timer always
+  // wins: tab navigation can neither reset it nor let a slower Firestore
+  // read overwrite it.
+  if (!pomRunning && !pomSessionValid) {
+    pomRestoreSession().then(status => {
+      // Only a provably absent ('missing') or provably stale ('invalid')
+      // snapshot may reset the timer — and thereby clear the document.
+      if (status === 'missing' || status === 'invalid') {
+        pomReset();
+      } else if (status === 'error' && pomSecondsLeft <= 0) {
+        // Firestore unreachable with nothing in memory: show a usable
+        // default WITHOUT touching the live document we could not read.
+        pomPhase = 'focus';
+        pomSecondsLeft = pomTotalSeconds();
+      }
+      // 'restored' was applied by pomRestoreSession(); 'stale' means a newer
+      // restore owns the state — leave everything alone.
+      pomUpdateUI();
+    });
+  } else {
+    pomUpdateUI();
+  }
+}
+
+// ── POMODORO SETTINGS PANEL ──
+let pomSetFocusTmp = 25;
+let pomSetBreakTmp = 5;
+let pomSetTargetTmp = null;
+
+function openPomodoroSetPanel() {
+  if (todoDay < SYSTEM_TODAY) return;
+  pomSetFocusTmp  = S.pomodoro.settings.focusMins;
+  pomSetBreakTmp  = S.pomodoro.settings.breakMins;
+  pomSetTargetTmp = S.pomodoro.settings.activeTargetId;
+  document.getElementById('pomFocusVal').textContent = pomSetFocusTmp;
+  document.getElementById('pomBreakVal').textContent = pomSetBreakTmp;
+  renderPomTargetList();
+  document.getElementById('pomodoroSetModal').classList.add('open');
+}
+
+function closePomodoroSetPanel() {
+  document.getElementById('pomodoroSetModal').classList.remove('open');
+}
+
+function adjPomFocus(delta) {
+  pomSetFocusTmp = Math.max(5, Math.min(99, pomSetFocusTmp + delta));
+  document.getElementById('pomFocusVal').textContent = pomSetFocusTmp;
+}
+
+function adjPomBreak(delta) {
+  pomSetBreakTmp = Math.max(5, Math.min(30, pomSetBreakTmp + delta));
+  document.getElementById('pomBreakVal').textContent = pomSetBreakTmp;
+}
+
+function renderPomTargetList() {
+  const list = document.getElementById('pomTargetList');
+  if (!list) return;
+  list.innerHTML = '';
+  S.pomodoro.targets.forEach(t => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'flex:0 0 auto;display:flex;align-items:center;gap:6px;' +
+      'padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;' +
+      'cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;' +
+      (pomSetTargetTmp === t.id
+        ? 'background:' + t.color + '22;border:1.5px solid ' + t.color + ';color:#fff'
+        : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)');
+    btn.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:' + t.color + ';display:inline-block"></span>' + escHtml(t.name);
+    btn.addEventListener('click', function() {
+      pomSetTargetTmp = pomSetTargetTmp === t.id ? null : t.id;
+      renderPomTargetList();
+    });
+    list.appendChild(btn);
+  });
+  // "+ New Target" button
+  const newBtn = document.createElement('button');
+  newBtn.style.cssText = 'flex:0 0 auto;padding:7px 14px;border-radius:20px;font-size:12px;' +
+    'font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;' +
+    'background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);' +
+    'color:rgba(255,255,255,0.5);transition:all .15s';
+  newBtn.textContent = '+ New Target';
+  newBtn.addEventListener('click', function() { openNewTargetModal(); });
+  list.appendChild(newBtn);
+}
+
+function savePomodoroSettings() {
+  S.pomodoro.settings.focusMins = pomSetFocusTmp;
+  S.pomodoro.settings.breakMins = pomSetBreakTmp;
+  S.pomodoro.settings.activeTargetId = pomSetTargetTmp;
+  saveState();
+  closePomodoroSetPanel();
+  pomReset();
+  pomUpdateUI();
+}
+
+// ── NEW TARGET MODAL ──
+const POM_COLORS = ["#a855f7","#f97316","#3b82f6","#00FF66","#ef4444","#eab308","#ec4899","#14b8a6"];
+let newTargetColorTmp = "#a855f7"; // default
+
+function openNewTargetModal() {
+  newTargetColorTmp = POM_COLORS[0];
+  const inp = document.getElementById('newTargetNameInput');
+  if (inp) inp.value = '';
+  renderNewTargetColorRow();
+  document.getElementById('newTargetModal').classList.add('open');
+  setTimeout(() => inp && inp.focus(), 100);
+}
+
+function closeNewTargetModal() {
+  document.getElementById('newTargetModal').classList.remove('open');
+}
+
+function renderNewTargetColorRow() {
+  const row = document.getElementById('newTargetColorRow');
+  if (!row) return;
+  row.innerHTML = '';
+  POM_COLORS.forEach(color => {
+    const sw = document.createElement('div');
+    sw.style.cssText = 'width:28px;height:28px;border-radius:50%;cursor:pointer;' +
+      'background:' + color + ';transition:all .15s;flex-shrink:0;' +
+      (newTargetColorTmp === color
+        ? 'outline:3px solid #ffffff;outline-offset:2px;transform:scale(1.15)'
+        : 'opacity:0.7');
+    sw.addEventListener('click', function() {
+      newTargetColorTmp = color;
+      renderNewTargetColorRow();
+    });
+    row.appendChild(sw);
+  });
+}
+
+function createNewTarget() {
+  const inp = document.getElementById('newTargetNameInput');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  const id = 'target_' + Date.now();
+  const newTarget = { id, name, color: newTargetColorTmp };
+  S.pomodoro.targets.push(newTarget);
+  pomSetTargetTmp = id; // auto-select the new target
+  saveState();
+  closeNewTargetModal();
+  renderPomTargetList(); // refresh the target list in Set panel
+}
+
+// ── POMODORO ANALYTICS ──
+let pomAnalyticsDay = 0; // which day is selected in the analytics calendar
+let chartPomodoro = null;
+
+function buildPomAnalyticsStrip() {
+  const strip = document.getElementById('pomAnalyticsStrip');
+  const label = document.getElementById('pomAnalyticsDayLabel');
+  if (!strip) return;
+
+  strip.innerHTML = '';
+  const [y, m, d] = (S.startDate || todayISO()).split('-');
+  const startRef = new Date(+y, +m - 1, +d);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  for (let i = 0; i < TOTAL_DAYS; i++) {
+    const dt = new Date(startRef);
+    dt.setDate(startRef.getDate() + i);
+
+    const isFuture = i > SYSTEM_TODAY;
+    const isSelected = i === pomAnalyticsDay;
+    const hasSessions = !!(S.pomodoro.sessions[i] && S.pomodoro.sessions[i].length);
+
+    const item = document.createElement('div');
+    item.style.cssText = 'flex:0 0 auto;width:28px;height:28px;border-radius:8px;' +
+      'display:flex;align-items:center;justify-content:center;font-size:11px;' +
+      'font-weight:700;font-family:"Space Mono",monospace;cursor:' +
+      (isFuture ? 'default' : 'pointer') + ';transition:all .15s;' +
+      (isSelected
+        ? 'background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:#fff'
+        : isFuture
+          ? 'background:#111115;color:rgba(255,255,255,0.15);opacity:.3'
+          : hasSessions
+            ? 'background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.25);color:rgba(255,255,255,0.8)'
+            : 'background:#111115;color:rgba(255,255,255,0.35)');
+    item.textContent = dt.getDate();
+    item.title = months[dt.getMonth()] + ' ' + dt.getDate();
+
+    if (!isFuture) {
+      item.addEventListener('click', function() {
+        pomAnalyticsDay = i;
+        buildPomAnalyticsStrip();
+        renderPomodoroAnalytics();
+      });
+    }
+    strip.appendChild(item);
+  }
+
+  // Scroll selected into view
+  const selItem = strip.children[pomAnalyticsDay];
+  if (selItem) selItem.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+
+  // Update day label
+  if (label) {
+    const dt = new Date(startRef);
+    dt.setDate(startRef.getDate() + pomAnalyticsDay);
+    const months2 = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    label.textContent = months2[dt.getMonth()] + ' ' + dt.getDate();
+  }
+}
+
+function renderPomodoroAnalytics() {
+  const sessions = (S.pomodoro.sessions[pomAnalyticsDay] || []).filter(s => s.focusDone);
+  const empty = document.getElementById('pomAnalyticsEmpty');
+  const content = document.getElementById('pomAnalyticsContent');
+
+  if (!sessions.length) {
+    if (empty) empty.style.display = 'block';
+    if (content) content.style.display = 'none';
+    if (chartPomodoro) { chartPomodoro.destroy(); chartPomodoro = null; }
+    return;
+  }
+
+  if (empty) empty.style.display = 'none';
+  if (content) content.style.display = 'block';
+
+  // Aggregate by target
+  const byTarget = {};
+  sessions.forEach(s => {
+    const tid = s.targetId || '__none__';
+    if (!byTarget[tid]) byTarget[tid] = { mins: 0, count: 0 };
+    byTarget[tid].mins  += s.focusMins;
+    byTarget[tid].count += 1;
+  });
+
+  const totalMins = sessions.reduce((a, s) => a + s.focusMins, 0);
+  const avgMins   = sessions.length ? Math.round(totalMins / sessions.length) : 0;
+
+  // Stats
+  const el = (id) => document.getElementById(id);
+  if (el('pomTotalMins'))    el('pomTotalMins').textContent = totalMins;
+  if (el('pomStatSessions')) el('pomStatSessions').textContent = sessions.length;
+  if (el('pomStatTotal'))    el('pomStatTotal').textContent = totalMins + 'm';
+  if (el('pomStatAvg'))      el('pomStatAvg').textContent = avgMins + 'm';
+
+  // Donut data
+  const labels = [], data = [], colors = [];
+  Object.entries(byTarget).forEach(([tid, val]) => {
+    const target = S.pomodoro.targets.find(t => t.id === tid);
+    labels.push(target ? target.name : 'Other');
+    data.push(val.mins);
+    colors.push(target ? target.color : '#666');
+  });
+
+  // Legend
+  const legend = el('pomAnalyticsLegend');
+  if (legend) {
+    legend.innerHTML = '';
+    labels.forEach((lbl, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+      row.innerHTML = '<span style="width:10px;height:10px;border-radius:2px;flex-shrink:0;background:' + colors[i] + '"></span>' +
+        '<span style="font-size:13px;color:#d1d5db;flex:1">' + escHtml(lbl) + '</span>' +
+        '<span class="stat-mono" style="font-size:13px;color:rgba(255,255,255,0.6)">' + data[i] + ' min</span>';
+      legend.appendChild(row);
+    });
+  }
+
+  // Donut chart
+  if (chartPomodoro) { chartPomodoro.destroy(); chartPomodoro = null; }
+  const canvas = document.getElementById('chartPomodoro');
+  if (canvas) {
+    chartPomodoro = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: '#1a1a1a', borderColor: '#333', borderWidth: 1,
+          titleColor: '#fff', bodyColor: '#aaa', padding: 10,
+          callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed + ' min' }
+        }}
+      }
+    });
+  }
+}
+
+// ── POMODORO PARTIAL SESSIONS ──
+function pomElapsedMins() {
+  const total = S.pomodoro.settings.focusMins * 60;
+  const elapsed = total - pomSecondsLeft;
+  return Math.floor(elapsed / 60); // floor to whole minutes
+}
+
+function pomLogPartial(mins) {
+  const d = todoDay;
+  if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
+  // Update the last partial entry if it exists (avoid stacking duplicates on repeated pause)
+  const existing = S.pomodoro.sessions[d];
+  const lastEntry = existing[existing.length - 1];
+  if (lastEntry && lastEntry.focusDone === false && lastEntry.partial === true) {
+    // Update the existing partial entry with the latest elapsed time
+    lastEntry.focusMins = mins;
+    lastEntry.updatedAt = new Date().toISOString();
+  } else {
+    // Create a new partial entry
+    existing.push({
+      targetId:    S.pomodoro.settings.activeTargetId,
+      focusMins:   mins,
+      breakMins:   S.pomodoro.settings.breakMins,
+      completedAt: new Date().toISOString(),
+      focusDone:   false,
+      partial:     true
+    });
+  }
+  saveState();
+}
+
+// ── POMODORO LIVE SESSION (Firestore) ──
+// Exact snapshot of the current timer, written to
+// users/{uid}/pomodoro/liveSession (same document, same fields as before).
+function pomLiveSnapshot() {
+  return {
+    day:         todoDay,
+    targetId:    S.pomodoro.settings.activeTargetId,
+    focusMins:   S.pomodoro.settings.focusMins,
+    breakMins:   S.pomodoro.settings.breakMins,
+    elapsedMins: pomElapsedMins(),
+    secondsLeft: pomSecondsLeft,
+    phase:       pomPhase,
+    savedAt:     Date.now()
+  };
+}
+
+// Writes are serialised and a queued write is dropped when a newer one has
+// been requested, so an in-flight write can never land on top of a newer
+// timer state. A failed write only logs — in-memory state is never touched.
+let pomWriteQueued = false;
+let pomWriteChain = Promise.resolve();
+
+function pomWriteLiveSession() {
+  if (!currentUID) return Promise.resolve(false);
+  pomWriteQueued = true;
+  pomWriteChain = pomWriteChain.then(async () => {
+    if (!pomWriteQueued) return false; // superseded by a newer request
+    pomWriteQueued = false;
+    const snapshot = pomLiveSnapshot(); // freshest state at write time
+    try {
+      await db.collection('users').doc(currentUID)
+              .collection('pomodoro').doc('liveSession')
+              .set(snapshot);
+      return true;
+    } catch(e) {
+      console.warn('pomWriteLiveSession Firestore error:', e);
+      return false; // Firestore unavailable — timer state is preserved in memory
+    }
+  });
+  return pomWriteChain;
+}
+
+async function pomAutoSave() {
+  if (pomPhase !== 'focus') return;
+  const mins = pomElapsedMins();
+  if (mins < 1) return;
+
+  // Update partial entry in local state
+  const d = todoDay;
+  if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
+  const sessions = S.pomodoro.sessions[d];
+  const lastEntry = sessions[sessions.length - 1];
+  if (lastEntry && lastEntry.partial === true &&
+      lastEntry.targetId === S.pomodoro.settings.activeTargetId) {
+    lastEntry.focusMins = mins;
+    lastEntry.updatedAt = new Date().toISOString();
+  } else {
+    sessions.push({
+      targetId:    S.pomodoro.settings.activeTargetId,
+      focusMins:   mins,
+      breakMins:   S.pomodoro.settings.breakMins,
+      completedAt: new Date().toISOString(),
+      focusDone:   false,
+      partial:     true
+    });
+  }
+  saveState(); // syncs to Firestore via existing syncToCloud()
+
+  // Write live snapshot to Firestore (serialised, supersede-safe)
+  return pomWriteLiveSession();
+}
+
+async function pomClearLiveSession() {
+  if (!currentUID) return;
+  try {
+    await db.collection('users').doc(currentUID)
+            .collection('pomodoro').doc('liveSession')
+            .delete();
+  } catch(e) {
+    console.warn('pomClearLiveSession error:', e);
+  }
+}
+
+// Restores users/{uid}/pomodoro/liveSession into the in-memory timer.
+// Returns 'restored' | 'missing' | 'invalid' | 'error' | 'stale':
+//   restored — snapshot applied (timer is now a valid paused session)
+//   missing  — no document (safe to fall back to defaults)
+//   invalid  — document is for another day or older than 2h (safe to clear)
+//   error    — the read itself failed (Firestore down); nothing was changed
+//   stale    — a newer restore started, or the user started the timer, while
+//              this read was in flight; caller must leave state untouched
+let pomRestoreSeq = 0;
+async function pomRestoreSession() {
+  const seq = ++pomRestoreSeq;
+  if (!currentUID) return 'missing';
+  let doc;
+  try {
+    doc = await db.collection('users').doc(currentUID)
+                 .collection('pomodoro').doc('liveSession')
+                 .get();
+  } catch(e) {
+    console.warn('pomRestoreSession error:', e);
+    return 'error'; // Firestore unreachable — keep whatever is in memory
+  }
+  // Never let a stale read win.
+  if (seq !== pomRestoreSeq || pomRunning || pomSessionValid) return 'stale';
+  if (!doc.exists) return 'missing';
+
+  const snap = doc.data();
+  // Validate: same day, saved within last 2 hours
+  if (snap.day !== todoDay) return 'invalid';
+  if (Date.now() - (snap.savedAt || 0) > 2 * 60 * 60 * 1000) return 'invalid';
+
+  // Restore timer state — always restore as PAUSED
+  const total = pomTotalSeconds();
+  pomPhase       = snap.phase || 'focus';
+  pomSecondsLeft = snap.secondsLeft != null
+    ? Math.max(0, Math.min(total, snap.secondsLeft))
+    : total;
+  pomRunning      = false;
+  pomSessionValid = true;
+  S.pomodoro.settings.activeTargetId = snap.targetId;
+  S.pomodoro.settings.focusMins      = snap.focusMins;
+  S.pomodoro.settings.breakMins      = snap.breakMins;
+  return 'restored';
+}
 </script>
   <script>
     if ('serviceWorker' in navigator) {
