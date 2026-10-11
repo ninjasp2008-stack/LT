@@ -2107,7 +2107,8 @@ async function syncToCloud() {
     'stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
     'habitsHistory','habitsHistoryNegative','pastChallenges','todos',
     'journalHistory','cycles','cycleArchivedStartDate',
-    'missionPoints','missionHistory','missionTotal'];
+    'missionPoints','missionHistory','missionTotal',
+    'pomodoroTargets','pomodoroSessions','pomodoroSettings'];
   const data = { updatedAt: Date.now() };
   keys.forEach(k => { data[k] = localStorage.getItem(k) || ''; });
   await db.collection('users').doc(currentUID).set(data);
@@ -2122,7 +2123,10 @@ async function syncFromCloud() {
     if (k !== 'updatedAt') localStorage.setItem(k, v);
   });
   loadState();
+  S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, selectedDay)); // loadState() resets it to today
   renderAll();
+  renderTodoList();
+  updateStreakUI();
 }
 
 function signInWithGoogle() {
@@ -2328,12 +2332,13 @@ function loadState() {
 
   // Apply — use defaults if empty
   S.pomodoro = {
-    targets:  parsedPT.length ? parsedPT : [
+    targets:  (Array.isArray(parsedPT) && parsedPT.length) ? parsedPT : [
       { id: "study",     name: "Study",     color: "#a855f7" },
       { id: "freelance", name: "Freelance", color: "#f97316" }
     ],
-    sessions: (parsedPS && typeof parsedPS === 'object') ? parsedPS : {},
-    settings: Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null }, parsedPSet)
+    sessions: (parsedPS && typeof parsedPS === 'object' && !Array.isArray(parsedPS)) ? parsedPS : {},
+    settings: Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null },
+      (parsedPSet && typeof parsedPSet === 'object' && !Array.isArray(parsedPSet)) ? parsedPSet : {})
   };
 }
 
@@ -2761,6 +2766,7 @@ function saveJournalEntry() {
   const text = input.value.trim();
   if (!text) return;
   const d = journalEditingDay !== null ? journalEditingDay : SYSTEM_TODAY;
+  if (d > SYSTEM_TODAY) return; // read-only for future days
   S.journalHistory[d] = text;
   saveState();
   closeJournalModal();
@@ -4174,6 +4180,7 @@ function initCharts() {
     }]
   });
 
+  if (chartTodosSide) { chartTodosSide.destroy(); chartTodosSide = null; }
   chartTodosSide = new Chart(
     document.getElementById('chartTodosSide'), {
     type: 'line',
@@ -5228,6 +5235,9 @@ let pomSessionFocusSecs = 0;
 // partial history record carrying this key, so repeated saves update a single
 // record instead of stacking duplicates, and unrelated sessions never merge.
 let pomSessionKey = null;
+// Day index the active focus session belongs to, pinned when it starts so
+// browsing to another day never moves its history record or live snapshot.
+let pomSessionDay = null;
 
 function pomFocusConfigSecs() {
   return pomSessionFocusSecs > 0
@@ -5255,6 +5265,7 @@ function pomReset() {
   pomSessionValid = false; // nothing in memory worth preserving any more
   pomSessionFocusSecs = 0;
   pomSessionKey = null;
+  pomSessionDay = null;
   pomClearLiveSession(); // async — fire and forget
   pomUpdateUI();
 }
@@ -5308,6 +5319,7 @@ function togglePomodoro() {
     if (pomPhase === 'focus') {
       // A resume keeps its own identity; a brand-new focus run gets one.
       if (!pomSessionKey) pomSessionKey = pomNewSessionKey();
+      if (pomSessionDay == null) pomSessionDay = todoDay;
       // Pin this session's configured focus duration for all elapsed math.
       pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
       // Track the session from its first second, so even a session younger
@@ -5327,6 +5339,7 @@ function togglePomodoro() {
           // A brand-new focus session starts with its own config + identity.
           pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
           pomSessionKey = pomNewSessionKey();
+          pomSessionDay = SYSTEM_TODAY; // sessions only run on today
           pomWriteLiveSession(); // async — fire and forget
         }
         pomSecondsLeft = pomTotalSeconds();
@@ -5366,7 +5379,7 @@ function togglePomodoro() {
 }
 
 function pomLogSession() {
-  const d = todoDay;
+  const d = (pomSessionDay != null) ? pomSessionDay : todoDay;
   if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
   const sessions = S.pomodoro.sessions[d];
   const targetId = S.pomodoro.settings.activeTargetId;
@@ -5765,7 +5778,8 @@ function pomFindPartialIdx(sessions, targetId) {
 // legacy whole-minute view for any older consumer.
 function pomLogPartial(elapsedSecs) {
   elapsedSecs = Math.max(0, Math.round(elapsedSecs));
-  const d = todoDay;
+  if (pomSessionDay == null) pomSessionDay = todoDay;
+  const d = pomSessionDay;
   if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
   const sessions = S.pomodoro.sessions[d];
   const targetId = S.pomodoro.settings.activeTargetId;
@@ -5805,7 +5819,7 @@ function pomLogPartial(elapsedSecs) {
 function pomLiveSnapshot() {
   const elapsedSecs = pomElapsedFocusSeconds();
   return {
-    day:            todoDay,
+    day:            (pomSessionDay != null) ? pomSessionDay : todoDay,
     targetId:       S.pomodoro.settings.activeTargetId,
     focusMins:      Math.round(pomFocusConfigSecs() / 60), // this session's own
     breakMins:      S.pomodoro.settings.breakMins,
@@ -5931,6 +5945,7 @@ async function pomRestoreSession() {
   // Keep the partial-history identity across reloads (snapshots older than
   // this feature simply start a new identity).
   pomSessionKey   = snap.sessionId || pomNewSessionKey();
+  pomSessionDay   = snap.day;
   return 'restored';
 }
 </script>
