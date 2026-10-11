@@ -1,7 +1,36 @@
 <!--
-VERSION: index17.html
-BASED ON: index16.html
-CHANGES: [index17 · pass 1] To-Do tab — each column is its own compact glass card.
+VERSION: index18.html
+BASED ON: index17.html
+CHANGES: [index18 · pass 1] Calendar ⇄ To-Do day sync + responsive timer ring.
+         FIX 1 — To-Do list follows the selected calendar day:
+         - selectDay() now also sets todoDay = dayIndex (before renderAll() /
+           renderTodoList(), both of which it already called), so tapping a day
+           in the weekly calendar strip shows THAT day's tasks instead of
+           always showing the boot day. Past days keep the existing read-only
+           behaviour (pomodoro block hidden, task toggling allowed).
+         FIX 2 — responsive timer ring (CSS/markup only, zero JS):
+         - Ring container div: fixed 160x160 inline box replaced with
+           width:100%; max-width:280px; aspect-ratio:1/1 — a square that fills
+           the centre card and caps at 280px, shrinking on small screens and
+           growing on large ones.
+         - The SVG keeps viewBox="0 0 160 160" and its existing inline
+           width:100%/height:100%, so it always fills the square while the
+           internal coordinate system, cx/cy/r values and stroke proportions
+           stay exactly as they were.
+         - #pomodoroDisplay font-size 32px -> clamp(24px, 5vw, 48px);
+           #pomodoroPhaseLabel 10px -> clamp(9px, 1.2vw, 13px) (both were
+           inline; the desktop 44px override is gone with the rule below).
+         - Button row max-width 260px -> min(280px,100%) so it always matches
+           the ring above it.
+         - The whole @media (min-width:1024px) block is removed: its 220px ring
+           override (which targeted div[style*="width:160px"]) and its 44px
+           #pomodoroDisplay override are now handled by the responsive rules.
+         pomUpdateUI(), the SVG/circle geometry, charts, analytics, the button
+         morph animation and the mobile vertical order are untouched.
+
+         ────────── inherited changelog: index17 passes 1–5 ──────────
+
+[index17 · pass 1] To-Do tab — each column is its own compact glass card.
          - Removed the .todo-outer big wrapper div entirely (open + close);
            .todo-split-wrapper now sits directly in #tab-todo
          - .todo-col (all 3 columns) gets card chrome: background #0d0d11,
@@ -101,6 +130,58 @@ CHANGES: [index17 · pass 1] To-Do tab — each column is its own compact glass 
          !important: .glass-btn already forces its border !important, and
          renderPomodoroBlock() writes an inline opacity:1 on the buttons.
          Timer logic, Firebase wiring and the rest of the markup are untouched.
+
+         [index17 · pass 5] Second-precise Pomodoro progress saving (Firebase
+         only — no localStorage / sessionStorage / IndexedDB added; the SAME
+         users/{uid}/pomodoro/liveSession document is extended, never replaced,
+         and no new document/collection is created).
+         - NEW pomSessionFocusSecs: the CONFIGURED focus duration of the ACTIVE
+           session, captured on Start, on restore and on every new focus phase,
+           so elapsed math never reads a subsequently changed setting.
+           pomFocusConfigSecs() is its safe accessor (settings fallback).
+         - NEW pomElapsedFocusSeconds(): exact integer
+           elapsedFocusSeconds = configuredFocusSeconds - remainingFocusSeconds
+           (25:00 with 23:05 left => 115s), clamped to [0, configured], and 0
+           outside the focus phase — break time is never focus time.
+           pomElapsedMins() now wraps it (whole minutes, for legacy callers).
+         - pomAutoSave(): fires at every elapsed-minute boundary (never per
+           second), upserts the partial record with the EXACT elapsed seconds
+           (new focusSeconds field; focusMins kept as floor(secs/60)) and writes
+           the live snapshot.
+         - togglePomodoro() Pause: the 1-minute gate is gone. ANY elapsed focus
+           time is saved at once (35s => focusSeconds 35, 1m55s => 115,
+           7m42s => 462) — exact secondsLeft, phase, target and configured
+           durations preserved, countdown untouched, document never deleted.
+           Start also writes a snapshot immediately so a reload can restore the
+           target/duration of a session younger than one minute.
+         - Partial records now carry sessionId (pomSessionKey): repeated
+           autosaves and pause/resume cycles keep updating the SAME record;
+           records of other sessions are never merged. Records written before
+           sessionId existed still match the old "last partial of this target"
+           rule (pomFindPartialIdx()).
+         - pomLogSession(): FINALIZES the active session's partial record in
+           place (focusDone:true, partial:false, focusSeconds = full configured
+           duration) instead of splice+push, so a completed Pomodoro can never
+           be counted twice; a new record is pushed only when no partial exists.
+         - liveSession document: the previous 8 fields are unchanged (elapsedMins
+           kept for older readers) and 3 are added — elapsedSeconds (authoritative
+           precise focus progress; secondsLeft stays authoritative for the
+           countdown, and the two always add up to the configured duration),
+           running (state at save time; restores always come back paused) and
+           sessionId.
+         - pomRestoreSession(): restores target/durations FIRST so every clamp
+           uses the session's own duration; derives the countdown from
+           elapsedSeconds when a snapshot has no secondsLeft; restores the
+           sessionId; never writes undefined over a missing field. Snapshots
+           without elapsedSeconds (older) restore from secondsLeft alone, and
+           paused sessions still restore paused with no wall-clock subtraction.
+         - renderPomodoroAnalytics(): aggregates from the exact focusSeconds
+           when present (falls back to legacy focusMins) and converts to minutes
+           only for display; the focusDone filter is untouched, so a partial
+           record still never counts as a completed Pomodoro.
+         Countdown, ring, target chip, Set panel, break handling, write
+         serialisation (pomWriteQueued/pomWriteChain) and error handling are
+         unchanged; no task/calendar/other-tab behaviour and no visual change.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -755,28 +836,13 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
     gap: 12px !important;
   }
 
-  /* The timer ring keeps its native 160px below 1024px so three equal
-     columns always stay wide enough for it (>=224px per column at 768px). */
+  /* The timer ring is fully responsive now (width:100%/max-width:280px +
+     aspect-ratio), so it never needs a fixed size — and therefore there is no
+     >=1024px override any more: it simply tracks the available card width. */
 }
 
-/* ── DESKTOP (>=1024px): roomier timer ring + countdown ── */
-@media (min-width: 1024px) {
-  /* Enlarge timer ring
-     (!important: the ring wrapper + svg carry inline sizing) */
-  .todo-col-center #pomodoroBlock div[style*="width:160px"] {
-    width: 220px !important;
-    height: 220px !important;
-  }
-
-  .todo-col-center #pomodoroBlock svg[viewBox="0 0 160 160"] {
-    width: 100% !important;
-    height: 100% !important;
-  }
-
-  .todo-col-center #pomodoroDisplay {
-    font-size: 44px !important;
-  }
-}
+/* ── DESKTOP: the timer ring/countdown size is handled by the responsive
+   clamp() + max-width rules above — no fixed pixel overrides. ── */
 
 /* ── MOBILE: vertical order ──
    1. Timer, 2. Todo list, 3. Chart */
@@ -1524,8 +1590,8 @@ let currentUID = null;
           <span id="pomodoroTargetLabel">No Target</span>
         </div>
 
-        <!-- Circular timer ring -->
-        <div style="position:relative;width:160px;height:160px">
+        <!-- Circular timer ring (responsive square: fills the card, caps at 280px) -->
+        <div style="position:relative;width:100%;max-width:280px;aspect-ratio:1 / 1">
           <svg style="width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 160 160">
             <circle cx="80" cy="80" r="68" stroke="rgba(255,255,255,0.05)" stroke-width="10" fill="none"/>
             <circle id="pomodoroRing" cx="80" cy="80" r="68"
@@ -1535,15 +1601,15 @@ let currentUID = null;
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;
             align-items:center;justify-content:center;gap:2px">
             <span id="pomodoroDisplay" class="stat-mono"
-              style="font-size:32px;font-weight:700;color:#fff">25:00</span>
+              style="font-size:clamp(24px, 5vw, 48px);font-weight:700;color:#fff">25:00</span>
             <span id="pomodoroPhaseLabel"
-              style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;
+              style="font-size:clamp(9px, 1.2vw, 13px);color:rgba(255,255,255,0.4);text-transform:uppercase;
               letter-spacing:.08em">Focus</span>
           </div>
         </div>
 
         <!-- Buttons row (idle: Set + Start · running: full-width Pause) -->
-        <div id="pomodoroBtnRow" style="display:flex;width:100%;max-width:260px">
+        <div id="pomodoroBtnRow" style="display:flex;width:100%;max-width:min(280px,100%)">
           <button id="pomodoroSetBtn" onclick="openPomodoroSetPanel()"
             class="glass-btn" style="border-radius:12px;font-size:13px;
             font-weight:700;font-family:inherit">
@@ -1984,7 +2050,10 @@ let S = {
       { id: "study",     name: "Study",     color: "#a855f7" },
       { id: "freelance", name: "Freelance", color: "#f97316" }
     ],
-    sessions: {},   // { "dayIndex": [ { targetId, focusMins, breakMins, completedAt, focusDone } ] }
+    sessions: {},   // { "dayIndex": [ { targetId, focusMins, focusSeconds, breakMins, completedAt, updatedAt?, focusDone, partial, sessionId? } ] }
+                     // focusSeconds = exact elapsed focus time (authoritative);
+                     // focusMins = legacy whole-minute view. partial:true records
+                     // are in-progress, focusDone:true are completed Pomodoros.
     settings: {
       focusMins: 25,       // default focus duration in minutes
       breakMins: 5,        // default break duration in minutes
@@ -2487,6 +2556,7 @@ function selectDay(dayIndex) {
   if (dayIndex < 0 || dayIndex > SYSTEM_TODAY) return;
   selectedDay = dayIndex;
   S.dayIndex  = dayIndex;
+  todoDay     = dayIndex; // To-Do list follows the selected calendar day
   renderAll();
   renderTodoList();
 
@@ -5149,6 +5219,25 @@ let pomRunning = false;
 // restored from Firestore). Navigation uses it as a shield: a valid paused
 // timer is never reset and never overwritten by a slower Firestore read.
 let pomSessionValid = false;
+// Configured focus duration (seconds) of the ACTIVE session. Captured on
+// Start, on restore and on every new focus phase, so elapsed-progress math
+// always uses this session's own configuration — never a value that was
+// changed later in S.pomodoro.settings.
+let pomSessionFocusSecs = 0;
+// Identity of the active focus session. Autosaves and pauses upsert the one
+// partial history record carrying this key, so repeated saves update a single
+// record instead of stacking duplicates, and unrelated sessions never merge.
+let pomSessionKey = null;
+
+function pomFocusConfigSecs() {
+  return pomSessionFocusSecs > 0
+    ? pomSessionFocusSecs
+    : S.pomodoro.settings.focusMins * 60;
+}
+
+function pomNewSessionKey() {
+  return 's' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
 
 function pomTotalSeconds() {
   const s = S.pomodoro.settings;
@@ -5164,6 +5253,8 @@ function pomReset() {
   pomPhase = 'focus';
   pomSecondsLeft = pomTotalSeconds();
   pomSessionValid = false; // nothing in memory worth preserving any more
+  pomSessionFocusSecs = 0;
+  pomSessionKey = null;
   pomClearLiveSession(); // async — fire and forget
   pomUpdateUI();
 }
@@ -5211,27 +5302,43 @@ function pomUpdateUI() {
 function togglePomodoro() {
   if (todoDay < SYSTEM_TODAY) return; // guard: past days only read-only
   if (!pomRunning) {
-    // Start
+    // Start — or resume a paused session
     pomRunning = true;
     pomSessionValid = true; // in-memory state is now authoritative
-    let _pomLastMinute = pomElapsedMins();
+    if (pomPhase === 'focus') {
+      // A resume keeps its own identity; a brand-new focus run gets one.
+      if (!pomSessionKey) pomSessionKey = pomNewSessionKey();
+      // Pin this session's configured focus duration for all elapsed math.
+      pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+      // Track the session from its first second, so even a session younger
+      // than one minute can be restored with its target + duration.
+      pomWriteLiveSession(); // async — fire and forget
+    }
+    // Last minute-boundary autosaved (resume continues from the exact elapsed
+    // time, so a resumed session never re-saves the same minute).
+    let _pomLastSavedMin = Math.floor(pomElapsedFocusSeconds() / 60);
     pomTimer = setInterval(() => {
       if (pomSecondsLeft <= 0) {
         if (pomPhase === 'focus') {
-          pomLogSession();
+          pomLogSession(); // finalize this focus session (exact seconds)
           pomPhase = 'break';
         } else {
           pomPhase = 'focus';
+          // A brand-new focus session starts with its own config + identity.
+          pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+          pomSessionKey = pomNewSessionKey();
+          pomWriteLiveSession(); // async — fire and forget
         }
         pomSecondsLeft = pomTotalSeconds();
-        _pomLastMinute = 0;
+        _pomLastSavedMin = 0;
       } else {
         pomSecondsLeft--;
-        // Auto-save every new elapsed minute (focus phase only)
+        // Autosave at every elapsed-minute boundary (focus phase only), with
+        // the EXACT elapsed seconds — one save per minute, never per second.
         if (pomPhase === 'focus') {
-          const currentMinute = pomElapsedMins();
-          if (currentMinute > _pomLastMinute && currentMinute >= 1) {
-            _pomLastMinute = currentMinute;
+          const elapsedMin = Math.floor(pomElapsedFocusSeconds() / 60);
+          if (elapsedMin >= 1 && elapsedMin > _pomLastSavedMin) {
+            _pomLastSavedMin = elapsedMin;
             pomAutoSave(); // async — fire and forget
           }
         }
@@ -5239,20 +5346,20 @@ function togglePomodoro() {
       pomUpdateUI();
     }, 1000);
   } else {
-    // Pause
+    // Pause — persist the exact progress right now (no minute gate at all)
     clearInterval(pomTimer);
     pomTimer = null;
     pomRunning = false;
     pomSessionValid = true;
-    // Save partial progress if at least 1 minute elapsed
-    if (pomPhase === 'focus') {
-      const mins = pomElapsedMins();
-      if (mins >= 1) {
-        pomLogPartial(mins);
-      }
-    }
-    // Persist the EXACT remaining seconds + phase right now (no minute gate),
-    // so leaving the tab — or the page — never loses or resets the pause.
+    // Exact elapsed focus seconds — 35s focused => 35, 1m55s => 115, and the
+    // countdown itself (pomSecondsLeft) is never touched.
+    const elapsed = pomElapsedFocusSeconds();
+    // Update THIS session's partial history record (the same record on every
+    // autosave / pause / resume — never a duplicate).
+    if (elapsed > 0) pomLogPartial(elapsed);
+    // Immediate, serialise-safe Firestore write: exact secondsLeft, phase,
+    // elapsedSeconds, target and configured durations. Pausing never deletes
+    // the document and a failed write never resets the in-memory timer.
     pomWriteLiveSession(); // async — fire and forget
   }
   pomUpdateUI();
@@ -5261,22 +5368,41 @@ function togglePomodoro() {
 function pomLogSession() {
   const d = todoDay;
   if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
-  // Remove last partial entry for this target if it exists (it's now fully complete)
   const sessions = S.pomodoro.sessions[d];
-  const lastIdx = sessions.length - 1;
-  if (lastIdx >= 0 && sessions[lastIdx].partial === true &&
-      sessions[lastIdx].targetId === S.pomodoro.settings.activeTargetId) {
-    sessions.splice(lastIdx, 1);
+  const targetId = S.pomodoro.settings.activeTargetId;
+  // Full configured focus duration of THIS session, in exact seconds.
+  const focusSecs = Math.max(0, Math.round(pomFocusConfigSecs()));
+  const stamp = new Date().toISOString();
+
+  // The active session's partial record is FINALIZED in place (same record,
+  // same position) so a completed Pomodoro is never logged twice — no
+  // splice+push, no duplicate. Records of other sessions are never touched.
+  const idx = pomFindPartialIdx(sessions, targetId);
+  if (idx >= 0) {
+    const e = sessions[idx];
+    e.targetId     = targetId;
+    e.focusMins    = Math.round(focusSecs / 60);
+    e.focusSeconds = focusSecs;      // exact configured focus time
+    e.breakMins    = S.pomodoro.settings.breakMins;
+    e.completedAt  = stamp;          // completion timestamp
+    e.updatedAt    = stamp;
+    e.focusDone    = true;
+    e.partial      = false;
+  } else {
+    // No partial record exists (e.g. a full focus run without any autosave).
+    sessions.push({
+      targetId:     targetId,
+      focusMins:    Math.round(focusSecs / 60),
+      focusSeconds: focusSecs,
+      breakMins:    S.pomodoro.settings.breakMins,
+      completedAt:  stamp,
+      focusDone:    true,
+      partial:      false,
+      sessionId:    pomSessionKey
+    });
   }
-  sessions.push({
-    targetId:    S.pomodoro.settings.activeTargetId,
-    focusMins:   S.pomodoro.settings.focusMins,
-    breakMins:   S.pomodoro.settings.breakMins,
-    completedAt: new Date().toISOString(),
-    focusDone:   true,
-    partial:     false
-  });
   saveState();
+  pomSessionKey = null; // this focus session is finished
   pomClearLiveSession(); // session complete — no longer needs live snapshot
 }
 
@@ -5528,16 +5654,24 @@ function renderPomodoroAnalytics() {
   if (empty) empty.style.display = 'none';
   if (content) content.style.display = 'block';
 
-  // Aggregate by target
+  // Aggregate by target — from the EXACT stored seconds when present
+  // (focusSeconds), falling back to the legacy whole-minute field. Seconds are
+  // summed exactly and only converted to minutes for display, and the
+  // focusDone filter above keeps partial records out entirely, so a partial
+  // session can never be counted as a completed Pomodoro.
+  const secsOf = s => (s.focusSeconds != null
+    ? s.focusSeconds
+    : (s.focusMins || 0) * 60);
   const byTarget = {};
   sessions.forEach(s => {
     const tid = s.targetId || '__none__';
-    if (!byTarget[tid]) byTarget[tid] = { mins: 0, count: 0 };
-    byTarget[tid].mins  += s.focusMins;
+    if (!byTarget[tid]) byTarget[tid] = { secs: 0, count: 0 };
+    byTarget[tid].secs  += secsOf(s);
     byTarget[tid].count += 1;
   });
 
-  const totalMins = sessions.reduce((a, s) => a + s.focusMins, 0);
+  const totalSecs = sessions.reduce((a, s) => a + secsOf(s), 0);
+  const totalMins = Math.round(totalSecs / 60);
   const avgMins   = sessions.length ? Math.round(totalMins / sessions.length) : 0;
 
   // Stats
@@ -5552,7 +5686,7 @@ function renderPomodoroAnalytics() {
   Object.entries(byTarget).forEach(([tid, val]) => {
     const target = S.pomodoro.targets.find(t => t.id === tid);
     labels.push(target ? target.name : 'Other');
-    data.push(val.mins);
+    data.push(Math.round(val.secs / 60)); // minutes are a display unit only
     colors.push(target ? target.color : '#666');
   });
 
@@ -5590,49 +5724,98 @@ function renderPomodoroAnalytics() {
 }
 
 // ── POMODORO PARTIAL SESSIONS ──
-function pomElapsedMins() {
-  const total = S.pomodoro.settings.focusMins * 60;
+// Exact elapsed focus time, in SECONDS, of the active focus session:
+//   elapsedFocusSeconds = configuredFocusSeconds - remainingFocusSeconds
+// (25:00 configured with 23:05 left => 115s, never rounded to whole minutes).
+// The configured duration is the ACTIVE session's own value (pomSessionFocusSecs,
+// captured on Start/restore), so a later settings change cannot corrupt it.
+// Outside the focus phase the answer is 0 — break time is never focus time.
+function pomElapsedFocusSeconds() {
+  if (pomPhase !== 'focus') return 0;
+  const total = pomFocusConfigSecs();
   const elapsed = total - pomSecondsLeft;
-  return Math.floor(elapsed / 60); // floor to whole minutes
+  if (!isFinite(elapsed)) return 0;
+  return Math.max(0, Math.min(Math.round(total), Math.round(elapsed)));
 }
 
-function pomLogPartial(mins) {
+// Legacy whole-minute view of the same value (kept for older callers).
+function pomElapsedMins() {
+  return Math.floor(pomElapsedFocusSeconds() / 60);
+}
+
+// Index of the ACTIVE session's partial record inside a day's list, or -1.
+// Identity first (sessionId) so autosaves, pauses and resumes all address one
+// record; records written before sessionId existed keep matching the old
+// "last partial record of this target" rule. Records of other sessions are
+// never merged.
+function pomFindPartialIdx(sessions, targetId) {
+  const key = pomSessionKey;
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const e = sessions[i];
+    if (e.partial !== true || e.focusDone !== false) continue;
+    if (key && e.sessionId === key) return i;               // exact identity
+    if (!e.sessionId && e.targetId === targetId) return i;  // legacy record
+  }
+  return -1;
+}
+
+// Upsert the ACTIVE focus session's partial record with the EXACT elapsed
+// focus time in seconds. Repeated autosaves / pauses / resumes update the SAME
+// record (matched by sessionId) — never a duplicate. focusMins is kept as the
+// legacy whole-minute view for any older consumer.
+function pomLogPartial(elapsedSecs) {
+  elapsedSecs = Math.max(0, Math.round(elapsedSecs));
   const d = todoDay;
   if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
-  // Update the last partial entry if it exists (avoid stacking duplicates on repeated pause)
-  const existing = S.pomodoro.sessions[d];
-  const lastEntry = existing[existing.length - 1];
-  if (lastEntry && lastEntry.focusDone === false && lastEntry.partial === true) {
-    // Update the existing partial entry with the latest elapsed time
-    lastEntry.focusMins = mins;
-    lastEntry.updatedAt = new Date().toISOString();
+  const sessions = S.pomodoro.sessions[d];
+  const targetId = S.pomodoro.settings.activeTargetId;
+  if (!pomSessionKey) pomSessionKey = pomNewSessionKey();
+
+  const idx = pomFindPartialIdx(sessions, targetId);
+  if (idx >= 0) {
+    const e = sessions[idx];
+    e.targetId     = targetId;
+    e.focusSeconds = elapsedSecs;                       // exact, authoritative
+    e.focusMins    = Math.floor(elapsedSecs / 60);      // legacy whole minutes
+    e.breakMins    = S.pomodoro.settings.breakMins;
+    e.updatedAt    = new Date().toISOString();
   } else {
-    // Create a new partial entry
-    existing.push({
-      targetId:    S.pomodoro.settings.activeTargetId,
-      focusMins:   mins,
-      breakMins:   S.pomodoro.settings.breakMins,
-      completedAt: new Date().toISOString(),
-      focusDone:   false,
-      partial:     true
+    sessions.push({
+      targetId:     targetId,
+      focusMins:    Math.floor(elapsedSecs / 60),
+      focusSeconds: elapsedSecs,
+      breakMins:    S.pomodoro.settings.breakMins,
+      completedAt:  new Date().toISOString(),
+      focusDone:    false,
+      partial:      true,
+      sessionId:    pomSessionKey
     });
   }
-  saveState();
+  saveState(); // persists through the existing saveState()/syncToCloud() path
 }
 
 // ── POMODORO LIVE SESSION (Firestore) ──
 // Exact snapshot of the current timer, written to
-// users/{uid}/pomodoro/liveSession (same document, same fields as before).
+// users/{uid}/pomodoro/liveSession. Same document, same 8 original fields
+// (elapsedMins kept for older readers) plus 3: elapsedSeconds — the
+// AUTHORITATIVE precise focus progress; secondsLeft stays authoritative for
+// the countdown and, in a focus phase, the two always add up to the configured
+// duration. sessionId keeps partial history from duplicating; running records
+// the state at save time (restores always come back paused).
 function pomLiveSnapshot() {
+  const elapsedSecs = pomElapsedFocusSeconds();
   return {
-    day:         todoDay,
-    targetId:    S.pomodoro.settings.activeTargetId,
-    focusMins:   S.pomodoro.settings.focusMins,
-    breakMins:   S.pomodoro.settings.breakMins,
-    elapsedMins: pomElapsedMins(),
-    secondsLeft: pomSecondsLeft,
-    phase:       pomPhase,
-    savedAt:     Date.now()
+    day:            todoDay,
+    targetId:       S.pomodoro.settings.activeTargetId,
+    focusMins:      Math.round(pomFocusConfigSecs() / 60), // this session's own
+    breakMins:      S.pomodoro.settings.breakMins,
+    elapsedMins:    pomElapsedMins(),  // legacy whole-minute view (kept)
+    elapsedSeconds: elapsedSecs,       // exact focus progress, in seconds
+    secondsLeft:    pomSecondsLeft,    // authoritative remaining countdown
+    phase:          pomPhase,
+    running:        pomRunning,        // state at save time
+    sessionId:      pomSessionKey,     // partial-record identity
+    savedAt:        Date.now()
   };
 }
 
@@ -5662,34 +5845,17 @@ function pomWriteLiveSession() {
   return pomWriteChain;
 }
 
+// Autosave: called at every elapsed-minute boundary of the focus phase (never
+// once per second). It upserts the active session's partial record with the
+// EXACT elapsed seconds and refreshes the live Firestore snapshot, so the
+// saved progress keeps advancing with the countdown.
 async function pomAutoSave() {
   if (pomPhase !== 'focus') return;
-  const mins = pomElapsedMins();
-  if (mins < 1) return;
+  const secs = pomElapsedFocusSeconds();
+  if (secs < 1) return;                  // nothing focused yet
 
-  // Update partial entry in local state
-  const d = todoDay;
-  if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
-  const sessions = S.pomodoro.sessions[d];
-  const lastEntry = sessions[sessions.length - 1];
-  if (lastEntry && lastEntry.partial === true &&
-      lastEntry.targetId === S.pomodoro.settings.activeTargetId) {
-    lastEntry.focusMins = mins;
-    lastEntry.updatedAt = new Date().toISOString();
-  } else {
-    sessions.push({
-      targetId:    S.pomodoro.settings.activeTargetId,
-      focusMins:   mins,
-      breakMins:   S.pomodoro.settings.breakMins,
-      completedAt: new Date().toISOString(),
-      focusDone:   false,
-      partial:     true
-    });
-  }
-  saveState(); // syncs to Firestore via existing syncToCloud()
-
-  // Write live snapshot to Firestore (serialised, supersede-safe)
-  return pomWriteLiveSession();
+  pomLogPartial(secs);                   // exact seconds — same record each time
+  return pomWriteLiveSession();          // serialised, supersede-safe write
 }
 
 async function pomClearLiveSession() {
@@ -5711,6 +5877,8 @@ async function pomClearLiveSession() {
 //   error    — the read itself failed (Firestore down); nothing was changed
 //   stale    — a newer restore started, or the user started the timer, while
 //              this read was in flight; caller must leave state untouched
+// A restored session is ALWAYS paused, keeps its exact secondsLeft and exact
+// elapsedSeconds, and wall-clock time is never subtracted from it.
 let pomRestoreSeq = 0;
 async function pomRestoreSession() {
   const seq = ++pomRestoreSeq;
@@ -5733,17 +5901,36 @@ async function pomRestoreSession() {
   if (snap.day !== todoDay) return 'invalid';
   if (Date.now() - (snap.savedAt || 0) > 2 * 60 * 60 * 1000) return 'invalid';
 
-  // Restore timer state — always restore as PAUSED
-  const total = pomTotalSeconds();
-  pomPhase       = snap.phase || 'focus';
-  pomSecondsLeft = snap.secondsLeft != null
-    ? Math.max(0, Math.min(total, snap.secondsLeft))
-    : total;
-  pomRunning      = false;
+  // Restore the session's own configuration FIRST, so every clamp below uses
+  // this session's duration and never a page default. A field missing from an
+  // older snapshot must never overwrite a good local value with undefined.
+  if (snap.targetId !== undefined) S.pomodoro.settings.activeTargetId = snap.targetId;
+  if (snap.focusMins != null)      S.pomodoro.settings.focusMins      = snap.focusMins;
+  if (snap.breakMins != null)      S.pomodoro.settings.breakMins      = snap.breakMins;
+
+  // Restore timer state — always restore as PAUSED.
+  pomPhase = snap.phase || 'focus';
+  const total = pomTotalSeconds(); // correct duration for this phase + session
+  pomSessionFocusSecs = (snap.focusMins != null
+    ? snap.focusMins
+    : S.pomodoro.settings.focusMins) * 60;
+
+  // secondsLeft is authoritative for the countdown. A snapshot that only has
+  // elapsedSeconds (or one missing secondsLeft) is derived from it; a snapshot
+  // with neither simply starts at the full duration. Valid progress is never
+  // discarded for being younger than one minute.
+  let left = snap.secondsLeft != null ? snap.secondsLeft : null;
+  if (left == null && snap.elapsedSeconds != null && pomPhase === 'focus') {
+    left = pomSessionFocusSecs - snap.elapsedSeconds;
+  }
+  if (left == null) left = total;
+  pomSecondsLeft = Math.max(0, Math.min(Math.round(total), Math.round(left)));
+
+  pomRunning      = false; // a paused session stays paused after a restore
   pomSessionValid = true;
-  S.pomodoro.settings.activeTargetId = snap.targetId;
-  S.pomodoro.settings.focusMins      = snap.focusMins;
-  S.pomodoro.settings.breakMins      = snap.breakMins;
+  // Keep the partial-history identity across reloads (snapshots older than
+  // this feature simply start a new identity).
+  pomSessionKey   = snap.sessionId || pomNewSessionKey();
   return 'restored';
 }
 </script>
