@@ -1630,6 +1630,13 @@ let currentUID = null;
           </button>
         </div>
 
+        <!-- Skip break (visible only during a break) -->
+        <button id="pomodoroSkipBtn" onclick="pomSkipBreak()"
+          style="display:none;background:none;border:none;color:rgba(255,255,255,0.55);
+          font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;padding:2px 8px">
+          Skip break →
+        </button>
+
         <!-- Cloud save status -->
         <div id="pomSyncStatus" style="font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:.04em;min-height:12px"></div>
 
@@ -5394,6 +5401,8 @@ function pomUpdateUI() {
   if (disp) disp.textContent = mins + ':' + secs;
   if (phase) phase.textContent = pomPhase === 'focus' ? 'Focus' : 'Break';
   if (startBtn) startBtn.textContent = pomRunning ? 'Pause' : 'Start';
+  const skipBtn = document.getElementById('pomodoroSkipBtn');
+  if (skipBtn) skipBtn.style.display = pomPhase === 'break' ? 'block' : 'none';
 
   // Button group morph — CSS animates the layout, this only flips the state:
   // running → Set collapses and Start grows into the full-width Pause button;
@@ -5512,6 +5521,23 @@ function pomSound(kind) {
 function pomNotify() {
   try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
   pomSound('end');
+}
+
+// Skip the rest of the break and start the next focus session right away.
+function pomSkipBreak() {
+  if (todoDay < SYSTEM_TODAY || pomPhase !== 'break') return;
+  clearInterval(pomTimer);
+  pomTimer = null;
+  pomRunning = false;
+  pomPhase = 'focus';
+  // A brand-new focus session: its own config, identity and day.
+  pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+  pomSessionKey = pomNewSessionKey();
+  pomSessionDay = SYSTEM_TODAY;
+  pomSecondsLeft = pomTotalSeconds();
+  pomLastSavedMin = 0;
+  pomEndAt = 0;
+  togglePomodoro(); // starts the new focus session immediately
 }
 
 function togglePomodoro() {
