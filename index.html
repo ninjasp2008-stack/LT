@@ -2096,9 +2096,6 @@ function saveState() {
   localStorage.setItem('journalHistory',   JSON.stringify(S.journalHistory));
   localStorage.setItem('cycles',           JSON.stringify(S.cycles));
   localStorage.setItem('cycleArchivedStartDate', S.cycleArchivedStartDate || '');
-  localStorage.setItem('pomodoroTargets',  JSON.stringify(S.pomodoro.targets));
-  localStorage.setItem('pomodoroSessions', JSON.stringify(S.pomodoro.sessions));
-  localStorage.setItem('pomodoroSettings', JSON.stringify(S.pomodoro.settings));
   syncToCloud();
 }
 async function syncToCloud() {
@@ -2107,8 +2104,7 @@ async function syncToCloud() {
     'stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
     'habitsHistory','habitsHistoryNegative','pastChallenges','todos',
     'journalHistory','cycles','cycleArchivedStartDate',
-    'missionPoints','missionHistory','missionTotal',
-    'pomodoroTargets','pomodoroSessions','pomodoroSettings'];
+    'missionPoints','missionHistory','missionTotal'];
   const data = { updatedAt: Date.now() };
   keys.forEach(k => { data[k] = localStorage.getItem(k) || ''; });
   await db.collection('users').doc(currentUID).set(data);
@@ -2116,11 +2112,12 @@ async function syncToCloud() {
 
 async function syncFromCloud() {
   if (!currentUID) return;
+  await pomLoadFromCloud(); // Pomodoro data lives only in Firestore
   const doc = await db.collection('users').doc(currentUID).get();
   if (!doc.exists) return;
   const data = doc.data();
   Object.entries(data).forEach(([k, v]) => {
-    if (k !== 'updatedAt') localStorage.setItem(k, v);
+    if (k !== 'updatedAt' && !k.startsWith('pomodoro')) localStorage.setItem(k, v);
   });
   loadState();
   S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, selectedDay)); // loadState() resets it to today
@@ -2201,6 +2198,7 @@ auth.onAuthStateChanged(async (user) => {
     await syncFromCloud();
   } else {
     currentUID = null;
+    pomCloudLoaded = false;
     updateAuthUI(null);
   }
 });
@@ -2315,31 +2313,8 @@ function loadState() {
   try { parsedJ = rawJ ? JSON.parse(rawJ) : {}; } catch(e) {}
   S.journalHistory = (parsedJ && typeof parsedJ === 'object' && !Array.isArray(parsedJ)) ? parsedJ : {};
 
-  // Load pomodoro targets
-  const rawPT = localStorage.getItem('pomodoroTargets');
-  let parsedPT = [];
-  try { parsedPT = rawPT ? JSON.parse(rawPT) : []; } catch(e) {}
-
-  // Load pomodoro sessions
-  const rawPS = localStorage.getItem('pomodoroSessions');
-  let parsedPS = {};
-  try { parsedPS = rawPS ? JSON.parse(rawPS) : {}; } catch(e) {}
-
-  // Load pomodoro settings
-  const rawPSet = localStorage.getItem('pomodoroSettings');
-  let parsedPSet = { focusMins: 25, breakMins: 5, activeTargetId: null };
-  try { parsedPSet = rawPSet ? JSON.parse(rawPSet) : parsedPSet; } catch(e) {}
-
-  // Apply — use defaults if empty
-  S.pomodoro = {
-    targets:  (Array.isArray(parsedPT) && parsedPT.length) ? parsedPT : [
-      { id: "study",     name: "Study",     color: "#a855f7" },
-      { id: "freelance", name: "Freelance", color: "#f97316" }
-    ],
-    sessions: (parsedPS && typeof parsedPS === 'object' && !Array.isArray(parsedPS)) ? parsedPS : {},
-    settings: Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null },
-      (parsedPSet && typeof parsedPSet === 'object' && !Array.isArray(parsedPSet)) ? parsedPSet : {})
-  };
+  // Pomodoro data (targets, sessions, settings) is NOT stored in localStorage:
+  // S.pomodoro is filled from Firestore by pomLoadFromCloud().
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -5414,7 +5389,7 @@ function pomLogSession() {
       sessionId:    pomSessionKey
     });
   }
-  saveState();
+  pomSaveCloud();
   pomSessionKey = null; // this focus session is finished
   pomClearLiveSession(); // session complete — no longer needs live snapshot
 }
@@ -5471,6 +5446,80 @@ function renderPomodoroBlock() {
   } else {
     pomUpdateUI();
   }
+}
+
+// ── POMODORO CLOUD PERSISTENCE ──
+// Targets, sessions (analytics) and settings live ONLY in Firestore:
+//   users/{uid}/pomodoro/data  { targets, sessions, settings }  (JSON strings)
+// Nothing is written to localStorage. Writes are serialised and a queued write
+// is superseded by a newer one, so the last state always wins.
+let pomCloudLoaded = false;   // saves are blocked until the cloud copy is loaded
+let pomSavePending = false;
+let pomSaveChain = Promise.resolve();
+
+function pomDataRef() {
+  return db.collection('users').doc(currentUID).collection('pomodoro').doc('data');
+}
+
+function pomSaveCloud() {
+  if (!currentUID || !pomCloudLoaded) return Promise.resolve(false);
+  pomSavePending = true;
+  pomSaveChain = pomSaveChain.then(async () => {
+    if (!pomSavePending) return false;   // superseded by a newer request
+    pomSavePending = false;
+    try {
+      await pomDataRef().set({
+        targets:   JSON.stringify(S.pomodoro.targets),
+        sessions:  JSON.stringify(S.pomodoro.sessions),
+        settings:  JSON.stringify(S.pomodoro.settings),
+        updatedAt: Date.now()
+      });
+      return true;
+    } catch(e) {
+      console.warn('pomSaveCloud Firestore error:', e);
+      return false;
+    }
+  });
+  return pomSaveChain;
+}
+
+async function pomLoadFromCloud() {
+  if (!currentUID) return;
+  const parse = (raw, fallback) => {
+    try { const v = raw ? JSON.parse(raw) : fallback; return v == null ? fallback : v; }
+    catch(e) { return fallback; }
+  };
+  const legacyKeys = ['pomodoroTargets', 'pomodoroSessions', 'pomodoroSettings'];
+  let doc;
+  try { doc = await pomDataRef().get(); }
+  catch(e) { console.warn('pomLoadFromCloud error:', e); return; } // keep memory, saves stay blocked
+
+  let targets, sessions, settings, migrate = false;
+  if (doc.exists) {
+    const d = doc.data();
+    targets  = parse(d.targets,  null);
+    sessions = parse(d.sessions, null);
+    settings = parse(d.settings, null);
+  } else {
+    // One-time migration of data an older version kept in localStorage.
+    targets  = parse(localStorage.getItem('pomodoroTargets'),  null);
+    sessions = parse(localStorage.getItem('pomodoroSessions'), null);
+    settings = parse(localStorage.getItem('pomodoroSettings'), null);
+    migrate  = !!(targets || sessions || settings);
+  }
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  if (Array.isArray(targets) && targets.length) S.pomodoro.targets = targets;
+  if (isObj(sessions)) S.pomodoro.sessions = sessions;
+  if (isObj(settings)) {
+    S.pomodoro.settings = Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null }, settings);
+  }
+  pomCloudLoaded = true;
+  if (migrate) await pomSaveCloud();
+  // Cloud is now the only home of this data — drop any local copy.
+  if (doc.exists || migrate) legacyKeys.forEach(k => localStorage.removeItem(k));
+
+  if (!pomRunning && !pomSessionValid) pomSecondsLeft = pomTotalSeconds();
+  renderTodoList();
 }
 
 // ── POMODORO SETTINGS PANEL ──
@@ -5537,7 +5586,7 @@ function savePomodoroSettings() {
   S.pomodoro.settings.focusMins = pomSetFocusTmp;
   S.pomodoro.settings.breakMins = pomSetBreakTmp;
   S.pomodoro.settings.activeTargetId = pomSetTargetTmp;
-  saveState();
+  pomSaveCloud();
   closePomodoroSetPanel();
   pomReset();
   pomUpdateUI();
@@ -5587,7 +5636,7 @@ function createNewTarget() {
   const newTarget = { id, name, color: newTargetColorTmp };
   S.pomodoro.targets.push(newTarget);
   pomSetTargetTmp = id; // auto-select the new target
-  saveState();
+  pomSaveCloud();
   closeNewTargetModal();
   renderPomTargetList(); // refresh the target list in Set panel
 }
@@ -5653,7 +5702,8 @@ function buildPomAnalyticsStrip() {
 }
 
 function renderPomodoroAnalytics() {
-  const sessions = (S.pomodoro.sessions[pomAnalyticsDay] || []).filter(s => s.focusDone);
+  const sessions = (S.pomodoro.sessions[pomAnalyticsDay] || [])
+    .filter(s => s.focusDone || (s.partial === true && (s.focusSeconds || 0) > 0));
   const empty = document.getElementById('pomAnalyticsEmpty');
   const content = document.getElementById('pomAnalyticsContent');
 
@@ -5669,9 +5719,9 @@ function renderPomodoroAnalytics() {
 
   // Aggregate by target — from the EXACT stored seconds when present
   // (focusSeconds), falling back to the legacy whole-minute field. Seconds are
-  // summed exactly and only converted to minutes for display, and the
-  // focusDone filter above keeps partial records out entirely, so a partial
-  // session can never be counted as a completed Pomodoro.
+  // summed exactly and only converted to minutes for display. In-progress
+  // (partial) records count with their exact elapsed seconds, and each focus
+  // session owns ONE record, so a session is never counted twice.
   const secsOf = s => (s.focusSeconds != null
     ? s.focusSeconds
     : (s.focusMins || 0) * 60);
@@ -5805,7 +5855,7 @@ function pomLogPartial(elapsedSecs) {
       sessionId:    pomSessionKey
     });
   }
-  saveState(); // persists through the existing saveState()/syncToCloud() path
+  pomSaveCloud(); // straight to Firestore — analytics sees this minute/pause
 }
 
 // ── POMODORO LIVE SESSION (Firestore) ──
