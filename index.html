@@ -858,6 +858,16 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
     border-radius: 18px;
     margin-bottom: 12px;
   }
+
+  /* The stacked column is already the card — drop the timer block's own card
+     so the mobile timer isn't a bubble inside a bubble (matches desktop). */
+  .todo-col-center #pomodoroBlock {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0 !important;
+  }
 }
 
 </style>
@@ -1061,13 +1071,13 @@ let currentUID = null;
 <!-- TO-DO ADD MODAL -->
 <div id="todoModal" class="modal-overlay" onclick="if(event.target===this)closeTodoModal()">
   <div class="modal-box" style="max-width:320px;padding:24px">
-    <p style="font-size:16px;font-weight:700;margin-bottom:16px">New Task</p>
+    <p id="todoModalTitle" style="font-size:16px;font-weight:700;margin-bottom:16px">New Task</p>
     <input id="todoModalInput" type="text" maxlength="100" placeholder="Write a new task…"
       style="width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;
              color:#fff;padding:12px 14px;outline:none;font-family:inherit;font-size:15px;margin-bottom:18px"
       onfocus="this.style.borderColor='rgba(255,255,255,0.2)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"
       onkeydown="if(event.key==='Enter')submitTodoItem()">
-    <button onclick="submitTodoItem()" class="btn-save" style="width:100%;padding:12px;border-radius:10px;font-size:15px">Add</button>
+    <button onclick="submitTodoItem()" id="todoModalBtn" class="btn-save" style="width:100%;padding:12px;border-radius:10px;font-size:15px">Add</button>
   </div>
 </div>
 
@@ -1077,14 +1087,12 @@ let currentUID = null;
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <p style="font-size:18px;font-weight:700;margin:0">Set Pomodoro</p>
-      <span class="stat-mono" style="font-size:11px;color:rgba(255,255,255,0.35)">Max 99min</span>
     </div>
 
     <!-- Focus duration -->
     <div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:13px;font-weight:600;color:#ffffff">Focus</span>
-        <span style="font-size:11px;color:rgba(255,255,255,0.4)">Max 99 min</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <button class="step-btn" onclick="adjPomFocus(-5)">−</button>
@@ -1103,7 +1111,6 @@ let currentUID = null;
     <div style="margin-bottom:20px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:13px;font-weight:600;color:#ffffff">Break</span>
-        <span style="font-size:11px;color:rgba(255,255,255,0.4)">Min 5 · Max 30 min</span>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <button class="step-btn" onclick="adjPomBreak(-5)">−</button>
@@ -1118,7 +1125,8 @@ let currentUID = null;
     <!-- Target selector -->
     <div style="margin-bottom:20px">
       <p style="font-size:13px;font-weight:600;color:#ffffff;margin-bottom:10px">Target</p>
-      <div id="pomTargetList" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
+      <div id="pomTargetList" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;min-width:0;
+        -webkit-overflow-scrolling:touch;touch-action:pan-x;overscroll-behavior-x:contain;cursor:grab;
         scrollbar-width:none;-ms-overflow-style:none">
         <!-- rendered by JS -->
       </div>
@@ -1622,6 +1630,9 @@ let currentUID = null;
           </button>
         </div>
 
+        <!-- Cloud save status -->
+        <div id="pomSyncStatus" style="font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:.04em;min-height:12px"></div>
+
       </div>
 
       </div><!-- /todo-col-center -->
@@ -1638,10 +1649,6 @@ let currentUID = null;
         <div style="position:relative;height:160px">
           <canvas id="chartTodosSide"></canvas>
         </div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.5);
-          margin-top:10px;text-align:center">
-          Daily task completion % — 0% if no tasks
-        </div>
       </div><!-- /todo-col-right -->
     </div><!-- /todo-split-wrapper -->
   </div>
@@ -1649,6 +1656,11 @@ let currentUID = null;
   <!-- ──────── ANALYTICS TAB ──────── -->
   <div id="tab-analytics" class="tab-panel tab-scroll">
     <div style="padding:16px;padding-bottom:80px;display:flex;flex-direction:column;gap:16px">
+
+      <div class="mission-glass-container" style="border-radius:20px;padding:20px">
+        <h2 class="glass-title" style="margin-bottom:0">Analytics</h2>
+        <p style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px">Live charts driven from your logged data.</p>
+      </div>
 
       <!-- POMODORO ANALYTICS CARD -->
       <div class="mission-glass-container" style="border-radius:14px;padding:20px">
@@ -1720,9 +1732,14 @@ let currentUID = null;
         </div>
       </div>
 
-      <div class="mission-glass-container" style="border-radius:20px;padding:20px">
-        <h2 class="glass-title" style="margin-bottom:0">Analytics</h2>
-        <p style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px">Live charts driven from your logged data.</p>
+      <!-- POMODORO FOCUS OVERVIEW -->
+      <div class="mission-glass-container" style="border-radius:14px;padding:20px">
+        <div class="chart-title-row">
+          <div class="glass-title-sm" style="color:#ffffff">Focus Time</div>
+          <button class="range-toggle" data-range-key="focus" onclick="toggleRange('focus')" aria-label="Switch Focus Time chart to Week view">Month</button>
+        </div>
+        <div style="position:relative;height:180px;margin-top:12px"><canvas id="chartPomFocus"></canvas></div>
+        <div id="pomFocusTotals" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
       </div>
 
       <!-- HABIT COMPLETION -->
@@ -1766,7 +1783,6 @@ let currentUID = null;
           <div class="glass-title-sm" style="color:#ffffff">To-Do Completion Rate</div>
           <button class="range-toggle" data-range-key="todos" onclick="toggleRange('todos')" aria-label="Switch To-Do chart to Week view">Month</button>
         </div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.8);margin-bottom:16px">Daily task completion % — 0% if no tasks exist for that day</div>
         <div style="position:relative;height:180px"><canvas id="chartTodos"></canvas></div>
       </div>
 
@@ -2098,27 +2114,85 @@ function saveState() {
   localStorage.setItem('cycleArchivedStartDate', S.cycleArchivedStartDate || '');
   syncToCloud();
 }
-async function syncToCloud() {
-  if (!currentUID) return;
-  const keys = ['challengeStartDate','habits','habitsNegative','waterHistory',
-    'stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
-    'habitsHistory','habitsHistoryNegative','pastChallenges','todos',
-    'journalHistory','cycles','cycleArchivedStartDate',
-    'missionPoints','missionHistory','missionTotal'];
-  const data = { updatedAt: Date.now() };
-  keys.forEach(k => { data[k] = localStorage.getItem(k) || ''; });
-  await db.collection('users').doc(currentUID).set(data);
+// ── Small toast (bottom, auto-hides) ──
+function showToast(msg) {
+  let t = document.getElementById('appToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'appToast';
+    t.style.cssText = 'position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));' +
+      'transform:translateX(-50%) translateY(8px);background:#1a1a1a;color:#fff;' +
+      'border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:8px 16px;' +
+      'font-size:12px;font-weight:600;font-family:inherit;opacity:0;pointer-events:none;' +
+      'transition:opacity .2s,transform .2s;z-index:9999;white-space:nowrap';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)'; });
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(8px)'; }, 1800);
+}
+
+// Uploads are blocked until the first cloud download has finished (a fresh
+// browser can never overwrite real cloud data with blanks), and every upload
+// is a transaction that refuses to overwrite a cloud copy that is newer than
+// the one this device last saw.
+let cloudReady = false;      // first download finished → uploads allowed
+let lastCloudStamp = 0;      // updatedAt of the cloud doc this device last saw/wrote
+let syncPending = false;
+let syncChain = Promise.resolve();
+
+function syncToCloud() {
+  if (!currentUID || !cloudReady) return Promise.resolve(false);
+  syncPending = true;
+  syncChain = syncChain.then(async () => {
+    if (!syncPending || !currentUID || !cloudReady) return false; // superseded
+    syncPending = false;
+    const keys = ['challengeStartDate','habits','habitsNegative','waterHistory',
+      'stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
+      'habitsHistory','habitsHistoryNegative','pastChallenges','todos',
+      'journalHistory','cycles','cycleArchivedStartDate',
+      'missionPoints','missionHistory','missionTotal'];
+    const stamp = Date.now();
+    const data = { updatedAt: stamp };
+    keys.forEach(k => { data[k] = localStorage.getItem(k) || ''; });
+    const ref = db.collection('users').doc(currentUID);
+    try {
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        if (snap.exists && (snap.data().updatedAt || 0) > lastCloudStamp) {
+          const err = new Error('stale'); err.stale = true; throw err;
+        }
+        tx.set(ref, data);
+      });
+      lastCloudStamp = stamp;
+      return true;
+    } catch (e) {
+      if (e && e.stale) {
+        showToast('Newer data from another device — synced');
+        await syncFromCloud();
+      } else {
+        console.warn('syncToCloud error:', e);
+      }
+      return false;
+    }
+  });
+  return syncChain;
 }
 
 async function syncFromCloud() {
   if (!currentUID) return;
   await pomLoadFromCloud(); // Pomodoro data lives only in Firestore
-  const doc = await db.collection('users').doc(currentUID).get();
-  if (!doc.exists) return;
+  let doc;
+  try { doc = await db.collection('users').doc(currentUID).get(); }
+  catch (e) { console.warn('syncFromCloud error:', e); return; } // uploads stay blocked
+  if (!doc.exists) { cloudReady = true; lastCloudStamp = 0; return; }
   const data = doc.data();
   Object.entries(data).forEach(([k, v]) => {
     if (k !== 'updatedAt' && !k.startsWith('pomodoro')) localStorage.setItem(k, v);
   });
+  lastCloudStamp = data.updatedAt || 0;
+  cloudReady = true;
   loadState();
   S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, selectedDay)); // loadState() resets it to today
   renderAll();
@@ -2199,7 +2273,10 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     currentUID = null;
     pomCloudLoaded = false;
+    cloudReady = false;
+    lastCloudStamp = 0;
     updateAuthUI(null);
+    pomRefreshStatus();
   }
 });
 
@@ -2608,14 +2685,23 @@ function handleHabitsNav() {
   }, 300);
 }
 
-function openTodoModal() {
+let todoEditIdx = null; // index of the task being edited, or null when adding
+function openTodoModal(editIdx) {
+  todoEditIdx = (typeof editIdx === 'number') ? editIdx : null;
+  const editing = todoEditIdx !== null;
+  const title = document.getElementById('todoModalTitle');
+  const btn = document.getElementById('todoModalBtn');
+  if (title) title.textContent = editing ? 'Edit Task' : 'New Task';
+  if (btn) btn.textContent = editing ? 'Save' : 'Add';
   document.getElementById('todoModal').classList.add('open');
   const inp = document.getElementById('todoModalInput');
-  inp.value = '';
+  const existing = editing ? ((S.todos || {})[todoDay] || [])[todoEditIdx] : null;
+  inp.value = existing ? existing.text : '';
   inp.focus();
 }
 
 function closeTodoModal() {
+  todoEditIdx = null;
   document.getElementById('todoModal').classList.remove('open');
 }
 
@@ -2626,7 +2712,8 @@ function submitTodoItem() {
   if (!text) return;
   const d = todoDay;
   const items = getDayTodos(d);
-  items.push({ text: text, done: false });
+  if (todoEditIdx !== null && items[todoEditIdx]) items[todoEditIdx].text = text;
+  else items.push({ text: text, done: false });
   saveState();
   closeTodoModal();
   renderTodoList();
@@ -2908,6 +2995,7 @@ function switchTab(name) {
       pomAnalyticsDay = SYSTEM_TODAY;
       buildPomAnalyticsStrip();
       renderPomodoroAnalytics();
+      renderPomFocusOverview();
       initCharts();
       syncCharts();
       updateSummary();
@@ -3992,7 +4080,7 @@ const CDEFS = {
 function dayLabels() { return Array.from({length:TOTAL_DAYS},(_,i)=>'D'+(i+1)); }
 
 // ── RANGE TOGGLE STATE ──
-const chartRanges = { habits:'month', habitTrend:'month', todos:'month', water:'month', steps:'month', sleep:'month', pushups:'month', caffeine:'month', mood:'month' };
+const chartRanges = { focus:'month', habits:'month', habitTrend:'month', todos:'month', water:'month', steps:'month', sleep:'month', pushups:'month', caffeine:'month', mood:'month' };
 
 function getCurrentWeekRange() {
   const day = SYSTEM_TODAY;
@@ -4024,6 +4112,7 @@ function toggleRange(key) {
   });
   syncCharts();
   if (key === 'habitTrend') renderHabitTrendChart();
+  if (key === 'focus') renderPomFocusOverview();
 }
 
 function initCharts() {
@@ -4132,7 +4221,8 @@ function initCharts() {
       borderColor:'#ffffff', backgroundColor:'rgba(255,255,255,0.04)', fill:true,
       tension:.4, pointRadius:2, pointBackgroundColor:'#ffffff', borderWidth:2
     }]},
-    options:{...CDEFS, scales:{...CDEFS.scales,
+    // top padding keeps the task-count label of a 100% day inside the canvas
+    options:{...CDEFS, layout:{padding:{top:22}}, scales:{...CDEFS.scales,
       y:{...CDEFS.scales.y, min:0, max:100, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'%'}}}},
     plugins:[{
       id:'todoCountLabels',
@@ -4144,9 +4234,11 @@ function initCharts() {
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
+        // In Week view the points are a slice of the month: map back to the real day.
+        const off = (chartRanges.todos === 'week') ? getCurrentWeekRange().start : 0;
         meta.data.forEach((point, i) => {
-          const count = dayTodoCount(i);
-          const tasks = (S.todos||{})[i];
+          const count = dayTodoCount(i + off);
+          const tasks = (S.todos||{})[i + off];
           if (!tasks || !tasks.length) return;
           ctx.fillText(count, point.x, point.y - 8);
         });
@@ -4928,6 +5020,26 @@ function renderTodoList() {
     if (readonlyBanner) readonlyBanner.remove();
   }
 
+  // Carry-over (today only): offer yesterday's unfinished tasks
+  const oldCarry = document.getElementById('todoCarryBtn');
+  const prevTasks = (todoDay === SYSTEM_TODAY && todoDay > 0) ? ((S.todos || {})[todoDay - 1] || []) : [];
+  const carryable = prevTasks.filter(t => !t.done && !t.carried);
+  if (carryable.length) {
+    let cbtn = oldCarry;
+    if (!cbtn) {
+      cbtn = document.createElement('button');
+      cbtn.id = 'todoCarryBtn';
+      cbtn.style.cssText = 'background:none;border:1px dashed rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);' +
+        'border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;' +
+        'margin-bottom:10px;width:100%';
+      cbtn.addEventListener('click', carryOverTodos);
+      list.parentElement.insertBefore(cbtn, list);
+    }
+    cbtn.textContent = '↪ Carry over ' + carryable.length + ' unfinished from yesterday';
+  } else if (oldCarry) {
+    oldCarry.remove();
+  }
+
   const items = getDayTodos(d);
   list.innerHTML = '';
 
@@ -4953,6 +5065,7 @@ function renderTodoList() {
     const txt = document.createElement('span');
     txt.className = 'todo-text' + (item.done ? ' done' : '');
     txt.textContent = item.text;
+    if (todoDay === SYSTEM_TODAY) txt.style.cursor = 'pointer'; // tap to edit
 
     if (todoDay >= SYSTEM_TODAY) {
       const del = document.createElement('button');
@@ -4965,6 +5078,25 @@ function renderTodoList() {
     div.appendChild(txt);
     list.appendChild(div);
   });
+}
+
+// Copies yesterday's unfinished tasks to today (originals are flagged so they
+// can't be carried twice and stay as they were in yesterday's history).
+function carryOverTodos() {
+  if (todoDay !== SYSTEM_TODAY || todoDay < 1) return;
+  const prev = (S.todos || {})[todoDay - 1] || [];
+  const today = getDayTodos(todoDay);
+  let n = 0;
+  prev.forEach(t => {
+    if (!t.done && !t.carried) { t.carried = true; today.push({ text: t.text, done: false }); n++; }
+  });
+  if (!n) return;
+  saveState();
+  renderTodoList();
+  updateStreakUI();
+  if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
+  if (chartTodosSide) { chartTodosSide.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodosSide.update('none'); }
+  showToast(n + (n > 1 ? ' tasks' : ' task') + ' carried over');
 }
 
 // Event delegation for todo list — single handler, no per-item listeners
@@ -5020,6 +5152,9 @@ document.addEventListener('click', function(e) {
     }
     return;
   }
+
+  // Tap the task text (today only) → edit it
+  if (e.target.closest('.todo-text')) { openTodoModal(idx); return; }
 
   // Delete click
   if (e.target.closest('.todo-delete')) {
@@ -5197,6 +5332,8 @@ let pomTimer = null;          // setInterval handle
 let pomSecondsLeft = 0;       // current countdown in seconds
 let pomPhase = 'focus';       // 'focus' | 'break'
 let pomRunning = false;
+let pomEndAt = 0;            // wall-clock ms when the current phase ends (clock-based countdown)
+let pomLastSavedMin = 0;     // last elapsed-minute boundary autosaved
 // True once the in-memory timer holds a real session (started, paused or
 // restored from Firestore). Navigation uses it as a shield: a valid paused
 // timer is never reset and never overwritten by a slower Firestore read.
@@ -5241,6 +5378,7 @@ function pomReset() {
   pomSessionFocusSecs = 0;
   pomSessionKey = null;
   pomSessionDay = null;
+  pomEndAt = 0;
   pomClearLiveSession(); // async — fire and forget
   pomUpdateUI();
 }
@@ -5269,11 +5407,8 @@ function pomUpdateUI() {
     const pct = total > 0 ? pomSecondsLeft / total : 1;
     const circ = 2 * Math.PI * 68; // r=68
     ring.setAttribute('stroke-dasharray', (pct * circ).toFixed(2) + ' ' + circ.toFixed(2));
-    // Color: focus = white, break = target color or green
-    const activeTarget = S.pomodoro.targets.find(t => t.id === S.pomodoro.settings.activeTargetId);
-    const isDesktop = window.innerWidth >= 768;
-    const focusColor = isDesktop ? '#ffffff' : (activeTarget ? activeTarget.color : '#ffffff');
-    ring.setAttribute('stroke', pomPhase === 'focus' ? focusColor : '#00FF66');
+    // Color: focus = always white (any device, any target), break = green
+    ring.setAttribute('stroke', pomPhase === 'focus' ? '#ffffff' : '#00FF66');
   }
 
   // Target chip
@@ -5283,6 +5418,100 @@ function pomUpdateUI() {
   const activeTarget = S.pomodoro.targets.find(t => t.id === S.pomodoro.settings.activeTargetId);
   if (dot) dot.style.background = activeTarget ? activeTarget.color : 'rgba(255,255,255,0.3)';
   if (label) label.textContent = activeTarget ? activeTarget.name : 'No Target';
+}
+
+// Remaining seconds from the wall clock (never below 0, never above the phase length).
+function pomSyncFromClock() {
+  if (!pomEndAt) return;
+  const left = Math.ceil((pomEndAt - Date.now()) / 1000);
+  pomSecondsLeft = Math.max(0, Math.min(pomTotalSeconds(), left));
+}
+
+// One tick of the running timer (every second, and again when the tab becomes
+// visible). At most one phase transition per tick: if the device slept past
+// the end of a phase, that phase is completed once and the next one starts
+// fresh instead of replaying every missed cycle.
+function pomTick() {
+  if (!pomRunning) return;
+  let left = Math.ceil((pomEndAt - Date.now()) / 1000);
+  if (left <= 0) {
+    if (pomPhase === 'focus') {
+      pomLogSession(); // finalize this focus session (exact seconds)
+      pomPhase = 'break';
+    } else {
+      pomPhase = 'focus';
+      // A brand-new focus session starts with its own config + identity.
+      pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+      pomSessionKey = pomNewSessionKey();
+      pomSessionDay = SYSTEM_TODAY; // sessions only run on today
+      pomWriteLiveSession(); // async — fire and forget
+    }
+    const total = pomTotalSeconds();
+    const chained = pomEndAt + total * 1000;
+    pomEndAt = chained > Date.now() ? chained : Date.now() + total * 1000;
+    pomLastSavedMin = 0;
+    left = Math.ceil((pomEndAt - Date.now()) / 1000);
+    pomNotify();
+  }
+  pomSecondsLeft = Math.max(0, Math.min(pomTotalSeconds(), left));
+  // Autosave at every elapsed-minute boundary (focus phase only).
+  if (pomPhase === 'focus') {
+    const elapsedMin = Math.floor(pomElapsedFocusSeconds() / 60);
+    if (elapsedMin >= 1 && elapsedMin > pomLastSavedMin) {
+      pomLastSavedMin = elapsedMin;
+      pomAutoSave(); // async — fire and forget
+    }
+  }
+  pomUpdateUI();
+}
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && pomRunning) pomTick(); // catch up immediately on return
+});
+
+// End-of-phase alert: vibration + a short double beep (audio is unlocked by
+// the Start tap because browsers only allow sound after a user gesture).
+let _pomAudioCtx = null;
+function pomUnlockAudio() {
+  try {
+    if (!_pomAudioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) _pomAudioCtx = new AC();
+    }
+    if (_pomAudioCtx && _pomAudioCtx.state === 'suspended') _pomAudioCtx.resume();
+  } catch(e) {}
+}
+// Synthesised sounds (no audio files needed). Each sound is a list of
+// [frequencyHz, startOffsetSec, durationSec, volume] notes.
+const POM_SOUNDS = {
+  start: [[523, 0, 0.14, 0.22], [784, 0.12, 0.2, 0.22]],                    // rising "go"
+  pause: [[659, 0, 0.12, 0.2],  [440, 0.11, 0.2, 0.2]],                      // falling "stop"
+  end:   [[880, 0, 0.2, 0.28],  [880, 0.28, 0.2, 0.28], [1175, 0.56, 0.35, 0.28]] // finish chime
+};
+function pomSound(kind) {
+  const notes = POM_SOUNDS[kind];
+  if (!notes) return;
+  pomUnlockAudio();
+  const ctx = _pomAudioCtx;
+  if (!ctx) return;
+  const play = () => {
+    try {
+      const t0 = ctx.currentTime;
+      notes.forEach(n => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t0 + n[1]);
+        g.gain.exponentialRampToValueAtTime(n[3], t0 + n[1] + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t0 + n[1]); o.stop(t0 + n[1] + n[2] + 0.03);
+      });
+    } catch(e) {}
+  };
+  if (ctx.state === 'suspended') ctx.resume().then(play).catch(() => {}); else play();
+}
+function pomNotify() {
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
+  pomSound('end');
 }
 
 function togglePomodoro() {
@@ -5301,44 +5530,20 @@ function togglePomodoro() {
       // than one minute can be restored with its target + duration.
       pomWriteLiveSession(); // async — fire and forget
     }
-    // Last minute-boundary autosaved (resume continues from the exact elapsed
-    // time, so a resumed session never re-saves the same minute).
-    let _pomLastSavedMin = Math.floor(pomElapsedFocusSeconds() / 60);
-    pomTimer = setInterval(() => {
-      if (pomSecondsLeft <= 0) {
-        if (pomPhase === 'focus') {
-          pomLogSession(); // finalize this focus session (exact seconds)
-          pomPhase = 'break';
-        } else {
-          pomPhase = 'focus';
-          // A brand-new focus session starts with its own config + identity.
-          pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
-          pomSessionKey = pomNewSessionKey();
-          pomSessionDay = SYSTEM_TODAY; // sessions only run on today
-          pomWriteLiveSession(); // async — fire and forget
-        }
-        pomSecondsLeft = pomTotalSeconds();
-        _pomLastSavedMin = 0;
-      } else {
-        pomSecondsLeft--;
-        // Autosave at every elapsed-minute boundary (focus phase only), with
-        // the EXACT elapsed seconds — one save per minute, never per second.
-        if (pomPhase === 'focus') {
-          const elapsedMin = Math.floor(pomElapsedFocusSeconds() / 60);
-          if (elapsedMin >= 1 && elapsedMin > _pomLastSavedMin) {
-            _pomLastSavedMin = elapsedMin;
-            pomAutoSave(); // async — fire and forget
-          }
-        }
-      }
-      pomUpdateUI();
-    }, 1000);
+    pomSound('start'); // also unlocks audio for the end-of-phase chime (needs this tap)
+    pomLastSavedMin = Math.floor(pomElapsedFocusSeconds() / 60);
+    // Clock-based: the remaining time is always computed from this end
+    // timestamp, so a throttled / sleeping tab can never stretch a session.
+    pomEndAt = Date.now() + pomSecondsLeft * 1000;
+    pomTimer = setInterval(pomTick, 1000);
   } else {
     // Pause — persist the exact progress right now (no minute gate at all)
     clearInterval(pomTimer);
     pomTimer = null;
     pomRunning = false;
     pomSessionValid = true;
+    pomSound('pause');
+    pomSyncFromClock(); // freeze the exact remaining time at the moment of the pause
     // Exact elapsed focus seconds — 35s focused => 35, 1m55s => 115, and the
     // countdown itself (pomSecondsLeft) is never touched.
     const elapsed = pomElapsedFocusSeconds();
@@ -5389,7 +5594,7 @@ function pomLogSession() {
       sessionId:    pomSessionKey
     });
   }
-  pomSaveCloud();
+  pomSaveCloud().then(ok => { if (ok) showToast('Focus session complete ✓'); });
   pomSessionKey = null; // this focus session is finished
   pomClearLiveSession(); // session complete — no longer needs live snapshot
 }
@@ -5404,6 +5609,7 @@ function renderPomodoroBlock() {
   const disp = document.getElementById('pomodoroDisplay');
 
   if (!block) return;
+  pomRefreshStatus();
   const isPast = todoDay < SYSTEM_TODAY;
 
   // Hide entire pomodoro block on past days, show only on today
@@ -5461,9 +5667,25 @@ function pomDataRef() {
   return db.collection('users').doc(currentUID).collection('pomodoro').doc('data');
 }
 
+let pomSaveState = 'idle'; // 'idle' | 'saving' | 'error'
+function pomRefreshStatus() {
+  const el = document.getElementById('pomSyncStatus');
+  if (!el) return;
+  let txt;
+  if (!currentUID)                         txt = 'Sign in to save sessions';
+  else if (!navigator.onLine || pomSaveState === 'error') txt = '○ Offline — will retry';
+  else if (!pomCloudLoaded)                txt = 'Loading…';
+  else if (pomSaveState === 'saving')      txt = 'Saving…';
+  else                                     txt = '● Saved';
+  el.textContent = txt;
+}
+window.addEventListener('online',  function() { pomSaveCloud(); pomRefreshStatus(); });
+window.addEventListener('offline', function() { pomRefreshStatus(); });
+
 function pomSaveCloud() {
-  if (!currentUID || !pomCloudLoaded) return Promise.resolve(false);
+  if (!currentUID || !pomCloudLoaded) { pomRefreshStatus(); return Promise.resolve(false); }
   pomSavePending = true;
+  pomSaveState = 'saving'; pomRefreshStatus();
   pomSaveChain = pomSaveChain.then(async () => {
     if (!pomSavePending) return false;   // superseded by a newer request
     pomSavePending = false;
@@ -5474,9 +5696,11 @@ function pomSaveCloud() {
         settings:  JSON.stringify(S.pomodoro.settings),
         updatedAt: Date.now()
       });
+      if (!pomSavePending) { pomSaveState = 'idle'; pomRefreshStatus(); }
       return true;
     } catch(e) {
       console.warn('pomSaveCloud Firestore error:', e);
+      pomSaveState = 'error'; pomRefreshStatus();
       return false;
     }
   });
@@ -5520,6 +5744,9 @@ async function pomLoadFromCloud() {
 
   if (!pomRunning && !pomSessionValid) pomSecondsLeft = pomTotalSeconds();
   renderTodoList();
+  pomRefreshStatus();
+  const at = document.getElementById('tab-analytics');
+  if (at && at.classList.contains('active')) { renderPomodoroAnalytics(); renderPomFocusOverview(); }
 }
 
 // ── POMODORO SETTINGS PANEL ──
@@ -5555,6 +5782,7 @@ function adjPomBreak(delta) {
 function renderPomTargetList() {
   const list = document.getElementById('pomTargetList');
   if (!list) return;
+  const prevLeft = list.scrollLeft; // a re-render must not jump the list back to the start
   list.innerHTML = '';
   S.pomodoro.targets.forEach(t => {
     const btn = document.createElement('button');
@@ -5569,6 +5797,26 @@ function renderPomTargetList() {
       pomSetTargetTmp = pomSetTargetTmp === t.id ? null : t.id;
       renderPomTargetList();
     });
+    // Minimal delete control: a small dim "×" at the end of the chip
+    if (pomSetTargetTmp === t.id) btn.dataset.sel = '1';
+    const del = document.createElement('span');
+    del.textContent = '×';
+    del.title = 'Delete target';
+    del.style.cssText = 'margin-left:2px;font-size:15px;line-height:1;opacity:.4;padding:0 2px;';
+    del.addEventListener('click', function(e) {
+      e.stopPropagation(); // don't select the chip
+      deletePomTarget(t.id);
+    });
+    const ren = document.createElement('span');
+    ren.textContent = '✎';
+    ren.title = 'Rename target';
+    ren.style.cssText = 'margin-left:4px;font-size:12px;line-height:1;opacity:.4;padding:0 2px;';
+    ren.addEventListener('click', function(e) {
+      e.stopPropagation(); // don't select the chip
+      renamePomTarget(t.id);
+    });
+    btn.appendChild(ren);
+    btn.appendChild(del);
     list.appendChild(btn);
   });
   // "+ New Target" button
@@ -5580,6 +5828,63 @@ function renderPomTargetList() {
   newBtn.textContent = '+ New Target';
   newBtn.addEventListener('click', function() { openNewTargetModal(); });
   list.appendChild(newBtn);
+  list.scrollLeft = prevLeft;
+
+  // Scrolling: mouse wheel + click-drag (touch already scrolls natively).
+  // Bound once; a drag never counts as a chip click.
+  if (!list._scrollBound) {
+    list._scrollBound = true;
+    list.addEventListener('wheel', function(e) {
+      if (list.scrollWidth <= list.clientWidth) return;
+      e.preventDefault();
+      list.scrollLeft += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+    }, { passive: false });
+    let down = false, moved = false, startX = 0, startLeft = 0;
+    list.addEventListener('pointerdown', function(e) {
+      if (e.pointerType !== 'mouse') return;
+      down = true; moved = false; startX = e.clientX; startLeft = list.scrollLeft;
+    });
+    window.addEventListener('pointermove', function(e) {
+      if (!down) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      if (moved) list.scrollLeft = startLeft - dx;
+    });
+    window.addEventListener('pointerup', function() { down = false; });
+    list.addEventListener('click', function(e) {
+      if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; }
+    }, true);
+  }
+
+  // Keep the selected chip visible (e.g. a freshly created target).
+  const sel = Array.from(list.children).find(c => c.dataset && c.dataset.sel === '1');
+  if (sel) {
+    const lr = list.getBoundingClientRect(), sr = sel.getBoundingClientRect();
+    if (sr.right > lr.right) list.scrollLeft += sr.right - lr.right + 8;
+    else if (sr.left < lr.left) list.scrollLeft -= lr.left - sr.left + 8;
+  }
+}
+
+function renamePomTarget(id) {
+  const t = S.pomodoro.targets.find(x => x.id === id);
+  if (!t) return;
+  const name = (prompt('Rename target', t.name) || '').trim().slice(0, 24);
+  if (!name || name === t.name) return;
+  t.name = name;
+  pomSaveCloud();
+  renderPomTargetList();
+  pomUpdateUI();
+}
+
+function deletePomTarget(id) {
+  const t = S.pomodoro.targets.find(x => x.id === id);
+  if (!t || !confirm('Delete target "' + t.name + '"?')) return;
+  S.pomodoro.targets = S.pomodoro.targets.filter(x => x.id !== id);
+  if (pomSetTargetTmp === id) pomSetTargetTmp = null;
+  if (S.pomodoro.settings.activeTargetId === id) S.pomodoro.settings.activeTargetId = null;
+  pomSaveCloud();
+  renderPomTargetList();
+  pomUpdateUI();
 }
 
 function savePomodoroSettings() {
@@ -5593,7 +5898,8 @@ function savePomodoroSettings() {
 }
 
 // ── NEW TARGET MODAL ──
-const POM_COLORS = ["#a855f7","#f97316","#3b82f6","#00FF66","#ef4444","#eab308","#ec4899","#14b8a6"];
+const POM_COLORS = ["#a855f7","#f97316","#3b82f6","#00FF66","#ef4444","#eab308","#ec4899",
+                    "#14b8a6","#06b6d4","#84cc16","#f43f5e","#6366f1","#d946ef","#e5e7eb"];
 let newTargetColorTmp = "#a855f7"; // default
 
 function openNewTargetModal() {
@@ -5786,6 +6092,90 @@ function renderPomodoroAnalytics() {
   }
 }
 
+// ── POMODORO FOCUS OVERVIEW (30-day / week bars + minutes per target) ──
+let chartPomFocus = null;
+
+function pomFmtMins(m) {
+  m = Math.round(m);
+  return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm';
+}
+
+function renderPomFocusOverview() {
+  const canvas = document.getElementById('chartPomFocus');
+  const totalsEl = document.getElementById('pomFocusTotals');
+  if (!canvas) return;
+
+  const isWeek = chartRanges.focus === 'week';
+  const r = isWeek ? getCurrentWeekRange() : { start: 0, end: TOTAL_DAYS };
+  const labels = dayLabels().slice(r.start, r.end);
+  const len = r.end - r.start;
+
+  const ids = S.pomodoro.targets.map(t => t.id).concat(['__none__']);
+  const mins = {};
+  ids.forEach(id => { mins[id] = new Array(len).fill(0); });
+  for (let d = r.start; d < r.end; d++) {
+    (S.pomodoro.sessions[d] || []).forEach(sess => {
+      if (!(sess.focusDone || (sess.partial === true && (sess.focusSeconds || 0) > 0))) return;
+      const secs = sess.focusSeconds != null ? sess.focusSeconds : (sess.focusMins || 0) * 60;
+      const id = Object.prototype.hasOwnProperty.call(mins, sess.targetId) ? sess.targetId : '__none__';
+      mins[id][d - r.start] += secs / 60;
+    });
+  }
+
+  const rows = ids.map(id => {
+    const t = S.pomodoro.targets.find(x => x.id === id);
+    const total = mins[id].reduce((a, v) => a + v, 0);
+    return { id, name: t ? t.name : 'Other', color: t ? t.color : '#666', total, data: mins[id] };
+  }).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
+
+  if (chartPomFocus) { chartPomFocus.destroy(); chartPomFocus = null; }
+  chartPomFocus = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: rows.map(x => ({
+        label: x.name,
+        data: x.data.map(v => Math.round(v * 10) / 10),
+        backgroundColor: x.color,
+        borderRadius: 2
+      }))
+    },
+    options: {
+      ...CDEFS,
+      plugins: { ...CDEFS.plugins, tooltip: { ...CDEFS.plugins.tooltip, callbacks: {
+        label: c => ' ' + c.dataset.label + ': ' + pomFmtMins(c.parsed.y)
+      } } },
+      scales: {
+        x: { ...CDEFS.scales.x, stacked: true },
+        y: { ...CDEFS.scales.y, stacked: true, beginAtZero: true,
+             ticks: { ...CDEFS.scales.y.ticks, callback: v => v + 'm' } }
+      }
+    }
+  });
+
+  if (totalsEl) {
+    totalsEl.innerHTML = '';
+    if (!rows.length) {
+      totalsEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center">No focus sessions in this range yet.</div>';
+      return;
+    }
+    const grand = rows.reduce((a, x) => a + x.total, 0);
+    rows.forEach(x => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+      row.innerHTML = '<span style="width:10px;height:10px;border-radius:2px;flex-shrink:0;background:' + x.color + '"></span>' +
+        '<span style="font-size:13px;color:#d1d5db;flex:1">' + escHtml(x.name) + '</span>' +
+        '<span class="stat-mono" style="font-size:13px;color:rgba(255,255,255,0.6)">' + pomFmtMins(x.total) + '</span>';
+      totalsEl.appendChild(row);
+    });
+    const tot = document.createElement('div');
+    tot.style.cssText = 'display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;';
+    tot.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,0.5)">Total</span>' +
+      '<span class="stat-mono" style="font-size:13px;color:#fff">' + pomFmtMins(grand) + '</span>';
+    totalsEl.appendChild(tot);
+  }
+}
+
 // ── POMODORO PARTIAL SESSIONS ──
 // Exact elapsed focus time, in SECONDS, of the active focus session:
 //   elapsedFocusSeconds = configuredFocusSeconds - remainingFocusSeconds
@@ -5855,7 +6245,7 @@ function pomLogPartial(elapsedSecs) {
       sessionId:    pomSessionKey
     });
   }
-  pomSaveCloud(); // straight to Firestore — analytics sees this minute/pause
+  pomSaveCloud().then(ok => { if (ok) showToast('Saved to analytics'); }); // straight to Firestore
 }
 
 // ── POMODORO LIVE SESSION (Firestore) ──
