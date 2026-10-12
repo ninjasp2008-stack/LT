@@ -1,7 +1,11 @@
 <!--
-VERSION: index18.html
-BASED ON: index17.html
-CHANGES: [index18 · pass 1] Calendar ⇄ To-Do day sync + responsive timer ring.
+VERSION: index19.html
+BASED ON: index18.html
+CHANGES: [index19] Do It! / Don't Do It! side by side on desktop (>=1024px), stacked on
+         phone — Dashboard checklists + Habits-tab grids. CSS + 2 wrapper divs only.
+
+         ────────── inherited: index18 ──────────
+          [index18 · pass 1] Calendar ⇄ To-Do day sync + responsive timer ring.
          FIX 1 — To-Do list follows the selected calendar day:
          - selectDay() now also sets todoDay = dayIndex (before renderAll() /
            renderTodoList(), both of which it already called), so tapping a day
@@ -267,6 +271,18 @@ html,body{margin:0;padding:0;background:transparent;color:#fff;
 }
 .week-day-status.today{
   color:#fff;
+}
+
+/* ── HABITS PAIR: Do It! / Don't Do It! ──
+   Phone/tablet (<1024px): stacked, exactly as before.
+   Desktop (>=1024px): two equal columns side by side. Used on the Dashboard
+   (checklists) and on the Habits tab (weekly grids). */
+.habits-pair{display:flex;flex-direction:column;gap:14px}
+.habits-pair-grids{gap:16px}
+@media(min-width:1024px){
+  .habits-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+  /* the Habits-tab cards carry an inline max-width:500px — lift it so both fill their column */
+  .habits-pair-grids > .mission-glass-container{max-width:none !important;margin:0 !important}
 }
 
 /* ── RESPONSIVE: 2-column card grid on desktop ── */
@@ -1438,6 +1454,9 @@ let currentUID = null;
 
       </div><!-- /trackerGrid -->
 
+      <!-- HABITS PAIR (side by side on desktop, stacked on phone) -->
+      <div class="habits-pair">
+
       <!-- TODAY'S HABITS -->
       <div class="mission-glass-container" style="border-radius:14px;padding:20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1477,6 +1496,8 @@ let currentUID = null;
           No negative habits yet. Tap ⚙ to add some.
         </div>
       </div>
+
+      </div><!-- /habits-pair -->
 
       <!-- WEEKLY GOALS -->
       <div class="mission-glass-container" style="border-radius:14px;padding:20px">
@@ -1527,6 +1548,9 @@ let currentUID = null;
         </div>
       </div>
 
+      <!-- HABIT GRIDS PAIR (side by side on desktop, stacked on phone) -->
+      <div class="habits-pair habits-pair-grids">
+
       <!-- DO IT! Grid -->
       <div class="mission-glass-container" style="overflow-x:hidden;width:100%;border-radius:20px;padding:20px;max-width:500px;margin:0 auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1548,6 +1572,8 @@ let currentUID = null;
           No negative habits yet.
         </div>
       </div>
+
+      </div><!-- /habits-pair-grids -->
 
     </div>
   </div>
