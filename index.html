@@ -601,6 +601,26 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .progress-fill.caffeine-fill{background:#1a0d00}
 .progress-fill.mood-fill{}
 
+/* ── HOLD SYSTEM (tap / hold left = down, right = up) ── */
+.progress-fill{will-change:height}
+.mission-glass-card.hold-card{
+  touch-action:pan-y;-webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;cursor:pointer;
+  transition:transform .14s cubic-bezier(.4,0,.2,1), border-color .15s ease;
+}
+.mission-glass-card.hold-card.hold-active{transform:scale(.988);border-color:rgba(255,255,255,0.22)}
+/* while pressed the fill tracks the value closely instead of lagging behind */
+.mission-glass-card.hold-card.hold-active .progress-fill{transition:height .18s linear}
+.hold-half{
+  position:absolute;top:0;bottom:0;width:50%;background:rgba(255,255,255,0.05);
+  opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:2;
+}
+.hold-card.hold-active .hold-half{opacity:1}
+.hold-hint{
+  position:absolute;bottom:8px;font-size:18px;font-weight:300;line-height:1;
+  color:rgba(255,255,255,0.16);pointer-events:none;z-index:10;
+}
+
 /* ── GLOBAL GLASS CONTAINER ── */
 .mission-glass-container{
   background:#0d0d11;
@@ -1976,6 +1996,10 @@ const STEPS_GOAL   = 10000;
 const SLEEP_GOAL   = 8;
 const PUSHUPS_GOAL = 100;
 const CAFF_GOAL    = 400;  // mg; 5 cups = 400mg upper safe limit
+// UI sound on/off (a display preference only — never synced)
+const UI_SOUND = { enabled: (function() {
+  try { return localStorage.getItem('uiSound') !== 'off'; } catch (e) { return true; }
+})() };
 
 // ── CENTRALIZED SCORING CONFIGURATION ──
 // Mastery weights: must sum to 100
@@ -2229,6 +2253,7 @@ function updateAuthUI(user) {
       <span style="color:#e2e8f0;font-size:13px;font-weight:600;">${user.displayName.split(' ')[0]}</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
+      <button class="ui-sound-toggle" onclick="toggleUISound()" title="Sound on/off" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:13px;">${UI_SOUND.enabled ? '🔊' : '🔇'}</button>
       <button onclick="syncFromCloud()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;border-radius:10px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600;">↻ Sync</button>
       <button onclick="signOutUser()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;border-radius:10px;padding:7px 14px;cursor:pointer;font-size:13px;">Sign out</button>
     </div>
@@ -2240,7 +2265,7 @@ function updateAuthUI(user) {
       authContainer.style.background = 'rgba(255,255,255,0.03)';
     });
   } else {
-    btn.innerHTML = `<button onclick="signInWithGoogle()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:8px;padding:4px 12px;cursor:pointer;font-size:12px;">Sign in with Google</button>`;
+    btn.innerHTML = `<button onclick="signInWithGoogle()" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:8px;padding:4px 12px;cursor:pointer;font-size:12px;">Sign in with Google</button><button class="ui-sound-toggle" onclick="toggleUISound()" title="Sound on/off" style="background:none;border:none;color:#e2e8f0;cursor:pointer;font-size:13px;margin-left:6px">${UI_SOUND.enabled ? '🔊' : '🔇'}</button>`;
   }
 }
 
@@ -2618,6 +2643,7 @@ function renderDateNav() {
 // ── Select a day and update the single dashboard ──
 function selectDay(dayIndex) {
   if (dayIndex < 0 || dayIndex > SYSTEM_TODAY) return;
+  flushHoldCommits(); // save any pending tap/hold changes to the day being left
   selectedDay = dayIndex;
   S.dayIndex  = dayIndex;
   todoDay     = dayIndex; // To-Do list follows the selected calendar day
@@ -3386,6 +3412,167 @@ function adjustCaffeine(delta) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// HOLD SYSTEM — Page 1 cards
+// Each card is split by an invisible centre line. Tap (or hold) the right
+// half to raise the value, the left half to lower it. A hold repeats and
+// speeds up the longer it is held. The card re-renders on every step (cheap,
+// the fill animates via CSS); charts, streak and the save are batched and run
+// once, shortly after the last step.
+// ──────────────────────────────────────────────────────────────
+const HOLD_DELAY_MS = 380;   // press this long before it counts as a hold
+const HOLD_START_MS = 210;   // first repeat interval
+const HOLD_MIN_MS   = 55;    // fastest repeat interval
+
+const HOLD_CARDS = [
+  { id:'cardWater', goal:WATER_GOAL, step:0.1, min:0, max:10, hist:() => S.waterHistory, render:() => renderWater(),
+    ramp:[[10,2]], minMs:110,
+    commit(d) { if (chartWater) { chartWater.data.datasets[0].data[d] = S.waterHistory[d]; chartWater.update('none'); } } },
+  { id:'cardCaffeine', goal:CAFF_GOAL, noChime:true, step:80, min:0, max:9999, hist:() => S.caffeineHistory, render:() => renderCaffeine(),
+    ignore:'#caffeineWarning',
+    commit(d) { if (chartCaffeine) { chartCaffeine.data.datasets[0].data[d] = S.caffeineHistory[d]; chartCaffeine.update('none'); } } },
+  { id:'cardSleep', goal:SLEEP_GOAL, step:10/60, min:0, max:16, hist:() => S.sleepHistory, render:() => renderSleep(),
+    round:v => Math.round(v * 60) / 60, // always a whole number of minutes
+    ramp:[[12,2]], minMs:120, valueSel:'#sleepDisplay', modal:() => openSleepModal(),
+    commit(d) { if (chartSleep) { chartSleep.data.datasets[0].data[d] = S.sleepHistory[d]; chartSleep.update('none'); } } },
+  { id:'cardSteps', goal:STEPS_GOAL, step:100, min:0, max:99999, hist:() => S.stepsHistory, render:() => renderSteps(),
+    ramp:[[10,2],[22,5]], minMs:130, valueSel:'#stepsVal', modal:() => openStepsModal(),
+    commit(d) {
+      renderWeeklySteps();
+      if (chartSteps) {
+        const v = S.stepsHistory[d];
+        chartSteps.data.datasets[0].data[d] = v;
+        chartSteps.data.datasets[0].backgroundColor[d] = v >= STEPS_GOAL ? '#00FF66' : 'rgba(0,255,102,.4)';
+        chartSteps.update('none');
+      }
+    } },
+  { id:'cardPushups', goal:PUSHUPS_GOAL, step:1, min:0, max:9999, hist:() => S.pushupsHistory, render:() => renderPushups(),
+    ramp:[[10,2],[24,5]], valueSel:'#pushupsVal', modal:() => openPushupsModal(),
+    commit(d) { if (chartPushups) { chartPushups.data.datasets[0].data[d] = S.pushupsHistory[d]; chartPushups.update('none'); } } }
+];
+
+const _holdDirty = new Map(); // cfg -> day index changed
+let _holdCommitTimer = null;
+let _holdRaf = false;
+
+function flushHoldCommits() {
+  clearTimeout(_holdCommitTimer);
+  _holdCommitTimer = null;
+  if (!_holdDirty.size) return;
+  const list = Array.from(_holdDirty.entries());
+  _holdDirty.clear();
+  list.forEach(([cfg, d]) => cfg.commit(d));
+  updateMasteryUI();
+  updateStreakUI();
+  saveState();
+}
+
+// One step. Returns false when nothing changed (limit reached / future day).
+function holdApply(cfg, dir, mult) {
+  if (selectedDay > SYSTEM_TODAY) return false; // read-only for future days
+  const d = S.dayIndex;
+  const hist = cfg.hist();
+  const cur = hist[d] || 0;
+  const raw = cur + dir * cfg.step * mult;
+  const next = clamp(cfg.round ? cfg.round(raw) : +raw.toFixed(2), cfg.min, cfg.max);
+  if (next === cur) { uiSound('limit'); return false; }
+  hist[d] = next;
+  uiStep(clamp(next / (cfg.goal * 1.15), 0, 1), dir); // pitch follows progress
+  if (dir > 0 && !cfg.noChime && cur < cfg.goal && next >= cfg.goal) setTimeout(() => uiSound('goal'), 110);
+  cfg.render();                      // cheap — the fill animates through CSS
+  _holdDirty.set(cfg, d);
+  if (!_holdRaf) {                   // live mastery ring, at most once per frame
+    _holdRaf = true;
+    requestAnimationFrame(() => { _holdRaf = false; updateMasteryUI(); });
+  }
+  clearTimeout(_holdCommitTimer);
+  _holdCommitTimer = setTimeout(flushHoldCommits, 350); // charts + streak + save, once
+  return true;
+}
+
+function holdMult(cfg, ticks) {
+  let m = 1;
+  if (cfg.ramp) cfg.ramp.forEach(r => { if (ticks >= r[0]) m = r[1]; });
+  return m;
+}
+
+function initHoldCards() {
+  HOLD_CARDS.forEach(cfg => {
+    const card = document.getElementById(cfg.id);
+    if (!card || card._holdBound) return;
+    card._holdBound = true;
+    card.classList.add('hold-card');
+
+    // Visual helpers: half-card highlight + faint − / + hints
+    const half = document.createElement('div');
+    half.className = 'hold-half';
+    card.appendChild(half);
+    const minus = document.createElement('span');
+    minus.className = 'hold-hint'; minus.textContent = '−'; minus.style.left = '16px';
+    const plus = document.createElement('span');
+    plus.className = 'hold-hint'; plus.textContent = '+'; plus.style.right = '16px';
+    card.appendChild(minus); card.appendChild(plus);
+
+    let down = false, held = false, side = 1, ticks = 0, sx = 0, sy = 0;
+    let holdT = null, repT = null;
+
+    function stop() {
+      clearTimeout(holdT); clearTimeout(repT);
+      holdT = repT = null;
+      down = false;
+      card.classList.remove('hold-active');
+    }
+    function loop() {
+      if (!down) return;
+      const ok = holdApply(cfg, side, holdMult(cfg, ticks));
+      ticks++;
+      if (!ok) return; // hit a limit — stop repeating
+      repT = setTimeout(loop, Math.max(cfg.minMs || HOLD_MIN_MS, HOLD_START_MS * Math.pow(0.9, ticks)));
+    }
+
+    card.addEventListener('pointerdown', function(e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (cfg.ignore && e.target.closest(cfg.ignore)) return;
+      if (cfg.valueSel && e.target.closest(cfg.valueSel)) return; // the number opens exact entry
+      if (selectedDay > SYSTEM_TODAY) return;
+      const r = card.getBoundingClientRect();
+      side = (e.clientX - r.left) < r.width / 2 ? -1 : 1;
+      half.style.left = side < 0 ? '0' : '50%';
+      down = true; held = false; ticks = 0; sx = e.clientX; sy = e.clientY;
+      card.classList.add('hold-active');
+      holdT = setTimeout(function() {
+        if (!down) return;
+        held = true;
+        try { if (navigator.vibrate) navigator.vibrate(10); } catch(err) {}
+        loop();
+      }, HOLD_DELAY_MS);
+    });
+    card.addEventListener('pointermove', function(e) {
+      if (!down) return;
+      if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) stop(); // it's a scroll/swipe
+    });
+    card.addEventListener('pointerup', function() {
+      if (!down) return;
+      const wasHeld = held;
+      stop();
+      if (!wasHeld) {                      // quick tap = one step
+        if (holdApply(cfg, side, 1)) { try { if (navigator.vibrate) navigator.vibrate(6); } catch(err) {} }
+      }
+    });
+    card.addEventListener('pointercancel', stop);
+    card.addEventListener('pointerleave', function(e) { if (e.pointerType === 'mouse') stop(); });
+    card.addEventListener('contextmenu', function(e) { e.preventDefault(); }); // no long-press menu
+
+    // Tapping the big number opens exact entry (steps / push-ups / sleep)
+    if (cfg.valueSel && cfg.modal) {
+      const val = card.querySelector(cfg.valueSel);
+      if (val) { val.style.cursor = 'text'; val.addEventListener('click', function() { cfg.modal(); }); }
+    }
+  });
+}
+document.addEventListener('visibilitychange', function() { if (document.hidden) flushHoldCommits(); });
+window.addEventListener('pagehide', flushHoldCommits);
+
+// ──────────────────────────────────────────────────────────────
 // HABIT TOGGLE
 // ──────────────────────────────────────────────────────────────
 function toggleHabit(hi) {
@@ -3393,6 +3580,7 @@ function toggleHabit(hi) {
   const d = S.dayIndex;
   if (!S.habitsHistory[d]) S.habitsHistory[d] = [];
   S.habitsHistory[d][hi] = !S.habitsHistory[d][hi];
+  uiSound(S.habitsHistory[d][hi] ? 'check' : 'uncheck');
   saveState(); renderTodayHabits(); updateMasteryUI(); updateStreakUI();
   buildHabitsGrid();
   if (chartHabits) { chartHabits.data.datasets[0].data[d] = dayHabitPct(d); chartHabits.update('none'); }
@@ -3403,6 +3591,7 @@ function toggleHabitNeg(hi) {
   const d = S.dayIndex;
   if (!S.habitsHistoryNegative[d]) S.habitsHistoryNegative[d] = [];
   S.habitsHistoryNegative[d][hi] = !S.habitsHistoryNegative[d][hi];
+  uiSound(S.habitsHistoryNegative[d][hi] ? 'check' : 'uncheck');
   saveState(); renderTodayHabitsNeg(); updateMasteryUI(); updateStreakUI();
   buildHabitsGrid();
   if (chartHabits) { chartHabits.data.datasets[1].data[d] = dayHabitPctNeg(d); chartHabits.update('none'); }
@@ -5125,6 +5314,7 @@ document.addEventListener('click', function(e) {
     if (e.target.closest('.todo-checkbox')) {
       // Allow toggle done/undone on past days
       S.todos[todoDay][idx].done = !S.todos[todoDay][idx].done;
+      uiSound(S.todos[todoDay][idx].done ? 'check' : 'uncheck');
       saveState();
       renderTodoList();
       updateStreakUI();
@@ -5148,6 +5338,7 @@ document.addEventListener('click', function(e) {
   // Checkbox click
   if (e.target.closest('.todo-checkbox')) {
     S.todos[d][idx].done = !S.todos[d][idx].done;
+    uiSound(S.todos[d][idx].done ? 'check' : 'uncheck');
     saveState();
     renderTodoList();
     updateStreakUI();
@@ -5231,68 +5422,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Card tap gestures ──────────────────────────────────────
 
-  // WATER: single tap +0.5L, double tap -0.5L
-  (function() {
-    const card = document.getElementById('cardWater');
-    if (!card) return;
-    card.style.cursor = 'pointer';
-    let tapCount = 0, tapTimer = null;
-    card.addEventListener('click', function(e) {
-      tapCount++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => {
-        if (tapCount === 1) adjustWater(0.5);
-        else if (tapCount >= 2) adjustWater(-0.5);
-        tapCount = 0;
-        card.style.borderColor = 'rgba(255,255,255,0.4)';
-        setTimeout(() => card.style.borderColor = '', 150);
-      }, 280);
-    });
-  })();
-
-  // CAFFEINE: single tap +80mg, double tap -80mg
-  (function() {
-    const card = document.getElementById('cardCaffeine');
-    if (!card) return;
-    card.style.cursor = 'pointer';
-    let tapCount = 0, tapTimer = null;
-    card.addEventListener('click', function(e) {
-      if (e.target.closest('#caffeineWarning') || e.target.closest('#caffeineCups')) return;
-      tapCount++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => {
-        if (tapCount === 1) adjustCaffeine(80);
-        else if (tapCount >= 2) adjustCaffeine(-80);
-        tapCount = 0;
-        card.style.borderColor = 'rgba(255,255,255,0.4)';
-        setTimeout(() => card.style.borderColor = '', 150);
-      }, 280);
-    });
-  })();
-
-  // SLEEP: single tap → openSleepModal
-  (function() {
-    const card = document.getElementById('cardSleep');
-    if (!card) return;
-    card.style.cursor = 'pointer';
-    card.addEventListener('click', function(e) { openSleepModal(); });
-  })();
-
-  // STEPS: single tap → openStepsModal
-  (function() {
-    const card = document.getElementById('cardSteps');
-    if (!card) return;
-    card.style.cursor = 'pointer';
-    card.addEventListener('click', function(e) { openStepsModal(); });
-  })();
-
-  // PUSH-UPS: single tap → openPushupsModal
-  (function() {
-    const card = document.getElementById('cardPushups');
-    if (!card) return;
-    card.style.cursor = 'pointer';
-    card.addEventListener('click', function(e) { openPushupsModal(); });
-  })();
+  // WATER / CAFFEINE / SLEEP / STEPS / PUSH-UPS: tap or hold — left half = down, right half = up
+  initHoldCards();
 
   // MOOD: single tap → openMoodModal
   (function() {
@@ -5479,49 +5610,162 @@ document.addEventListener('visibilitychange', function() {
 
 // End-of-phase alert: vibration + a short double beep (audio is unlocked by
 // the Start tap because browsers only allow sound after a user gesture).
-let _pomAudioCtx = null;
-function pomUnlockAudio() {
+// ──────────────────────────────────────────────────────────────
+// UI SOUND ENGINE
+// One shared audio chain (soft low-pass → gentle compressor) and ONE musical
+// key: every sound is built from the C major pentatonic scale, so any
+// combination of sounds is consonant. Sounds are short sine tones with a soft
+// 12 ms attack and a smooth exponential decay — quiet, round, no clicks.
+// ──────────────────────────────────────────────────────────────
+let _pomAudioCtx = null;      // the single shared AudioContext
+let _uiChain = null;
+let _uiLastAt = 0;            // throttle for tiny UI sounds
+let _uiLastPlay = 0;          // when any sound was last requested
+
+const NOTE = { C4:261.63, G4:392.00, A4:440.00, C5:523.25, D5:587.33, E5:659.25, G5:783.99,
+               A5:880.00, C6:1046.50, D6:1174.66, E6:1318.51, G6:1567.98 };
+// Bubble scale: value progress is mapped onto these notes (low → high).
+const UI_SCALE = [NOTE.C5, NOTE.D5, NOTE.E5, NOTE.G5, NOTE.A5, NOTE.C6, NOTE.D6, NOTE.E6, NOTE.G6];
+
+// [frequency, startOffsetSec, durationSec, volume]
+const UI_SFX = {
+  tap:     [[NOTE.E5, 0,    0.07, 0.060]],
+  nav:     [[NOTE.G5, 0,    0.08, 0.060]],
+  confirm: [[NOTE.C5, 0,    0.10, 0.070], [NOTE.G5, 0.07, 0.16, 0.070]],
+  cancel:  [[NOTE.G5, 0,    0.08, 0.055], [NOTE.C5, 0.06, 0.12, 0.055]],
+  delete:  [[NOTE.E5, 0,    0.08, 0.055], [NOTE.A4, 0.07, 0.16, 0.055]],
+  check:   [[NOTE.C5, 0,    0.09, 0.065], [NOTE.E5, 0.06, 0.09, 0.065], [NOTE.G5, 0.12, 0.18, 0.065]],
+  uncheck: [[NOTE.G5, 0,    0.08, 0.050], [NOTE.E5, 0.06, 0.14, 0.050]],
+  goal:    [[NOTE.C6, 0,    0.12, 0.070], [NOTE.E6, 0.08, 0.12, 0.070], [NOTE.G6, 0.16, 0.30, 0.070]],
+  limit:   [[NOTE.G4, 0,    0.06, 0.045]],
+  // Pomodoro
+  // Pomodoro start / pause: same voice as the buttons, but a wider three-note
+  // leap (C–G–C) going up for start and the mirror image going down for pause.
+  start:   [[NOTE.C5, 0,    0.09, 0.070], [NOTE.G5, 0.08, 0.09, 0.070], [NOTE.C6, 0.16, 0.22, 0.070]],
+  pause:   [[NOTE.C6, 0,    0.09, 0.060], [NOTE.G5, 0.08, 0.09, 0.060], [NOTE.C5, 0.16, 0.22, 0.060]],
+  end:     [[NOTE.C6, 0,    0.20, 0.100], [NOTE.E6, 0.22, 0.20, 0.100], [NOTE.G6, 0.44, 0.45, 0.100]]
+};
+
+function uiCtx() {
   try {
     if (!_pomAudioCtx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) _pomAudioCtx = new AC();
     }
-    if (_pomAudioCtx && _pomAudioCtx.state === 'suspended') _pomAudioCtx.resume();
-  } catch(e) {}
+    return _pomAudioCtx;
+  } catch (e) { return null; }
 }
-// Synthesised sounds (no audio files needed). Each sound is a list of
-// [frequencyHz, startOffsetSec, durationSec, volume] notes.
-const POM_SOUNDS = {
-  start: [[523, 0, 0.14, 0.22], [784, 0.12, 0.2, 0.22]],                    // rising "go"
-  pause: [[659, 0, 0.12, 0.2],  [440, 0.11, 0.2, 0.2]],                      // falling "stop"
-  end:   [[880, 0, 0.2, 0.28],  [880, 0.28, 0.2, 0.28], [1175, 0.56, 0.35, 0.28]] // finish chime
-};
-function pomSound(kind) {
-  const notes = POM_SOUNDS[kind];
-  if (!notes) return;
-  pomUnlockAudio();
-  const ctx = _pomAudioCtx;
+function pomUnlockAudio() {
+  const c = uiCtx();
+  if (c && c.state === 'suspended') { try { c.resume(); } catch (e) {} }
+}
+function uiInput(ctx) {
+  if (_uiChain && _uiChain.ctx === ctx) return _uiChain.input;
+  const lp = ctx.createBiquadFilter();           // rounds off the top end → softer tone
+  lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.5;
+  const comp = ctx.createDynamicsCompressor();   // keeps fast hold-note runs from clipping
+  comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 4;
+  comp.attack.value = 0.003; comp.release.value = 0.12;
+  lp.connect(comp); comp.connect(ctx.destination);
+  _uiChain = { ctx: ctx, input: lp };
+  return lp;
+}
+function uiNotes(notes, gain) {
+  if (!UI_SOUND.enabled) return;
+  _uiLastPlay = performance.now();
+  const ctx = uiCtx();
   if (!ctx) return;
-  const play = () => {
+  const go = function() {
     try {
-      const t0 = ctx.currentTime;
-      notes.forEach(n => {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = 'sine'; o.frequency.value = n[0];
-        g.gain.setValueAtTime(0.0001, t0 + n[1]);
-        g.gain.exponentialRampToValueAtTime(n[3], t0 + n[1] + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
-        o.connect(g); g.connect(ctx.destination);
-        o.start(t0 + n[1]); o.stop(t0 + n[1] + n[2] + 0.03);
+      const input = uiInput(ctx);
+      const t0 = ctx.currentTime + 0.005;
+      notes.forEach(function(n) {
+        const st = t0 + n[1];
+        (n[4] || [[1, 1]]).forEach(function(p) {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          const vol = Math.max(0.0002, n[3] * p[1] * (gain || 1));
+          o.type = 'sine'; o.frequency.value = n[0] * p[0];
+          g.gain.setValueAtTime(0.0001, st);
+          g.gain.exponentialRampToValueAtTime(vol, st + 0.012);     // soft attack
+          g.gain.exponentialRampToValueAtTime(0.0001, st + n[2] / p[0]); // smooth decay (overtones fade first)
+          o.connect(g); g.connect(input);
+          o.start(st); o.stop(st + n[2] + 0.03);
+        });
       });
-    } catch(e) {}
+    } catch (e) {}
   };
-  if (ctx.state === 'suspended') ctx.resume().then(play).catch(() => {}); else play();
+  if (ctx.state === 'suspended') ctx.resume().then(go).catch(function() {}); else go();
 }
+function uiSound(kind) {
+  const n = UI_SFX[kind];
+  if (!n || !UI_SOUND.enabled) return;
+  const now = performance.now();
+  if (kind !== 'end' && kind !== 'goal' && now - _uiLastAt < 30) return;
+  _uiLastAt = now;
+  uiNotes(n);
+}
+// Bubble step: pitch follows progress (frac 0..1), so holding plays a rising /
+// falling pentatonic run. Lowering is a little softer than raising.
+function uiStep(frac, dir) {
+  const i = Math.max(0, Math.min(UI_SCALE.length - 1, Math.round(frac * (UI_SCALE.length - 1))));
+  uiNotes([[UI_SCALE[i], 0, 0.09, dir > 0 ? 0.070 : 0.050]]);
+}
+function toggleUISound() {
+  UI_SOUND.enabled = !UI_SOUND.enabled;
+  try { localStorage.setItem('uiSound', UI_SOUND.enabled ? 'on' : 'off'); } catch (e) {}
+  document.querySelectorAll('.ui-sound-toggle').forEach(function(b) {
+    b.textContent = UI_SOUND.enabled ? '🔊' : '🔇';
+  });
+  if (UI_SOUND.enabled) { pomUnlockAudio(); uiSound('confirm'); }
+}
+
+// Pomodoro sounds go through the same engine / key.
+function pomSound(kind) { pomUnlockAudio(); uiNotes(UI_SFX[kind] || []); }
 function pomNotify() {
-  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e) {}
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
   pomSound('end');
 }
+
+// Browsers only allow audio after a gesture — unlock on the first one.
+['pointerup', 'touchend', 'click', 'keydown'].forEach(function(ev) {
+  document.addEventListener(ev, pomUnlockAudio, { passive: true });
+});
+
+// Every button gets a sound. Elements that make their own (hold-system
+// bubbles, Pomodoro start/pause, habit/to-do toggles) are skipped: they play
+// theirs first, so this global one backs off.
+function uiKindOf(el) {
+  const raw = (el.id + ' ' + (typeof el.className === 'string' ? el.className : '') + ' ' +
+    (el.getAttribute('onclick') || '') + ' ' + (el.title || '') + ' ' + (el.getAttribute('aria-label') || ''));
+  const hay = raw.toLowerCase().replace(/[-_]/g, ' ');
+  const t = (el.textContent || '').trim().toLowerCase().slice(0, 24);
+  if (/togglepomodoro|pomskipbreak/.test(hay)) return null;
+  if (/\b(delete|remove|trash)/.test(hay) || /^(delete|remove)\b/.test(t)) return 'delete';
+  if (/\b(cancel|close|dismiss)/.test(hay) || /^(cancel|close|×|✕)$/.test(t)) return 'cancel';
+  if (/switchtab|\bnav\b|\btab\b/.test(hay)) return 'nav';
+  if (/\b(save|add|create|submit|confirm|apply|done|sync|sign)/.test(hay) ||
+      /^(save|add|create|done|set|apply|ok|confirm|sign|carry|skip)/.test(t)) return 'confirm';
+  return 'tap';
+}
+document.addEventListener('click', function(e) {
+  if (!UI_SOUND.enabled) return;
+  const start = e.target;
+  if (!start || !start.closest) return;
+  if (start.closest('.hold-card') || start.closest('#appToast')) return;
+  let node = start, found = null;
+  for (let i = 0; i < 5 && node && node !== document.body && node !== document.documentElement; i++, node = node.parentElement) {
+    if ((node.matches && node.matches('button, a, [onclick], [role="button"], input, select, summary')) ||
+        getComputedStyle(node).cursor === 'pointer') { found = node; break; }
+  }
+  if (!found) return;
+  const kind = uiKindOf(found);
+  if (!kind) return;
+  // Let the element's own handler run first; back off if it already made a sound.
+  setTimeout(function() {
+    if (performance.now() - _uiLastPlay < 80) return;
+    uiSound(kind);
+  }, 0);
+});
 
 // Skip the rest of the break and start the next focus session right away.
 function pomSkipBreak() {
