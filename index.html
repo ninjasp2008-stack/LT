@@ -1,7 +1,15 @@
 <!--
 VERSION: index21.html
 BASED ON: index20.html
-CHANGES: [index21] (1) Left button: Set -> Break (while running) -> Skip (any break). Break = fixed 5-min break, then the SAME focus resumes with its exact remaining seconds. (2) "Still there?" every 30 min (breaks count, shown only in focus, waits out breaks), "I'm here" button under the timer, repeating alert, auto-pause after 5 min. Memory only.
+CHANGES: [index21] (1) "Still there?" presence check: every 30 min of running time
+         (focus + break both count; deferred while a break is running) a minimal
+         "I'm here" button appears under the timer with a repeating alert sound;
+         no answer within 5 min => the timer is paused automatically (rewound to
+         the deadline, so absence is never recorded as focus). (2) The Set button
+         is now context-aware: Set (idle/paused) -> Break (running focus: a manual
+         break of the configured break length, the focus timer resumes where it
+         stopped, nothing restarts) -> Skip (during a break). Set stays reachable
+         from the target chip. Timer maths, Firebase and storage are unchanged.
          ────────── inherited: index20 ──────────
          [index20] (1) Pomodoro card: no scrollbar — the timer ring is now fluid
          (.pom-ring-wrap sized from the card height + width), the center column
@@ -770,43 +778,25 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   display: none !important;
 }
 
-/* ── POMODORO BUTTON GROUP: idle ⇄ running morph ──
-   Idle    : [Set][Start] — flex-grow 1 / 2 with a 10px gutter, i.e. the
-             original geometry (83.3px + 10px + 166.7px = the 260px row).
-   Running : Set collapses to zero width (gutter, side padding and side borders
-             animate to 0, its label is clipped, pointer events are off) while
-             Start grows to the whole row and becomes the single Pause button.
-   Only horizontal properties are animated and every transition below shares
-   the same duration + easing, so Set+gutter+Start still add up to exactly
-   260px at every instant — the row box never changes size, which keeps the
-   button group centred and the timer ring above it perfectly still.
-   (flex/padding/transition live here rather than inline so the running state
-    can override them without !important; only the glass border needs it.) */
+/* ── POMODORO BUTTON ROW ──
+   Left button is context-aware (label + action set by pomUpdateUI):
+     idle / paused focus → "Set"   (opens the settings panel)
+     running focus       → "Break" (starts a manual break)
+     any break           → "Skip"  (ends the break)
+   Right button: Start / Pause. Geometry is the original 1 : 2 split. */
 #pomodoroSetBtn {
   flex: 1 1 0;
-  min-width: 0;        /* may shrink past its label instead of refusing to */
-  overflow: hidden;    /* clip "Set" while it collapses */
+  min-width: 0;
+  overflow: hidden;
   padding: 11px;
-  margin-right: 10px;  /* was gap:10px on the row — animated away when running */
-  transition: flex-grow .3s cubic-bezier(.4, 0, .2, 1),
-              margin-right .3s cubic-bezier(.4, 0, .2, 1),
-              padding-left .3s cubic-bezier(.4, 0, .2, 1),
-              padding-right .3s cubic-bezier(.4, 0, .2, 1),
-              border-left-width .3s cubic-bezier(.4, 0, .2, 1),
-              border-right-width .3s cubic-bezier(.4, 0, .2, 1),
-              opacity .3s cubic-bezier(.4, 0, .2, 1);
+  margin-right: 10px;
 }
 
 #pomodoroStartBtn {
   flex: 2 1 0;
-  padding: 11px;       /* keeps the original 43.5px row height + box floor */
-  transition: background .15s,
-              flex-grow .3s cubic-bezier(.4, 0, .2, 1);
+  padding: 11px;
+  transition: background .15s;
 }
-
-/* index21: the left button no longer collapses while running — it becomes
-   "Break" (focus running) or "Skip" (any break), so the row keeps its
-   Set | Start geometry in every state. */
 
 /* ── TABLET + DESKTOP (>=768px): card chrome + shared height ── */
 @media (min-width: 768px) {
@@ -866,14 +856,8 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
      345px ≈ calendar clearance already subtracted in the card height + the
      chip / buttons / gaps stacked around the ring. */
   .todo-col-center .pom-ring-wrap {
-    width: min(100%, 280px, calc(100dvh - var(--cal-header-h) - 345px));
+    width: min(100%, 280px, calc(100dvh - var(--cal-header-h) - 400px));
     min-width: 120px;
-  }
-
-  /* While the "Still there?" row is showing (~66px taller), the ring shrinks
-     a little more so everything still fits without a scrollbar. */
-  .todo-col-center #pomodoroBlock.presence-on .pom-ring-wrap {
-    width: min(100%, 280px, calc(100dvh - var(--cal-header-h) - 415px));
   }
 
   /* Pomodoro block fills center column — compact, no extra vertical space.
@@ -971,9 +955,9 @@ body.focus-mode #pomodoroBlock {
   transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(var(--fs, 1));
 }
 
-@media (prefers-reduced-motion: reduce) {
-  :root { --focus-dur: .01s; }
-}
+/* NOTE: deliberately NOT disabled under prefers-reduced-motion. Windows with
+   "Animation effects" off (common on desktop PCs) reports reduce, which used to
+   collapse the focus-mode transition to .01s = two frames, no animation. */
 
 /* ── MOBILE: vertical order ──
    1. Timer, 2. Todo list, 3. Chart */
@@ -1757,20 +1741,9 @@ let currentUID = null;
           </div>
         </div>
 
-        <!-- "Still there?" check — shown under the timer only while it is due -->
-        <div id="pomPresenceRow" style="display:none;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:min(280px,100%)">
-          <span id="pomPresenceLabel" class="stat-mono"
-            style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.06em">Still there? · 5:00</span>
-          <button id="pomPresenceBtn" onclick="pomPresenceConfirm()"
-            style="width:100%;padding:11px;border-radius:12px;font-size:14px;font-weight:700;
-            font-family:inherit;background:#ffffff;border:none;color:#000000;cursor:pointer">
-            I'm here
-          </button>
-        </div>
-
-        <!-- Buttons row (left: Set / Break / Skip · right: Start / Pause) -->
+        <!-- Buttons row (idle: Set + Start · running: full-width Pause) -->
         <div id="pomodoroBtnRow" style="display:flex;width:100%;max-width:min(280px,100%)">
-          <button id="pomodoroSetBtn" onclick="pomSetOrBreak()"
+          <button id="pomodoroSetBtn" onclick="pomSideBtn()"
             class="glass-btn" style="border-radius:12px;font-size:13px;
             font-weight:700;font-family:inherit">
             Set
@@ -1782,7 +1755,17 @@ let currentUID = null;
           </button>
         </div>
 
-        <!-- Skip break (visible only during a break) -->
+        <!-- "Still there?" presence check (shown only while a check is pending) -->
+        <div id="pomodoroPresence" style="display:none;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:min(280px,100%)">
+          <span id="pomodoroPresenceLabel" style="font-size:11px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:.08em">Still there?</span>
+          <button id="pomodoroPresenceBtn" onclick="pomConfirmPresence()"
+            style="width:100%;padding:11px;border-radius:12px;font-size:14px;font-weight:700;
+            font-family:inherit;background:#ffffff;border:none;color:#000000;cursor:pointer">
+            I'm here
+          </button>
+        </div>
+
+        <!-- Skip break (legacy element — the Skip action now lives on the left button) -->
         <button id="pomodoroSkipBtn" onclick="pomSkipBreak()"
           style="display:none;background:none;border:none;color:rgba(255,255,255,0.55);
           font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;padding:2px 8px">
@@ -5623,6 +5606,18 @@ let pomSessionKey = null;
 // browsing to another day never moves its history record or live snapshot.
 let pomSessionDay = null;
 
+// ── Presence check ("Still there?") ──
+const POM_PRESENCE_EVERY_MS = 30 * 60 * 1000; // running time between checks (focus + break)
+const POM_PRESENCE_WAIT_MS  = 5 * 60 * 1000;  // time to answer before auto-pause
+const POM_PRESENCE_BEEP_MS  = 7000;           // repeat interval of the alert sound
+let pomPresenceAt = 0;           // last moment the user was confirmed present
+let pomPresencePending = false;  // a check is on screen
+let pomPresenceDeadline = 0;     // when an unanswered check auto-pauses the timer
+let pomPresenceNextBeep = 0;
+let pomFocusStartAt = 0;         // when the current focus phase began (defers checks past a break)
+// Focus session parked while a MANUAL break runs: { left, key, day, focusSecs }
+let pomHeldFocus = null;
+
 function pomFocusConfigSecs() {
   return pomSessionFocusSecs > 0
     ? pomSessionFocusSecs
@@ -5633,85 +5628,17 @@ function pomNewSessionKey() {
   return 's' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-// ── MANUAL BREAK ──
-// The Break button (shown while the timer runs) parks the current focus session,
-// runs a fixed 5-minute break, then resumes the SAME focus session with the
-// exact seconds that were left — it never restarts from the full duration.
-const POM_MANUAL_BREAK_SECS = 5 * 60;
-let pomManualBreak = false;     // true while a manual break is running
-let pomResumeFocusLeft = 0;     // focus seconds left when the manual break began
-
-// ── PRESENCE CHECK ("Still there?") — memory only, nothing is persisted ──
-// Every 30 minutes of running time (breaks count) the user is asked to confirm.
-// The question is only ever shown in the FOCUS phase: if it falls due during a
-// break it waits and appears the moment the break ends. No answer within 5
-// minutes pauses the timer automatically.
-const POM_PRESENCE_EVERY_MS = 30 * 60 * 1000;
-const POM_PRESENCE_GRACE_MS = 5 * 60 * 1000;
-const POM_ALERT_EVERY_MS    = 7000;
-let pomPresenceDueAt = 0;       // wall-clock ms when the next check is due (0 = off)
-let pomPresenceActive = false;  // the prompt is on screen
-let pomPresenceDeadline = 0;    // wall-clock ms when the prompt times out
-let pomPresenceAlertT = null;   // repeating alert interval
-
-function pomPresenceRender() {
-  const row = document.getElementById('pomPresenceRow');
-  const block = document.getElementById('pomodoroBlock');
-  if (row) row.style.display = pomPresenceActive ? 'flex' : 'none';
-  if (block) block.classList.toggle('presence-on', pomPresenceActive);
-  if (!pomPresenceActive) return;
-  const left = Math.max(0, Math.ceil((pomPresenceDeadline - Date.now()) / 1000));
-  const lbl = document.getElementById('pomPresenceLabel');
-  if (lbl) lbl.textContent = 'Still there? · ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
-}
-function pomPresenceAlert() {
-  try { if (navigator.vibrate) navigator.vibrate([150, 80, 150]); } catch (e) {}
-  pomSound('alert');
-}
-function pomPresenceShow() {
-  if (pomPresenceActive) return;
-  pomPresenceActive = true;
-  pomPresenceDeadline = Date.now() + POM_PRESENCE_GRACE_MS;
-  pomPresenceAlert();
-  clearInterval(pomPresenceAlertT);
-  pomPresenceAlertT = setInterval(pomPresenceAlert, POM_ALERT_EVERY_MS);
-  pomPresenceRender();
-}
-function pomPresenceHide() {
-  pomPresenceActive = false;
-  pomPresenceDeadline = 0;
-  clearInterval(pomPresenceAlertT);
-  pomPresenceAlertT = null;
-  pomPresenceRender();
-}
-function pomPresenceConfirm() {
-  pomPresenceHide();
-  pomPresenceDueAt = Date.now() + POM_PRESENCE_EVERY_MS;
-  uiSound('confirm');
-}
-// No answer in time: pause exactly as the Pause button would, frozen at the
-// moment the grace period ended (so a sleeping device can't inflate the focus).
-function pomPresenceTimeout(atMs) {
-  pomPresenceHide();
-  pomPresenceDueAt = 0;
-  if (pomRunning) togglePomodoro(atMs);
-  showToast('Timer paused — no response');
-}
-
 function pomTotalSeconds() {
   const s = S.pomodoro.settings;
-  if (pomPhase === 'focus') return s.focusMins * 60;
-  return pomManualBreak ? POM_MANUAL_BREAK_SECS : (s.breakMins * 60);
+  return pomPhase === 'focus'
+    ? (s.focusMins * 60)
+    : (s.breakMins * 60);
 }
 
 function pomReset() {
   clearInterval(pomTimer);
   pomTimer = null;
   pomRunning = false;
-  pomManualBreak = false;
-  pomResumeFocusLeft = 0;
-  pomPresenceHide();
-  pomPresenceDueAt = 0;
   pomPhase = 'focus';
   pomSecondsLeft = pomTotalSeconds();
   pomSessionValid = false; // nothing in memory worth preserving any more
@@ -5719,6 +5646,9 @@ function pomReset() {
   pomSessionKey = null;
   pomSessionDay = null;
   pomEndAt = 0;
+  pomHeldFocus = null;
+  pomPresencePending = false;
+  pomPresenceAt = 0;
   pomClearLiveSession(); // async — fire and forget
   pomUpdateUI();
 }
@@ -5732,6 +5662,28 @@ function pomReset() {
 // the scroll lock until the reverse animation has finished.
 let pomFocusOn = false;
 let pomFocusUnlockT = null;
+// Computes the zoom + translation that centre the timer block on screen.
+// Works from the block's REST position (the current translation is subtracted),
+// so it is correct both at entry and when the block grows/shrinks mid-focus.
+function pomFocusApply(block) {
+  const t = getComputedStyle(block).transform;
+  let ex = 0, ey = 0;
+  if (t && t !== 'none') { try { const m = new DOMMatrix(t); ex = m.e; ey = m.f; } catch (e) {} }
+  const r  = block.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const w  = block.offsetWidth || r.width, h = block.offsetHeight || r.height;
+  const cx = r.left + r.width  / 2 - ex;
+  const cy = r.top  + r.height / 2 - ey;
+  const s  = Math.max(1, Math.min(1.35, (vh * 0.8) / h, (vw * 0.92) / w));
+  block.style.setProperty('--fs', s.toFixed(3));
+  block.style.setProperty('--fx', (vw / 2 - cx).toFixed(1) + 'px');
+  block.style.setProperty('--fy', (vh / 2 - cy).toFixed(1) + 'px');
+}
+function pomFocusRecenter() {
+  const block = document.getElementById('pomodoroBlock');
+  if (block && pomFocusOn) pomFocusApply(block);
+}
+
 function pomSetFocusMode(on) {
   if (on === pomFocusOn) return;
   pomFocusOn = on;
@@ -5740,14 +5692,7 @@ function pomSetFocusMode(on) {
   if (on) {
     body.classList.add('focus-lock');
     const block = document.getElementById('pomodoroBlock');
-    if (block) {
-      const r  = block.getBoundingClientRect();   // at rest: no transform yet
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const s  = Math.max(1, Math.min(1.35, (vh * 0.8) / r.height, (vw * 0.92) / r.width));
-      block.style.setProperty('--fs', s.toFixed(3));
-      block.style.setProperty('--fx', (vw / 2 - (r.left + r.width  / 2)).toFixed(1) + 'px');
-      block.style.setProperty('--fy', (vh / 2 - (r.top  + r.height / 2)).toFixed(1) + 'px');
-    }
+    if (block) pomFocusApply(block);
     body.classList.add('focus-mode');
   } else {
     body.classList.remove('focus-mode');
@@ -5766,16 +5711,12 @@ function pomUpdateUI() {
   if (disp) disp.textContent = mins + ':' + secs;
   if (phase) phase.textContent = pomPhase === 'focus' ? 'Focus' : 'Break';
   if (startBtn) startBtn.textContent = pomRunning ? 'Pause' : 'Start';
-  // The old "Skip break →" link is replaced by the left button (Set / Break / Skip).
   const skipBtn = document.getElementById('pomodoroSkipBtn');
-  if (skipBtn) skipBtn.style.display = 'none';
+  if (skipBtn) skipBtn.style.display = 'none'; // replaced by the context-aware left button
 
-  // Left button: Skip during any break · Break while a focus session runs · Set otherwise
-  const setBtn = document.getElementById('pomodoroSetBtn');
-  if (setBtn) setBtn.textContent = pomPhase === 'break' ? 'Skip' : (pomRunning ? 'Break' : 'Set');
-  const btnRow = document.getElementById('pomodoroBtnRow');
-  if (btnRow) btnRow.classList.toggle('is-running', pomRunning);
-  pomPresenceRender();
+  // Left button: Set (idle/paused) → Break (running focus) → Skip (any break)
+  const sideBtn = document.getElementById('pomodoroSetBtn');
+  if (sideBtn) sideBtn.textContent = pomPhase === 'break' ? 'Skip' : (pomRunning ? 'Break' : 'Set');
 
   // Focus mode: ON only while the timer runs in the FOCUS phase and the
   // To-Do tab is on screen (so it can never trap the user on a hidden tab).
@@ -5783,6 +5724,20 @@ function pomUpdateUI() {
   const todoTabEl = document.getElementById('tab-todo');
   const onTodoTab = !!(todoTabEl && todoTabEl.classList.contains('active'));
   pomSetFocusMode(pomRunning && pomPhase === 'focus' && onTodoTab);
+
+  // "Still there?" box under the buttons
+  const presBox = document.getElementById('pomodoroPresence');
+  if (presBox) {
+    const showPres = pomPresencePending && pomRunning;
+    const wasShown = presBox.style.display !== 'none';
+    presBox.style.display = showPres ? 'flex' : 'none';
+    if (showPres) {
+      const rem = Math.max(0, Math.ceil((pomPresenceDeadline - Date.now()) / 1000));
+      const pl = document.getElementById('pomodoroPresenceLabel');
+      if (pl) pl.textContent = 'Still there? · ' + Math.floor(rem / 60) + ':' + String(rem % 60).padStart(2, '0');
+    }
+    if (showPres !== wasShown && pomFocusOn) pomFocusRecenter(); // keep the zoomed block centred
+  }
 
   // Ring progress
   if (ring) {
@@ -5816,55 +5771,39 @@ function pomSyncFromClock(atMs) {
 // fresh instead of replaying every missed cycle.
 function pomTick() {
   if (!pomRunning) return;
-  // Presence check FIRST: a timeout must win over any phase change, so a
-  // device that slept can never roll into a new phantom session.
-  const nowMs = Date.now();
-  if (pomPresenceActive && nowMs >= pomPresenceDeadline) {
-    pomPresenceTimeout(pomPresenceDeadline);
-    return;
-  }
-  let left = Math.ceil((pomEndAt - nowMs) / 1000);
-  let resumedFromManual = false;
+  // Presence check first: a long absence pauses the timer BEFORE any new phase
+  // transition can log a session the user was not there for.
+  if (pomPresenceTick(Date.now())) return;
+  let left = Math.ceil((pomEndAt - Date.now()) / 1000);
   if (left <= 0) {
-    if (pomPhase === 'break' && pomManualBreak) {
-      resumedFromManual = true;
-      // Manual break over: resume the SAME focus session where it stopped.
-      pomManualBreak = false;
-      pomPhase = 'focus';
-      pomEndAt = Date.now() + Math.max(1, pomResumeFocusLeft) * 1000;
-      pomResumeFocusLeft = 0;
-      pomLastSavedMin = Math.floor(Math.max(0, pomFocusConfigSecs() - Math.ceil((pomEndAt - Date.now()) / 1000)) / 60);
-      left = Math.ceil((pomEndAt - Date.now()) / 1000);
-      pomWriteLiveSession(); // async — fire and forget
-      pomNotify();
-    } else if (pomPhase === 'focus') {
+    if (pomPhase === 'focus') {
       pomLogSession(); // finalize this focus session (exact seconds)
       pomPhase = 'break';
-      // Unanswered prompt while focus ended: drop it, ask again once the break is over.
-      if (pomPresenceActive) { pomPresenceHide(); pomPresenceDueAt = Date.now(); }
     } else {
+      if (pomHeldFocus) {
+        // A MANUAL break just ended: continue the parked focus exactly where it stopped.
+        pomRestoreHeldFocus();
+        pomNotify();
+        pomWriteLiveSession();
+        pomUpdateUI();
+        return;
+      }
       pomPhase = 'focus';
+      pomFocusStartAt = Date.now();
       // A brand-new focus session starts with its own config + identity.
       pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
       pomSessionKey = pomNewSessionKey();
       pomSessionDay = SYSTEM_TODAY; // sessions only run on today
       pomWriteLiveSession(); // async — fire and forget
     }
-    if (!resumedFromManual) {
-      const total = pomTotalSeconds();
-      const chained = pomEndAt + total * 1000;
-      pomEndAt = chained > Date.now() ? chained : Date.now() + total * 1000;
-      pomLastSavedMin = 0;
-      left = Math.ceil((pomEndAt - Date.now()) / 1000);
-      pomNotify();
-    }
+    const total = pomTotalSeconds();
+    const chained = pomEndAt + total * 1000;
+    pomEndAt = chained > Date.now() ? chained : Date.now() + total * 1000;
+    pomLastSavedMin = 0;
+    left = Math.ceil((pomEndAt - Date.now()) / 1000);
+    pomNotify();
   }
   pomSecondsLeft = Math.max(0, Math.min(pomTotalSeconds(), left));
-  // Presence check due? Only ever raised in the FOCUS phase — during a break it
-  // simply waits and shows up as soon as the break is over.
-  if (!pomPresenceActive && pomPhase === 'focus' && pomPresenceDueAt && Date.now() >= pomPresenceDueAt) {
-    pomPresenceShow();
-  }
   // Autosave at every elapsed-minute boundary (focus phase only).
   if (pomPhase === 'focus') {
     const elapsedMin = Math.floor(pomElapsedFocusSeconds() / 60);
@@ -5915,8 +5854,8 @@ const UI_SFX = {
   start:   [[NOTE.C5, 0,    0.09, 0.070], [NOTE.G5, 0.08, 0.09, 0.070], [NOTE.C6, 0.16, 0.22, 0.070]],
   pause:   [[NOTE.C6, 0,    0.09, 0.060], [NOTE.G5, 0.08, 0.09, 0.060], [NOTE.C5, 0.16, 0.22, 0.060]],
   end:     [[NOTE.C6, 0,    0.20, 0.100], [NOTE.E6, 0.22, 0.20, 0.100], [NOTE.G6, 0.44, 0.45, 0.100]],
-  // "Still there?" — repeats until answered
-  alert:   [[NOTE.G5, 0,    0.14, 0.090], [NOTE.C6, 0.16, 0.14, 0.090], [NOTE.G5, 0.32, 0.14, 0.090], [NOTE.C6, 0.48, 0.28, 0.090]]
+  // "Still there?" reminder: a soft, clearly different two-note call
+  alert:   [[NOTE.G5, 0,    0.14, 0.085], [NOTE.C6, 0.16, 0.26, 0.085]]
 };
 
 function uiCtx() {
@@ -6043,67 +5982,38 @@ document.addEventListener('click', function(e) {
 // Skip the rest of the break and start the next focus session right away.
 function pomSkipBreak() {
   if (todoDay < SYSTEM_TODAY || pomPhase !== 'break') return;
+  pomPresenceAt = Date.now();          // pressing Skip proves presence
+  pomPresencePending = false;
+  if (pomHeldFocus) {
+    // Manual break: go back to the parked focus, exactly where it stopped.
+    pomRestoreHeldFocus();
+    if (pomRunning) { pomWriteLiveSession(); pomUpdateUI(); }
+    else togglePomodoro();
+    return;
+  }
   clearInterval(pomTimer);
   pomTimer = null;
   pomRunning = false;
-  if (pomManualBreak) {
-    // Skipping a MANUAL break: go back to the parked focus session with the
-    // exact seconds that were left (same session, same record — no restart).
-    pomManualBreak = false;
-    pomPhase = 'focus';
-    pomSecondsLeft = Math.max(1, pomResumeFocusLeft);
-    pomResumeFocusLeft = 0;
-    pomEndAt = 0;
-  } else {
-    pomPhase = 'focus';
-    // A brand-new focus session: its own config, identity and day.
-    pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
-    pomSessionKey = pomNewSessionKey();
-    pomSessionDay = SYSTEM_TODAY;
-    pomSecondsLeft = pomTotalSeconds();
-    pomLastSavedMin = 0;
-    pomEndAt = 0;
-  }
-  togglePomodoro(); // starts / resumes the focus session immediately
-}
-
-// Break: park the running focus session and take a fixed 5-minute break.
-// The countdown keeps running (now as a break); when it ends the focus session
-// resumes from the exact second it was parked at.
-function pomStartManualBreak() {
-  if (todoDay < SYSTEM_TODAY || !pomRunning || pomPhase !== 'focus') return;
-  pomSyncFromClock();
-  if (pomSecondsLeft <= 0) return; // focus is ending anyway
-  const elapsed = pomElapsedFocusSeconds();
-  if (elapsed > 0) pomLogPartial(elapsed); // save what was focused so far
-  pomResumeFocusLeft = pomSecondsLeft;
-  pomManualBreak = true;
-  pomPhase = 'break';
-  pomSecondsLeft = POM_MANUAL_BREAK_SECS;
-  pomEndAt = Date.now() + POM_MANUAL_BREAK_SECS * 1000;
+  pomPhase = 'focus';
+  // A brand-new focus session: its own config, identity and day.
+  pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+  pomSessionKey = pomNewSessionKey();
+  pomSessionDay = SYSTEM_TODAY;
+  pomSecondsLeft = pomTotalSeconds();
   pomLastSavedMin = 0;
-  if (pomPresenceActive) { pomPresenceHide(); pomPresenceDueAt = Date.now(); } // asked again after the break
-  pomSound('pause');
-  pomWriteLiveSession(); // async — fire and forget
-  pomUpdateUI();
-}
-
-// Left button: Skip in any break · Break while running · Set when idle/paused
-function pomSetOrBreak() {
-  if (pomPhase === 'break') pomSkipBreak();
-  else if (pomRunning) pomStartManualBreak();
-  else openPomodoroSetPanel();
+  pomEndAt = 0;
+  togglePomodoro(); // starts the new focus session immediately
 }
 
 function togglePomodoro(atMs) {
-  if (todoDay < SYSTEM_TODAY) return; // guard: past days only read-only
+  if (todoDay < SYSTEM_TODAY && !pomRunning) return; // guard: past days can't START (a running timer can always be paused)
   if (!pomRunning) {
     // Start — or resume a paused session
     pomRunning = true;
     pomSessionValid = true; // in-memory state is now authoritative
-    // Pressing Start/Resume counts as being present: the 30-min clock restarts.
-    pomPresenceHide();
-    pomPresenceDueAt = Date.now() + POM_PRESENCE_EVERY_MS;
+    pomPresenceAt = Date.now();   // pressing Start/resume proves presence
+    pomPresencePending = false;
+    pomFocusStartAt = Date.now();
     if (pomPhase === 'focus') {
       // A resume keeps its own identity; a brand-new focus run gets one.
       if (!pomSessionKey) pomSessionKey = pomNewSessionKey();
@@ -6126,10 +6036,11 @@ function togglePomodoro(atMs) {
     pomTimer = null;
     pomRunning = false;
     pomSessionValid = true;
+    pomPresencePending = false;
     pomSound('pause');
-    pomPresenceHide();
-    pomPresenceDueAt = 0;
-    pomSyncFromClock(atMs); // freeze the exact remaining time (at the pause moment, or the presence deadline)
+    // Freeze the exact remaining time at the moment of the pause (or, for an
+    // automatic "no response" pause, at the moment the deadline expired).
+    pomSyncFromClock(typeof atMs === 'number' ? atMs : undefined);
     // Exact elapsed focus seconds — 35s focused => 35, 1m55s => 115, and the
     // countdown itself (pomSecondsLeft) is never touched.
     const elapsed = pomElapsedFocusSeconds();
@@ -6141,6 +6052,84 @@ function togglePomodoro(atMs) {
     // the document and a failed write never resets the in-memory timer.
     pomWriteLiveSession(); // async — fire and forget
   }
+  pomUpdateUI();
+}
+
+// ── Left button: Set / Break / Skip ──
+function pomSideBtn() {
+  if (pomPhase === 'break') { pomSkipBreak(); return; }
+  if (pomRunning) { pomStartManualBreak(); return; }
+  openPomodoroSetPanel();
+}
+
+// Manual break: park the running focus session, run a break of the configured
+// length, and (when it ends or is skipped) continue the focus where it stopped.
+function pomStartManualBreak() {
+  if (!pomRunning || pomPhase !== 'focus') return;
+  pomSyncFromClock();
+  const elapsed = pomElapsedFocusSeconds();
+  if (elapsed > 0) pomLogPartial(elapsed); // progress so far stays in the analytics
+  pomHeldFocus = {
+    left: pomSecondsLeft, key: pomSessionKey, day: pomSessionDay, focusSecs: pomSessionFocusSecs
+  };
+  pomPhase = 'break';
+  pomSecondsLeft = S.pomodoro.settings.breakMins * 60;
+  pomEndAt = Date.now() + pomSecondsLeft * 1000;
+  pomLastSavedMin = 0;
+  pomPresenceAt = Date.now();   // pressing Break proves presence
+  pomPresencePending = false;
+  pomSound('pause');
+  pomWriteLiveSession();        // async — fire and forget
+  pomUpdateUI();
+}
+
+function pomRestoreHeldFocus() {
+  const h = pomHeldFocus;
+  pomHeldFocus = null;
+  if (!h) return;
+  pomPhase = 'focus';
+  pomSessionKey = h.key;
+  pomSessionDay = h.day;
+  pomSessionFocusSecs = h.focusSecs;
+  pomSecondsLeft = Math.max(0, Math.min(pomTotalSeconds(), h.left));
+  pomEndAt = Date.now() + pomSecondsLeft * 1000;
+  pomLastSavedMin = Math.floor(pomElapsedFocusSeconds() / 60);
+  pomFocusStartAt = Date.now();
+}
+
+// ── "Still there?" presence check ──
+// Runs from pomTick(). Returns true when it auto-paused the timer.
+function pomPresenceTick(now) {
+  if (!pomRunning) return false;
+  // Due every 30 min of running time (break time counts) — but never raised
+  // during a break: it waits until the next focus phase has begun.
+  if (!pomPresencePending && pomPhase === 'focus' && now - pomPresenceAt >= POM_PRESENCE_EVERY_MS) {
+    pomPresencePending = true;
+    pomPresenceDeadline = Math.max(pomPresenceAt + POM_PRESENCE_EVERY_MS, pomFocusStartAt) + POM_PRESENCE_WAIT_MS;
+    pomPresenceNextBeep = 0;
+  }
+  if (!pomPresencePending) return false;
+  if (now >= pomPresenceDeadline) {
+    pomAutoPauseNoResponse(pomPresenceDeadline);
+    return true;
+  }
+  if (now >= pomPresenceNextBeep) {
+    pomPresenceNextBeep = now + POM_PRESENCE_BEEP_MS;
+    pomSound('alert');
+    try { if (navigator.vibrate) navigator.vibrate([150, 80, 150]); } catch (e) {}
+  }
+  return false;
+}
+
+function pomAutoPauseNoResponse(deadlineMs) {
+  if (!pomRunning) return;
+  togglePomodoro(deadlineMs); // the normal Pause, rewound to the deadline
+  showToast('Timer paused — no response');
+}
+
+function pomConfirmPresence() {
+  pomPresenceAt = Date.now();
+  pomPresencePending = false;
   pomUpdateUI();
 }
 
@@ -6855,8 +6844,6 @@ function pomLiveSnapshot() {
     phase:          pomPhase,
     running:        pomRunning,        // state at save time
     sessionId:      pomSessionKey,     // partial-record identity
-    manualBreak:    pomManualBreak,    // a manual 5-min break is in progress
-    resumeFocusLeft: pomResumeFocusLeft, // focus seconds to resume after it
     savedAt:        Date.now()
   };
 }
@@ -6952,9 +6939,6 @@ async function pomRestoreSession() {
 
   // Restore timer state — always restore as PAUSED.
   pomPhase = snap.phase || 'focus';
-  // A manual break only restores if it still knows where to resume the focus.
-  pomManualBreak = !!(snap.manualBreak && pomPhase === 'break' && snap.resumeFocusLeft > 0);
-  pomResumeFocusLeft = pomManualBreak ? Math.round(snap.resumeFocusLeft) : 0;
   const total = pomTotalSeconds(); // correct duration for this phase + session
   pomSessionFocusSecs = (snap.focusMins != null
     ? snap.focusMins
