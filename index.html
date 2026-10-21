@@ -1,7 +1,14 @@
 <!--
-VERSION: index21.html
-BASED ON: index20.html
-CHANGES: [index21] (1) "Still there?" presence check: every 30 min of running time
+VERSION: index22.html
+BASED ON: index21.html
+CHANGES: [index22] Pomodoro ring + digits are fully fluid: the center card is a size
+         container, the ring = min(card width, card height - chrome, 400px) (min 80px)
+         and the digits / FOCUS label use cqw of the ring, so the time always stays
+         inside the circle at any window size. focus-mode no longer honours
+         prefers-reduced-motion (it flattened the animation on PCs with Windows
+         animations off).
+         ────────── inherited: index21 ──────────
+         [index21] (1) "Still there?" presence check: every 30 min of running time
          (focus + break both count; deferred while a break is running) a minimal
          "I'm here" button appears under the timer with a repeating alert sound;
          no answer within 5 min => the timer is paused automatically (rewound to
@@ -851,13 +858,21 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   }
   .todo-col-center::-webkit-scrollbar { display: none; }
 
-  /* Fluid ring: shrinks with the card HEIGHT (not only the width) so the
-     ring + buttons always fit without needing a scrollbar.
-     345px ≈ calendar clearance already subtracted in the card height + the
-     chip / buttons / gaps stacked around the ring. */
+  /* Fluid ring: the center card is a size container (its height is fixed by
+     the grid), so the ring can use the REAL space left after the chip, buttons
+     and gaps (--pom-chrome, measured once, enlarged while the presence box is
+     shown) instead of guessing from the viewport height. It grows with the
+     window up to 400px and shrinks smoothly down to 110px. */
+  .todo-col-center {
+    container-type: size;
+    container-name: pomcol;
+  }
+  .todo-col-center #pomodoroBlock { --pom-chrome: 140px; }
+  .todo-col-center #pomodoroBlock.pom-presence-on { --pom-chrome: 245px; }
   .todo-col-center .pom-ring-wrap {
-    width: min(100%, 280px, calc(100dvh - var(--cal-header-h) - 400px));
-    min-width: 120px;
+    width: min(100%, calc(100cqh - var(--pom-chrome)), 400px);
+    max-width: none;
+    min-width: 80px;
   }
 
   /* Pomodoro block fills center column — compact, no extra vertical space.
@@ -865,7 +880,7 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
       and gap:16px) */
   .todo-col-center #pomodoroBlock {
     width: 100%;
-    max-width: 340px;
+    max-width: min(100%, 460px);
     background: transparent;
     border: none;
     box-shadow: none;
@@ -886,10 +901,11 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .pom-ring-wrap {
   position: relative;
   width: 100%;
-  max-width: 280px;
+  max-width: 300px;
   aspect-ratio: 1 / 1;
   flex: 0 1 auto;
   min-height: 0;
+  container-type: inline-size;   /* digits + label use cqw of THIS box */
 }
 
 /* ══════════ FOCUS MODE ══════════
@@ -1734,9 +1750,9 @@ let currentUID = null;
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;
             align-items:center;justify-content:center;gap:2px">
             <span id="pomodoroDisplay" class="stat-mono"
-              style="font-size:clamp(24px, 5vw, 48px);font-weight:700;color:#fff">25:00</span>
+              style="font-size:clamp(16px, 20cqw, 96px);line-height:1;font-weight:700;color:#fff;white-space:nowrap">25:00</span>
             <span id="pomodoroPhaseLabel"
-              style="font-size:clamp(9px, 1.2vw, 13px);color:rgba(255,255,255,0.4);text-transform:uppercase;
+              style="font-size:clamp(8px, 4.6cqw, 22px);color:rgba(255,255,255,0.4);text-transform:uppercase;
               letter-spacing:.08em">Focus</span>
           </div>
         </div>
@@ -5731,6 +5747,8 @@ function pomUpdateUI() {
     const showPres = pomPresencePending && pomRunning;
     const wasShown = presBox.style.display !== 'none';
     presBox.style.display = showPres ? 'flex' : 'none';
+    const pb = document.getElementById('pomodoroBlock');
+    if (pb) pb.classList.toggle('pom-presence-on', showPres);
     if (showPres) {
       const rem = Math.max(0, Math.ceil((pomPresenceDeadline - Date.now()) / 1000));
       const pl = document.getElementById('pomodoroPresenceLabel');
