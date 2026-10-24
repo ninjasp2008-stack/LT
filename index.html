@@ -1,7 +1,11 @@
 <!--
-VERSION: index28.html
-BASED ON: index27.html
-CHANGES: [index28] Heatmap now starts on 1 Jan 2026 (HEATMAP_START), runs to today; days
+VERSION: index29.html
+BASED ON: index28.html
+CHANGES: [index29] Cycles are now REAL CALENDAR MONTHS (1st → last day, 28/29/30/31 days) instead of a fixed 30-day
+         run: automatic archive + new-month start (also catches a month that passed while the app was closed),
+         one-time safe migration of an in-progress 30-day cycle, manual "Reset / Start New Cycle" removed.
+         Daily Score heatmap now shows the whole calendar year (Jan–Dec) sized to fill its card, no scrolling,
+         scores looked up by real date. [index28] Heatmap now starts on 1 Jan 2026 (HEATMAP_START), runs to today; days
          before you used the app stay empty; cells shrink to fit (min 7px, then the
          strip scrolls, landing on the latest weeks). [index27] Dashboard: new "Daily Score" heatmap (white, GitHub-style, one square
          per calendar day, brightness = that day's total score) next to the Mastery
@@ -248,7 +252,7 @@ CHANGES: [index28] Heatmap now starts on 1 Jan 2026 (HEATMAP_START), runs to tod
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MISSION">
+<meta name="apple-mobile-web-app-title" content="Target">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
@@ -356,6 +360,24 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 .tab-scroll.no-cal-header{padding-top:20px}
 
 /* ── TO-DO LIST ── */
+
+/* ── TO-DO Day / Month switch ── */
+.todo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px 2px}
+.todo-heading{font-size:15px;font-weight:700;color:#fff;margin:0}
+.todo-datebar{display:flex;align-items:center;gap:8px;margin:0 0 16px 2px}
+.todo-month-nav{background:rgba(255,255,255,.08);border:none;color:#fff;width:26px;height:26px;border-radius:50%;font-size:16px;line-height:1;cursor:pointer;font-family:inherit}
+.todo-month-nav:disabled{opacity:.3;cursor:default}
+.todo-mode-switch{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:999px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);isolation:isolate;flex-shrink:0}
+.todo-mode-ind{position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:999px;background:#fff;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);will-change:transform}
+.todo-mode-switch[data-mode="month"] .todo-mode-ind{transform:translateX(100%)}
+.todo-mode-btn{border:none;background:none;color:rgba(255,255,255,.7);font:600 13px/1 inherit;font-family:inherit;padding:0 16px;
+  min-width:64px;min-height:32px;border-radius:999px;cursor:pointer;transition:color .2s;-webkit-tap-highlight-color:transparent}
+.todo-mode-btn.active{color:#0a0a0c}
+.todo-scope{display:grid;width:100%;margin-bottom:14px}
+#nav-todo{touch-action:manipulation}
+@media (prefers-reduced-motion: reduce){.todo-mode-ind,.todo-mode-btn{transition:none}}
 .todo-task{display:flex;align-items:center;gap:12px;padding:12px 16px;
   background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
   border-radius:0;transition:all .15s}
@@ -1028,21 +1050,28 @@ body.focus-mode #pomodoroBlock {
 /* ── HERO ROW + DAILY-SCORE HEATMAP ── */
 .hero-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 @media (min-width: 900px) { .hero-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.hm-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.hm-scroll::-webkit-scrollbar { display: none; }
-.hm-wrap { display: grid; grid-template-columns: auto auto; column-gap: 8px; row-gap: 6px; max-width: 100%; }
-.hm-months { position: relative; height: 12px; font-size: 10px; color: rgba(255,255,255,.45); }
+.hm-wrap { display: grid; grid-template-columns: auto auto; column-gap: 6px; row-gap: 5px; max-width: 100%; }
+.hm-months { position: relative; height: 12px; font-size: 10px; line-height: 12px; color: rgba(255,255,255,.45); }
 .hm-months span { position: absolute; top: 0; white-space: nowrap; }
-.hm-days { display: grid; grid-template-rows: repeat(7, var(--hm-cell)); row-gap: var(--hm-gap); font-size: 10px; color: rgba(255,255,255,.45); }
-.hm-days span { line-height: var(--hm-cell); }
+.hm-days { display: grid; grid-template-rows: repeat(7, var(--hm-cell)); row-gap: var(--hm-gap); font-size: var(--hm-fs, 10px); color: rgba(255,255,255,.45); }
+.hm-days span { display: flex; align-items: center; height: var(--hm-cell); line-height: 1; white-space: nowrap; }
 .hm-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--hm-cell)); grid-auto-columns: var(--hm-cell); gap: var(--hm-gap); }
-.hm-c { width: var(--hm-cell); height: var(--hm-cell); border-radius: 3px; background: rgba(255,255,255,.07); }
-.hm-c.l1 { background: rgba(255,255,255,.24); }
-.hm-c.l2 { background: rgba(255,255,255,.45); }
-.hm-c.l3 { background: rgba(255,255,255,.70); }
+.hm-c { width: var(--hm-cell); height: var(--hm-cell); border-radius: var(--hm-r, 4px); background: rgba(255,255,255,.13); }
+.hm-c.l1 { background: rgba(255,255,255,.42); }
+.hm-c.l2 { background: rgba(255,255,255,.62); }
+.hm-c.l3 { background: rgba(255,255,255,.82); }
 .hm-c.l4 { background: #ffffff; }
 .hm-c.today { outline: 1.5px solid rgba(255,255,255,.6); outline-offset: 1px; }
-.hm-c.hm-future { visibility: hidden; }
+.hm-c.hm-future { background: rgba(255,255,255,.05); }   /* upcoming date: inactive, no score */
+.hm-c.hm-pad { visibility: hidden; }                       /* filler outside the year / month */
+/* month-by-month layout (used when the single 53-week strip would be too small) */
+.hm-mrows { width: 100%; }
+.hm-mrow { display: flex; gap: 6px; align-items: flex-start; width: 100%; }
+.hm-mrow + .hm-mrow { margin-top: 10px; }
+.hm-days-m { margin-top: 16px; flex: 0 0 auto; min-width: 20px; }
+.hm-mblocks { flex: 1; display: grid; justify-content: space-between; min-width: 0; }
+.hm-mt { height: 12px; line-height: 12px; margin-bottom: 4px; font-size: 10px; color: rgba(255,255,255,.45); }
+.hm-mg { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--hm-cell)); grid-auto-columns: var(--hm-cell); gap: var(--hm-gap); }
 .hm-legend { display: flex; align-items: center; gap: 5px; margin-top: 14px; font-size: 11px; color: rgba(255,255,255,.55); }
 .hm-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; }
 
@@ -1064,6 +1093,17 @@ body.focus-mode #pomodoroBlock {
 .bk-tip-val { font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 14px; }
 
 
+/* ── TARGET FOCUS — PHONE LAYOUT (9:16): donut centred, legend under it, stats in a row ── */
+@media (max-width: 767px) {
+  #pomTfLayout { flex-direction: column !important; flex-wrap: nowrap !important; align-items: center !important; gap: 14px !important; }
+  #pomDonutHost { width: min(74vw, 290px) !important; }
+  #pomAnalyticsLegend { flex: none !important; width: 100% !important; flex-direction: row !important; flex-wrap: wrap !important;
+    justify-content: center !important; align-items: center !important; gap: 6px 12px !important; }
+  #pomStatsCol { flex: none !important; width: 100% !important; min-width: 0 !important; align-self: stretch !important;
+    flex-direction: row !important; gap: 8px !important; }
+  #pomStatsCol > div { min-width: 0; padding: 9px 4px !important; }
+  #pomStatsCol > div > div:first-child { font-size: 17px !important; }
+}
 /* ── POMODORO DONUT (bklit "Linked legend") ── */
 #pomDonutHost{container-type:inline-size}
 #pomDonutSvg .pd-slice{cursor:pointer;transition:opacity .25s ease}
@@ -1276,7 +1316,12 @@ let currentUID = null;
 <!-- TO-DO ADD MODAL -->
 <div id="todoModal" class="modal-overlay" onclick="if(event.target===this)closeTodoModal()">
   <div class="modal-box" style="max-width:320px;padding:24px">
-    <p id="todoModalTitle" style="font-size:16px;font-weight:700;margin-bottom:16px">New Task</p>
+    <p id="todoModalTitle" style="font-size:16px;font-weight:700;margin-bottom:14px">New Daily Task</p>
+    <div id="todoScopeSwitch" class="todo-mode-switch todo-scope" data-mode="day" role="radiogroup" aria-label="Task type">
+      <span class="todo-mode-ind" aria-hidden="true"></span>
+      <button type="button" class="todo-mode-btn active" data-mode="day" role="radio" aria-checked="true" onclick="setTodoAddScope('day')">Daily</button>
+      <button type="button" class="todo-mode-btn" data-mode="month" role="radio" aria-checked="false" onclick="setTodoAddScope('month')">Monthly</button>
+    </div>
     <input id="todoModalInput" type="text" maxlength="100" placeholder="Write a new task…"
       style="width:100%;background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.08);border-radius:10px;
              color:#fff;padding:12px 14px;outline:none;font-family:inherit;font-size:15px;margin-bottom:18px"
@@ -1291,7 +1336,7 @@ let currentUID = null;
   <div class="modal-box" style="max-width:360px;padding:24px">
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <p style="font-size:18px;font-weight:700;margin:0">Set Pomodoro</p>
+      <p style="font-size:18px;font-weight:700;margin:0">Set Focus Timer</p>
     </div>
 
     <!-- Focus duration -->
@@ -1343,7 +1388,7 @@ let currentUID = null;
       color:#000000;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;
       transition:background .15s" onmouseover="this.style.background='#e5e7eb'"
       onmouseout="this.style.background='#ffffff'">
-      Set Pomodoro
+      Set Focus Timer
     </button>
 
   </div>
@@ -1420,7 +1465,7 @@ let currentUID = null;
       <!-- MASTERY HERO + DAILY-SCORE HEATMAP (side by side on wide screens, stacked on phones) -->
       <div id="heroRow" class="hero-row">
       <div id="heroCard" class="mission-glass-container" style="border-radius:20px;padding:24px">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:24px" id="heroFlex">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:24px" id="heroFlex">
           <!-- Circular Ring -->
           <div style="position:relative;width:180px;height:180px;flex-shrink:0">
             <svg style="width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 180 180">
@@ -1430,14 +1475,14 @@ let currentUID = null;
             </svg>
             <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.4">
               <span id="masteryPct" class="stat-mono" style="font-size:38px;font-weight:700;color:#fff">0%</span>
-              <span style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em">Mastery</span>
+              <span style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em">Growth</span>
             </div>
           </div>
-          <!-- Clean Center Stats Layout -->
-          <div style="width: 100%; display:flex; justify-content:center; gap:32px; text-align:center;">
+          <!-- Left-aligned stats -->
+          <div style="width: 100%; display:flex; flex-wrap:wrap; justify-content:flex-start; gap:12px 32px; text-align:left;">
             <div>
               <div id="streakCount" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Streak</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Consistency</div>
             </div>
             <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
             <div>
@@ -1447,7 +1492,7 @@ let currentUID = null;
             <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
             <div>
               <div id="missionPoints" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Mission Pts</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Growth Pts</div>
             </div>
           </div>
         </div>
@@ -1456,7 +1501,7 @@ let currentUID = null;
       <!-- DAILY SCORE HEATMAP -->
       <div id="heatmapCard" class="mission-glass-container" style="border-radius:20px;padding:20px 22px;display:flex;flex-direction:column;justify-content:center">
         <div class="chart-title-row" style="margin-bottom:14px">
-          <div class="glass-title-sm" style="color:#ffffff;margin-bottom:0">Daily Score</div>
+          <div class="glass-title-sm" style="color:#ffffff;margin-bottom:0">Daily Performance</div>
           <span id="heatmapSummary" style="font-size:11px;color:rgba(255,255,255,0.45);white-space:nowrap"></span>
         </div>
         <div id="heatmapBody" style="display:flex;flex-direction:column;align-items:center;min-height:90px"></div>
@@ -1703,12 +1748,6 @@ let currentUID = null;
       </div>
 <div id="auth-btn" style="padding:14px 18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:20px;display:flex;align-items:center;width:100%;box-sizing:border-box;"></div>
 
-      <!-- RESET CHALLENGE -->
-      <div style="text-align: center; margin-top: 24px; margin-bottom: 12px;">
-        <button onclick="resetChallenge()" class="btn-danger" style="border-radius: 9999px; padding: 8px 24px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; border: 1.5px solid #7f1d1d; color: #ef4444; background: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.08)'" onmouseout="this.style.background='none'">
-          Reset Challenge Progress
-        </button>
-      </div>
 
     </div>
   </div><!-- /tab-dashboard -->
@@ -1786,9 +1825,19 @@ let currentUID = null;
 
       <!-- COLUMN 1: Todo List (left) -->
       <div class="todo-col todo-col-left">
-        <p id="todoDateLabel" style="font-size:11px;font-weight:700;
-          color:rgba(255,255,255,0.35);text-transform:uppercase;
-          letter-spacing:.08em;margin:0 0 16px 2px">October 10</p>
+        <div class="todo-head">
+          <h2 id="todoHeading" class="todo-heading">Daily To-Do</h2>
+          <div id="todoModeSwitch" class="todo-mode-switch" data-mode="day" role="radiogroup" aria-label="To-do list mode">
+            <span class="todo-mode-ind" aria-hidden="true"></span>
+            <button type="button" class="todo-mode-btn active" data-mode="day" role="radio" aria-checked="true" onclick="setTodoViewMode('day')">Day</button>
+            <button type="button" class="todo-mode-btn" data-mode="month" role="radio" aria-checked="false" onclick="setTodoViewMode('month')">Month</button>
+          </div>
+        </div>
+        <div class="todo-datebar">
+          <button type="button" id="todoMonthPrev" class="todo-month-nav" aria-label="Previous month" onclick="todoMonthShift(-1)" style="display:none">‹</button>
+          <p id="todoDateLabel" style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.08em;margin:0">October 10</p>
+          <button type="button" id="todoMonthNext" class="todo-month-nav" aria-label="Next month" onclick="todoMonthShift(1)" style="display:none">›</button>
+        </div>
 
         <div id="todoList"><!-- rendered by JS --></div>
         <div id="todoEmpty" style="text-align:center;padding:24px 0;
@@ -1811,7 +1860,7 @@ let currentUID = null;
         <div id="pomodoroPastBanner" style="display:none;font-size:12px;color:rgba(255,255,255,0.4);
           background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
           border-radius:10px;padding:8px 14px;text-align:center;width:100%">
-          ⏳ Pomodoro is not available for past days
+          ⏳ Focus Timer is not available for past days
         </div>
 
         <!-- Active target chip -->
@@ -1887,7 +1936,7 @@ let currentUID = null;
       <div class="todo-col todo-col-right">
         <p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);
           text-transform:uppercase;letter-spacing:.08em;margin:0 0 16px 2px">
-          Completion
+          Tasks Completed
         </p>
         <div style="position:relative;height:160px">
           <canvas id="chartTodosSide"></canvas>
@@ -2009,7 +2058,7 @@ let currentUID = null;
       <!-- TO-DO COMPLETION RATE -->
       <div class="mission-glass-container" style="border-radius:14px;padding:20px">
         <div class="chart-title-row">
-          <div class="glass-title-sm" style="color:#ffffff">To-Do Completion Rate</div>
+          <div class="glass-title-sm" style="color:#ffffff">Tasks Completed</div>
           <button class="range-toggle" data-range-key="todos" onclick="toggleRange('todos')" aria-label="Switch To-Do chart to Week view">Month</button>
         </div>
         <div style="position:relative;height:180px;margin-top:16px"><canvas id="chartTodos"></canvas></div>
@@ -2071,7 +2120,7 @@ let currentUID = null;
 
       <!-- SUMMARY STATS -->
       <div class="mission-glass-container" style="border-radius:14px;padding:20px">
-        <div class="glass-title-sm" style="color:#ffffff;margin-bottom:16px">30-Day Summary</div>
+        <div class="glass-title-sm" style="color:#ffffff;margin-bottom:16px">Monthly Summary</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div style="background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px">
             <div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:4px">Avg Water</div>
@@ -2106,7 +2155,7 @@ let currentUID = null;
           style="width:100%;display:flex;align-items:center;justify-content:space-between;
                  background:none;border:none;cursor:pointer;padding:0;font-family:inherit">
           <div>
-            <div class="glass-title-sm" style="margin-bottom:0;text-align:left">Past Challenges Archive</div>
+            <div class="glass-title-sm" style="margin-bottom:0;text-align:left">Growth History</div>
             <div style="font-size:12px;color:rgba(255,255,255,0.6);text-align:left;margin-top:2px">Your long-term growth history</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -2121,7 +2170,7 @@ let currentUID = null;
           <div style="padding-top:16px;border-top:1px solid rgba(255,255,255,0.04);margin-top:16px">
             <div id="archiveList"></div>
             <div id="noArchiveMsg" style="text-align:center;padding:20px 0;color:rgba(255,255,255,0.4);font-size:13px">
-              No completed challenges yet. Finish your 30-day run to earn a trophy!
+              No completed challenges yet. Finish a full month to earn a trophy!
             </div>
             <button onclick="archiveCurrentChallenge()"
               style="margin-top:14px;width:100%;padding:10px;border:1px solid #713f12;border-radius:10px;
@@ -2186,7 +2235,7 @@ let currentUID = null;
 const TODAY = new Date();
 
 // ── CONSTANTS
-const TOTAL_DAYS   = 30;
+let   TOTAL_DAYS   = 31;   // days in the LIVE calendar-month cycle (28-31) — set by ensureCalendarCycle()/loadState()
 const WATER_GOAL   = 3.5;
 const STEPS_GOAL   = 10000;
 const SLEEP_GOAL   = 8;
@@ -2275,18 +2324,21 @@ let S = {
   dayIndex:        0,
   habits:          [],
   habitsNegative:  [],
-  waterHistory:    [],   // float[30]
-  stepsHistory:    [],   // int[30]
-  sleepHistory:    [],   // float[30]
-  pushupsHistory:  [],   // int[30]
-  caffeineHistory: [],   // int[30]
-  moodHistory:     [],   // int[30]  0=unlogged, 1-5
-  habitsHistory:   [],   // bool[30][habits.length]
-  habitsHistoryNegative: [], // bool[30][habitsNegative.length]
+  waterHistory:    [],   // float[days in month]
+  stepsHistory:    [],   // int[days in month]
+  sleepHistory:    [],   // float[days in month]
+  pushupsHistory:  [],   // int[days in month]
+  caffeineHistory: [],   // int[days in month]
+  moodHistory:     [],   // int[days in month]  0=unlogged, 1-5
+  habitsHistory:   [],   // bool[days in month][habits.length]
+  habitsHistoryNegative: [], // bool[days in month][habitsNegative.length]
   pastChallenges:  [],   // archive
   cycles:          [],   // full-data archive of completed cycles
   cycleArchivedStartDate: null, // guard against double-archiving
-  todos:           {},   // { "YYYY-MM-DD": [{text, done}] }
+  todos:           {},   // LEGACY (cycle-index keyed) — read-only backup, never written any more
+  todosByDate:     {},   // DAILY tasks:   { "YYYY-MM-DD": [{text, done}] }
+  todosMonthly:    {},   // MONTHLY tasks: { "YYYY-MM":    [{text, done}] }
+  todosLegacy:     {},   // legacy tasks that could not be mapped to a date (kept, never deleted)
   journalHistory:  {},   // { dayIndex: "entry text" }
   pomodoro: {
     targets: [            // default targets on init
@@ -2301,7 +2353,9 @@ let S = {
       focusMins: 25,       // default focus duration in minutes
       breakMins: 5,        // default break duration in minutes
       activeTargetId: null // currently selected target id
-    }
+    },
+    sessionsStart: null, // start date the day-index keys of `sessions` are relative to
+    pastSessions: {}     // { "YYYY-MM-DD": [...] } sessions of earlier months (re-keyed by real date)
   },
 };
 
@@ -2335,7 +2389,9 @@ function saveState() {
   localStorage.setItem('habitsHistory',    JSON.stringify(S.habitsHistory));
   localStorage.setItem('habitsHistoryNegative', JSON.stringify(S.habitsHistoryNegative));
   localStorage.setItem('pastChallenges',   JSON.stringify(S.pastChallenges));
-  localStorage.setItem('todos',            JSON.stringify(S.todos));
+  localStorage.setItem('todosByDate',     JSON.stringify(S.todosByDate));
+  localStorage.setItem('todosMonthly',    JSON.stringify(S.todosMonthly));
+  localStorage.setItem('todosLegacy',     JSON.stringify(S.todosLegacy));
   localStorage.setItem('journalHistory',   JSON.stringify(S.journalHistory));
   localStorage.setItem('cycles',           JSON.stringify(S.cycles));
   localStorage.setItem('cycleArchivedStartDate', S.cycleArchivedStartDate || '');
@@ -2377,8 +2433,8 @@ function syncToCloud() {
     syncPending = false;
     const keys = ['challengeStartDate','habits','habitsNegative','waterHistory',
       'stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
-      'habitsHistory','habitsHistoryNegative','pastChallenges','todos',
-      'journalHistory','cycles','cycleArchivedStartDate',
+      'habitsHistory','habitsHistoryNegative','pastChallenges','todos','todosByDate','todosMonthly','todosLegacy','todosMigrated',
+      'journalHistory','cycles','cycleArchivedStartDate','cycleModel',
       'missionPoints','missionHistory','missionTotal'];
     const stamp = Date.now();
     const data = { updatedAt: stamp };
@@ -2418,13 +2474,22 @@ async function syncFromCloud() {
   Object.entries(data).forEach(([k, v]) => {
     if (k !== 'updatedAt' && !k.startsWith('pomodoro')) localStorage.setItem(k, v);
   });
+  // data uploaded by an older (30-day) version carries no cycleModel → make sure it is migrated
+  if (!Object.prototype.hasOwnProperty.call(data, 'cycleModel')) localStorage.removeItem('cycleModel');
   lastCloudStamp = data.updatedAt || 0;
   cloudReady = true;
   loadState();
+  SYSTEM_TODAY = getRealDayIndex();                        // the cloud copy may belong to another month
+  if (cycleTransition || selectedDay > SYSTEM_TODAY) { selectedDay = SYSTEM_TODAY; todoDay = SYSTEM_TODAY; }
   S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, selectedDay)); // loadState() resets it to today
+  pomRebaseSessions();
   renderAll();
   renderTodoList();
   updateStreakUI();
+  if (cycleTransition) {
+    saveState();                                           // push the migrated / rolled-over month to the cloud
+    showRolloverSummary();
+  }
 }
 
 function signInWithGoogle() {
@@ -2546,9 +2611,14 @@ function loadState() {
     localStorage.removeItem('apexTotal');
   }
 
+  // Calendar-month cycles: migrate an old 30-day cycle / roll over to the new month
+  // (archiving the finished one) BEFORE the per-day arrays are read below.
+  ensureCalendarCycle();
+
   let sd = localStorage.getItem('challengeStartDate') || todayISO();
   localStorage.setItem('challengeStartDate', sd);
   S.startDate = sd;
+  TOTAL_DAYS  = getCycleLength(sd);        // 28 / 29 / 30 / 31 — real length of this month
 
   S.dayIndex = Math.max(0, Math.min(TOTAL_DAYS - 1, daysBetween(sd, todayISO())));
 
@@ -2611,6 +2681,9 @@ function loadState() {
   let parsedTD = {};
   try { parsedTD = rawTD ? JSON.parse(rawTD) : {}; } catch(e) {}
   S.todos = (parsedTD && typeof parsedTD === 'object' && !Array.isArray(parsedTD)) ? parsedTD : {};
+  S.todosByDate  = lsObj('todosByDate');
+  S.todosMonthly = lsObj('todosMonthly');
+  S.todosLegacy  = lsObj('todosLegacy');
 
   // Journal entries: { dayIndex: "text" }
   const rawJ = localStorage.getItem('journalHistory');
@@ -2696,12 +2769,47 @@ function daysBetween(isoA, isoB) {
   return Math.round((b - a) / 86400000);
 }
 
+// ── CALENDAR-MONTH CYCLE HELPERS ──
+// Every cycle is ONE real calendar month: it starts on the 1st and ends on the
+// actual last day of that month (28/29/30/31). All month maths goes through
+// these helpers (JS Date does the leap-year / month-length work) — there is no
+// hardcoded day count anywhere in the cycle logic.
+function pad2(n) { return String(n).padStart(2, '0'); }
+function isoFromDate(dt) { return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
+// Accepts a Date or an ISO string; always returns a LOCAL-midnight Date.
+function toLocalDate(d) {
+  if (typeof d === 'string') return parseLocalMidnight(d.slice(0, 10));
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function addDaysISO(iso, n) {
+  const dt = parseLocalMidnight(iso);
+  dt.setDate(dt.getDate() + n);
+  return isoFromDate(dt);
+}
+// month is 1-12 (day 0 of the NEXT month = last day of this one)
+function getDaysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
+function getMonthStartDate(date) { const d = toLocalDate(date || TODAY); return new Date(d.getFullYear(), d.getMonth(), 1); }
+function getMonthEndDate(date)   { const d = toLocalDate(date || TODAY); return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+// "YYYY-MM" — identifies the calendar-month cycle a date belongs to
+function getCurrentCycleKey(date) { const d = toLocalDate(date || TODAY); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); }
+// Length (in days) of the cycle that starts on the given ISO date
+function getCycleLength(startISO) { const d = parseLocalMidnight(startISO); return getDaysInMonth(d.getFullYear(), d.getMonth() + 1); }
+function getCycleEndISO(startISO) { return addDaysISO(startISO, getCycleLength(startISO) - 1); }
+// Index of a date inside the LIVE cycle (0 = 1st of the month), or -1 when the
+// date belongs to another month — never negative / out-of-range indexes.
+function getCycleDayIndex(date) {
+  if (!S.startDate) return -1;
+  const idx = daysBetween(S.startDate, isoFromDate(toLocalDate(date)));
+  return (idx >= 0 && idx < TOTAL_DAYS) ? idx : -1;
+}
+// True once the live cycle's last calendar day has passed (a new month began)
+function isCycleComplete() { return !!S.startDate && todayISO() > getCycleEndISO(S.startDate); }
+
 // ── DATE NAVIGATION HELPERS ──
 function getRealDayIndex() {
   if (!S.startDate) return 0;
-  return daysBetween(S.startDate, todayISO());
-  // NOTE: intentionally uncapped — used for SYSTEM_TODAY which needs to
-  // represent Day 30+ for cycle completion detection and future-day marking.
+  // always a valid index of the live month: 0 … TOTAL_DAYS-1
+  return Math.max(0, Math.min(TOTAL_DAYS - 1, daysBetween(S.startDate, todayISO())));
 }
 
 function getNavigatedDateString(dayIndex) {
@@ -2751,9 +2859,10 @@ function renderDateNav() {
   // ── Build ALL days in a scrollable strip ──
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-  const needsRebuild = strip.childElementCount !== TOTAL_DAYS;
+  const needsRebuild = strip.childElementCount !== TOTAL_DAYS || strip.dataset.start !== (S.startDate || '');
 
   if (needsRebuild) {
+    strip.dataset.start = S.startDate || '';
     strip.innerHTML = '';
     const frag = document.createDocumentFragment();
 
@@ -2843,6 +2952,7 @@ function selectDay(dayIndex) {
   selectedDay = dayIndex;
   S.dayIndex  = dayIndex;
   todoDay     = dayIndex; // To-Do list follows the selected calendar day
+  todoMonthKey = null;
   renderAll();
   renderTodoList();
 
@@ -2878,13 +2988,20 @@ function renderQuote() {
 // ──────────────────────────────────────────────────────────────
 // TAB SWITCHING
 // ──────────────────────────────────────────────────────────────
+// To-Do nav icon: 1 click = daily task, 2 clicks = monthly task. Single timer, cleared on the 2nd click,
+// so a double-click can never run the single-click action first. (Touch: the modal has a Daily/Monthly chooser.)
+let todoNavClicks = 0, todoNavTimer = null;
 function handleTodoNav() {
   const todoTab = document.getElementById('tab-todo');
-  if (todoTab && todoTab.classList.contains('active')) {
-    openTodoModal();
-  } else {
+  if (!(todoTab && todoTab.classList.contains('active'))) {
+    clearTimeout(todoNavTimer); todoNavClicks = 0;
     switchTab('todo');
+    return;
   }
+  todoNavClicks++;
+  clearTimeout(todoNavTimer);
+  if (todoNavClicks >= 2) { todoNavClicks = 0; openTodoModal(undefined, 'month'); return; }
+  todoNavTimer = setTimeout(() => { todoNavClicks = 0; openTodoModal(undefined, 'day'); }, 260);
 }
 
 // ── Habits nav: tap once = "Do It!" manage, double tap = "Don't Do It!" manage
@@ -2915,18 +3032,34 @@ function handleHabitsNav() {
 }
 
 let todoEditIdx = null; // index of the task being edited, or null when adding
-function openTodoModal(editIdx) {
+function openTodoModal(editIdx, scope) {
   todoEditIdx = (typeof editIdx === 'number') ? editIdx : null;
   const editing = todoEditIdx !== null;
-  const title = document.getElementById('todoModalTitle');
   const btn = document.getElementById('todoModalBtn');
-  if (title) title.textContent = editing ? 'Edit Task' : 'New Task';
   if (btn) btn.textContent = editing ? 'Save' : 'Add';
+  const chooser = document.getElementById('todoScopeSwitch');
+  if (chooser) chooser.style.display = editing ? 'none' : '';
+  todoAddScope = editing ? todoViewMode : (scope === 'month' ? 'month' : 'day');
+  setTodoAddScope(todoAddScope);
   document.getElementById('todoModal').classList.add('open');
   const inp = document.getElementById('todoModalInput');
-  const existing = editing ? ((S.todos || {})[todoDay] || [])[todoEditIdx] : null;
+  const existing = editing ? activeTodoCtx().items[todoEditIdx] : null;
   inp.value = existing ? existing.text : '';
   inp.focus();
+}
+
+function setTodoAddScope(scope) {
+  todoAddScope = scope === 'month' ? 'month' : 'day';
+  const editing = todoEditIdx !== null;
+  const title = document.getElementById('todoModalTitle');
+  if (title) title.textContent = (editing ? 'Edit ' : 'New ') + (todoAddScope === 'month' ? 'Monthly Task' : 'Daily Task');
+  const sw = document.getElementById('todoScopeSwitch');
+  if (sw) {
+    sw.dataset.mode = todoAddScope;
+    sw.querySelectorAll('[data-mode]').forEach(b => {
+      const on = b.dataset.mode === todoAddScope; b.classList.toggle('active', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
 }
 
 function closeTodoModal() {
@@ -2935,24 +3068,25 @@ function closeTodoModal() {
 }
 
 function submitTodoItem() {
-  if (todoDay > SYSTEM_TODAY) { closeTodoModal(); return; } // read-only for future days
   const input = document.getElementById('todoModalInput');
   const text = input.value.trim();
   if (!text) return;
-  const d = todoDay;
-  const items = getDayTodos(d);
-  if (todoEditIdx !== null && items[todoEditIdx]) items[todoEditIdx].text = text;
-  else items.push({ text: text, done: false });
-  saveState();
-  closeTodoModal();
-  renderTodoList();
-  updateStreakUI();
-  if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
-  if (chartTodosSide) {
-    chartTodosSide.data.datasets[0].data =
-      Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
-    chartTodosSide.update('none');
+  const editing = todoEditIdx !== null;
+  const scope = editing ? todoViewMode : todoAddScope;
+  if (scope === 'day') {
+    if (todoDay > SYSTEM_TODAY) { closeTodoModal(); return; } // read-only for future days
+    const items = getDayTodos(todoDay);
+    if (editing && items[todoEditIdx]) items[todoEditIdx].text = text;
+    else items.push({ text: text, done: false });
+  } else {
+    const key = editing ? viewedMonthKey() : monthKeyOf(cycleDateISO(todoDay));
+    const items = getMonthTodos(key);
+    if (editing && items[todoEditIdx]) items[todoEditIdx].text = text;
+    else items.push({ text: text, done: false });
   }
+  if (!editing && scope !== todoViewMode) showToast(scope === 'month' ? 'Added to the Monthly list' : 'Added to the Daily list');
+  closeTodoModal();
+  afterTodoChange();
 }
 
 // ── JOURNALING ──
@@ -3187,9 +3321,9 @@ function switchTab(name) {
           data: {
             labels: dayLabels(),
             datasets: [{
-              label: 'To-Do Completion',
+              label: 'Tasks Completed',
               data: Array.from({length:TOTAL_DAYS},
-                    (_,i)=>dayTodoPct(i)),
+                    (_,i)=>dayTodoCount(i)),
               borderColor: '#ffffff',
               backgroundColor: 'rgba(255,255,255,0.04)',
               fill: true,
@@ -3205,10 +3339,11 @@ function switchTab(name) {
               ...CDEFS.scales,
               y: {
                 ...CDEFS.scales.y,
-                min: 0, max: 100,
+                min: 0, suggestedMax: 4,
                 ticks: {
                   ...CDEFS.scales.y.ticks,
-                  callback: v => v + '%'
+                  precision: 0,
+                  callback: v => Number.isInteger(v) ? v : ''
                 }
               }
             }
@@ -3216,7 +3351,7 @@ function switchTab(name) {
         });
       } else if (chartTodosSide) {
         chartTodosSide.data.datasets[0].data =
-          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoCount(i));
         chartTodosSide.update('none');
       }
     }, 50);
@@ -3263,12 +3398,13 @@ function updateMasteryUI() {
   // Mastery ring: shows the viewed day's score (selectedDay)
   const TotalProgress = computeDailyScore(S.dayIndex);
 
-  document.getElementById('masteryPct').textContent = Math.round(TotalProgress) + '%';
+  const pctEl  = document.getElementById('masteryPct');
+  const ringEl = document.getElementById('masteryRing');
+  pctEl.textContent = Math.round(TotalProgress) + '%';
 
   const circ = 2 * Math.PI * 78;
   const dash = (TotalProgress / 100) * circ;
-  document.getElementById('masteryRing').setAttribute(
-    'stroke-dasharray', dash.toFixed(2) + ' ' + circ.toFixed(2));
+  ringEl.setAttribute('stroke-dasharray', dash.toFixed(2) + ' ' + circ.toFixed(2));
 
   // Habits completed: shows the viewed day's count (selectedDay)
   const done = (S.habitsHistory[S.dayIndex]||[]).filter(Boolean).length;
@@ -4193,7 +4329,7 @@ function deleteHabit(idx) {
   if (selectedDay !== SYSTEM_TODAY) return; // only manage habits on today
   const habitName = S.habits[idx];
   if (!habitName) return; // guard against stale index
-  if (!window.confirm('Delete "' + habitName + '"?\nThis removes all 30 days of its history.')) return;
+  if (!window.confirm('Delete "' + habitName + '"?\nThis removes its history for the current month.')) return;
 
   // Remove from habits list
   S.habits.splice(idx, 1);
@@ -4313,7 +4449,7 @@ function deleteHabitNeg(idx) {
   if (selectedDay !== SYSTEM_TODAY) return; // only manage habits on today
   const habitName = S.habitsNegative[idx];
   if (!habitName) return;
-  if (!window.confirm('Delete "' + habitName + '"?\nThis removes all 30 days of its history.')) return;
+  if (!window.confirm('Delete "' + habitName + '"?\nThis removes its history for the current month.')) return;
   S.habitsNegative.splice(idx, 1);
   for (let d = 0; d < TOTAL_DAYS; d++) {
     if (Array.isArray(S.habitsHistoryNegative[d])) {
@@ -4410,7 +4546,7 @@ function computeDailyScore(dayIdx) {
     pushups: S.pushupsHistory[d],
     caffeine:S.caffeineHistory[d],
     mood:    S.moodHistory[d],
-    todos:   (S.todos || {})[d]
+    todos:   todosForIdx(d)
   }, S.habits.length, S.habitsNegative.length);
 }
 
@@ -4446,7 +4582,15 @@ function heatmapScores() {
   return map;
 }
 
-const HEATMAP_START = '2026-01-01';
+// Score of ONE calendar date (ISO "YYYY-MM-DD"). `scores` is the date→score map
+// built by heatmapScores() (archived months + the live month, all keyed by real
+// date, never by a cycle-relative day index). Returns undefined when nothing
+// was recorded for that date.
+function heatmapScoreFor(iso, scores) {
+  const v = (scores || heatmapScores())[iso];
+  return (typeof v === 'number' && isFinite(v)) ? v : undefined;
+}
+
 let heatmapRaf = 0, heatTipEl = null, heatTipTimer = 0;
 function scheduleHeatmap() {
   if (heatmapRaf) return;
@@ -4455,59 +4599,135 @@ function scheduleHeatmap() {
 function heatIso(dt) {
   return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
 }
+
+const HM_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const HM_LBL = 26, HM_COLGAP = 6, HM_MONTH_TITLE = 16, HM_ROWGAP = 10, HM_BLOCKGAP = 8;
+const heatGap = c => c >= 14 ? 3 : c >= 8 ? 2 : 1;                         // spacing shrinks with the cells
+const heatLvl = v => !(v > 0) ? 0 : v < 25 ? 1 : v < 50 ? 2 : v < 75 ? 3 : 4;   // same intensity steps as before
+
+// One cell. Future dates are inactive (no score is ever invented for them);
+// past dates without data keep the level-0 look and read "No data" in the tooltip.
+function heatCell(iso, ctx) {
+  if (iso > ctx.today) return '<div class="hm-c hm-future" data-d="' + iso + '" data-s="0"></div>';
+  const v = heatmapScoreFor(iso, ctx.scores) || 0;
+  if (v > 0) ctx.active++;
+  return '<div class="hm-c l' + heatLvl(v) + (iso === ctx.today ? ' today' : '') +
+         '" data-d="' + iso + '" data-s="' + v + '"></div>';
+}
+
+// Choose the layout + cell size that makes the WHOLE year fill the card:
+//   'year'   — one GitHub-style strip, 53 week-columns (Sunday-first)
+//   'months' — 12 small month calendars in k columns (used when the strip would be tiny)
+// Cells shrink to fit; months/days are never dropped and nothing scrolls.
+function heatPlan(W, H, year) {
+  const off = new Date(year, 0, 1).getDay();
+  const nDays = (new Date(year, 11, 31) - new Date(year, 0, 1)) / 864e5 + 1;   // 365 / 366
+  const weeks = Math.ceil((off + Math.round(nDays)) / 7);
+  const CAP = 22;
+  let best = { mode: 'year', cell: 3, gap: 1, weeks: weeks, off: off };
+  for (let c = CAP; c >= 3; c--) {
+    const g = heatGap(c), s = c + g;
+    const w = HM_LBL + HM_COLGAP + weeks * s - g;
+    const h = 12 + 5 + 7 * s - g;
+    if (w <= W && h <= H) { best = { mode: 'year', cell: c, gap: g, weeks: weeks, off: off }; break; }
+  }
+  let bm = null;
+  [2, 3, 4, 6].forEach(k => {
+    const rows = 12 / k;
+    for (let c = 16; c >= 3; c--) {
+      const g = heatGap(c), s = c + g;
+      const w = HM_LBL + HM_COLGAP + k * (6 * s - g) + (k - 1) * HM_BLOCKGAP;     // a month spans at most 6 week-columns
+      const h = rows * (HM_MONTH_TITLE + 7 * s - g) + (rows - 1) * HM_ROWGAP;
+      if (w <= W && h <= H) {
+        if (!bm || c > bm.cell || (c === bm.cell && k > bm.k)) bm = { mode: 'months', k: k, cell: c, gap: g };
+        break;
+      }
+    }
+  });
+  // Prefer the month calendars when they give clearly bigger cells, or equal/bigger cells while the
+  // single strip would leave most of the card's height empty (the "tiny strip in a big card" problem).
+  const yearH = 12 + 5 + 7 * (best.cell + best.gap) - best.gap;
+  const useMonths = bm && (bm.cell >= best.cell * 1.25 || (bm.cell >= best.cell && yearH < H * 0.6));
+  return useMonths ? bm : best;
+}
+
 function renderHeatmap() {
   const body = document.getElementById('heatmapBody'), card = document.getElementById('heatmapCard');
   if (!body || !card) return;
-  const W = card.clientWidth - 44;                 // card padding
+  const cs = getComputedStyle(card);
+  const W = Math.floor(card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
   if (W < 120) return;                             // dashboard hidden: render when it is shown
-  // Fixed calendar: the grid always starts on 1 Jan 2026 (days before you used
-  // the app simply stay empty) and runs up to today, Sunday-first weeks.
-  const gap = 3, labelW = 30;
-  const scores = heatmapScores();
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const first = new Date(HEATMAP_START + 'T00:00:00');
-  const start = new Date(first); start.setDate(first.getDate() - first.getDay());   // Sunday on/before 1 Jan
-  const weeks = Math.max(1, Math.floor((today - start) / 604800000) + 1);
-  // cell size shrinks so the whole range fits; below 7px the strip scrolls instead
-  const avail = W - labelW - 8;
-  const cell = Math.max(7, Math.min(14, Math.floor((avail + gap) / weeks) - gap));
-  const step = cell + gap;
-  const needScroll = weeks * step - gap > avail;
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const lvl = v => !(v > 0) ? 0 : v < 25 ? 1 : v < 50 ? 2 : v < 75 ? 3 : 4;
-  let cells = '', months = '', active = 0, lastMonth = -1, lastCol = -9;
-  for (let c = 0; c < weeks; c++) {
-    const colStart = new Date(start); colStart.setDate(start.getDate() + c * 7);
-    const mo = (colStart < first ? first : colStart).getMonth();
-    if (mo !== lastMonth && c - lastCol >= 3) {
-      months += '<span style="left:' + (c * step) + 'px">' + MONTHS[mo] + '</span>';
-      lastCol = c;
-    }
-    lastMonth = mo;
-    for (let r = 0; r < 7; r++) {
-      const dt = new Date(start); dt.setDate(start.getDate() + c * 7 + r);
-      if (dt > today || dt < first) { cells += '<div class="hm-c hm-future"></div>'; continue; }
-      const iso = heatIso(dt), v = scores[iso] || 0;
-      if (v > 0) active++;
-      cells += '<div class="hm-c l' + lvl(v) + (dt.getTime() === today.getTime() ? ' today' : '') +
-               '" data-d="' + iso + '" data-s="' + v + '"></div>';
-    }
+  // Height budget: when the card sits next to the Mastery card (>=900px) it is
+  // stretched to that card's height, so fill exactly that; on phones it just
+  // needs to stay a sensible size.
+  let H = 360;
+  const heroFlex = document.getElementById('heroFlex'), titleRow = card.querySelector('.chart-title-row');
+  if (window.matchMedia('(min-width: 900px)').matches && heroFlex && heroFlex.offsetHeight) {
+    const heroH = heroFlex.offsetHeight + 48;                                   // hero card padding 24+24
+    H = heroH - (parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)) -
+        ((titleRow ? titleRow.offsetHeight : 16) + 14) - 32;                    // title row + legend
+    H = Math.max(150, H);
   }
+
+  const year = TODAY.getFullYear();
+  const ctx = { scores: heatmapScores(), today: todayISO(), active: 0 };
+  const plan = heatPlan(W, H, year);
+  const cell = plan.cell, gap = plan.gap;
+  const fs = cell >= 12 ? 10 : cell >= 7 ? 9 : 8;
+
   body.style.setProperty('--hm-cell', cell + 'px');
   body.style.setProperty('--hm-gap', gap + 'px');
-  body.innerHTML =
-    '<div class="hm-scroll"><div class="hm-wrap">' +
+  body.style.setProperty('--hm-r', (cell >= 14 ? 4 : cell >= 8 ? 3 : 2) + 'px');
+  body.style.setProperty('--hm-fs', fs + 'px');
+  const labels = '<span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span>';
+  let html;
+
+  if (plan.mode === 'year') {
+    const step = cell + gap, off = plan.off, weeks = plan.weeks;
+    const jan1 = new Date(year, 0, 1);
+    let cells = '';
+    for (let p = 0; p < weeks * 7; p++) {                 // column-major: p = week*7 + weekday
+      const dt = new Date(year, 0, 1 + (p - off));
+      cells += (dt.getFullYear() === year) ? heatCell(heatIso(dt), ctx) : '<div class="hm-c hm-pad"></div>';
+    }
+    let months = '', lastX = -99;
+    for (let m = 0; m < 12; m++) {
+      const doy = Math.round((new Date(year, m, 1) - jan1) / 864e5);
+      const x = Math.floor((off + doy) / 7) * step;
+      if (x - lastX >= 22) { months += '<span style="left:' + x + 'px">' + HM_MONTHS[m] + '</span>'; lastX = x; }
+    }
+    html = '<div class="hm-wrap">' +
       '<div></div><div class="hm-months" style="width:' + (weeks * step - gap) + 'px">' + months + '</div>' +
-      '<div class="hm-days"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>' +
-      '<div class="hm-grid" id="heatmapGrid">' + cells + '</div>' +
-    '</div></div>' +
-    '<div class="hm-legend">Less <i style="background:rgba(255,255,255,.07)"></i><i style="background:rgba(255,255,255,.24)"></i>' +
-    '<i style="background:rgba(255,255,255,.45)"></i><i style="background:rgba(255,255,255,.70)"></i><i style="background:#fff"></i> More</div>';
-  const sc = body.querySelector('.hm-scroll');
-  if (sc) sc.scrollLeft = needScroll ? sc.scrollWidth : 0;       // phones: land on the latest weeks
+      '<div class="hm-days">' + labels + '</div>' +
+      '<div class="hm-grid" id="heatmapGrid">' + cells + '</div></div>';
+  } else {
+    const blocks = [];
+    for (let m = 0; m < 12; m++) {
+      const off = new Date(year, m, 1).getDay(), n = getDaysInMonth(year, m + 1), cols = Math.ceil((off + n) / 7);
+      let cells = '';
+      for (let p = 0; p < cols * 7; p++) {
+        const d = p - off + 1;
+        cells += (d >= 1 && d <= n) ? heatCell(year + '-' + pad2(m + 1) + '-' + pad2(d), ctx) : '<div class="hm-c hm-pad"></div>';
+      }
+      blocks.push('<div class="hm-mb"><div class="hm-mt">' + HM_MONTHS[m] + '</div>' +
+                  '<div class="hm-mg" style="grid-template-columns:repeat(' + cols + ',var(--hm-cell))">' + cells + '</div></div>');
+    }
+    html = '<div class="hm-mrows" id="heatmapGrid">';
+    for (let r = 0; r < 12 / plan.k; r++) {
+      html += '<div class="hm-mrow"><div class="hm-days hm-days-m">' + labels + '</div>' +
+              '<div class="hm-mblocks" style="grid-template-columns:repeat(' + plan.k + ',max-content)">' +
+              blocks.slice(r * plan.k, (r + 1) * plan.k).join('') + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html +
+    '<div class="hm-legend">Less <i style="background:rgba(255,255,255,.13)"></i><i style="background:rgba(255,255,255,.42)"></i>' +
+    '<i style="background:rgba(255,255,255,.62)"></i><i style="background:rgba(255,255,255,.82)"></i><i style="background:#fff"></i> More</div>';
+
   const sum = document.getElementById('heatmapSummary');
-  if (sum) sum.textContent = active + ' active day' + (active === 1 ? '' : 's');
+  if (sum) sum.textContent = year + ' · ' + ctx.active + ' active day' + (ctx.active === 1 ? '' : 's');
 
   const grid = document.getElementById('heatmapGrid');
   grid.addEventListener('mouseover', e => { const t = e.target.closest('.hm-c[data-d]'); if (t) heatShowTip(t); });
@@ -4530,7 +4750,7 @@ function heatShowTip(cellEl) {
   title.style.marginBottom = '0'; title.style.paddingBottom = '0'; title.style.borderBottom = 'none';
   title.textContent = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const row = document.createElement('div'); row.className = 'bk-tip-row'; row.style.marginTop = '6px';
-  const name = document.createElement('span'); name.className = 'bk-tip-name'; name.textContent = 'Score';
+  const name = document.createElement('span'); name.className = 'bk-tip-name'; name.textContent = 'Daily Performance';
   const val = document.createElement('span'); val.className = 'bk-tip-val';
   val.textContent = sc > 0 ? Math.round(sc) + '%' : 'No data';
   row.appendChild(name); row.appendChild(val);
@@ -4554,13 +4774,13 @@ function dayHabitPctNeg(di) {
   return Math.round((row.filter(Boolean).length / S.habitsNegative.length) * 100);
 }
 function dayTodoPct(di) {
-  const tasks = (S.todos||{})[di];
+  const tasks = todosForIdx(di);
   if (!tasks || !tasks.length) return 0;
   const done = tasks.filter(t => t.done).length;
   return Math.round(Math.min((done / tasks.length) * 100, 100));
 }
 function dayTodoCount(di) {
-  const tasks = (S.todos||{})[di];
+  const tasks = todosForIdx(di);
   if (!tasks || !tasks.length) return 0;
   return tasks.filter(t => t.done).length;
 }
@@ -4577,9 +4797,10 @@ function computeStreak() {
   return s;
 }
 
-function missionPoints() {
+function missionPoints(lastIdx) {
   let pts = 0;
-  for (let i = 0; i <= SYSTEM_TODAY; i++) {
+  const end = (lastIdx == null) ? SYSTEM_TODAY : lastIdx;
+  for (let i = 0; i <= end; i++) {
     // Positive habits: 20 pts each
     pts += (S.habitsHistory[i] || []).filter(Boolean).length * MISSION_POINTS.habitPos;
     // Negative habits: 15 pts each avoided
@@ -4594,7 +4815,7 @@ function missionPoints() {
     // Mood: logged
     if (S.moodHistory[i] > 0) pts += MISSION_POINTS.mood;
     // To-Do: all tasks completed
-    const tasks = (S.todos || {})[i];
+    const tasks = todosForIdx(i);
     if (tasks && tasks.length > 0 && tasks.every(t => t.done)) pts += MISSION_POINTS.todo;
   }
   return pts;
@@ -4610,7 +4831,7 @@ function missionPoints() {
 // hovered, dot cap + crosshair + pill) and swaps the native tooltip for one
 // shared glass card. Data, colours and the sync code stay exactly as they were.
 const BK_NAMES = { chartWater:'Water', chartSteps:'Steps', chartSleep:'Sleep', chartPushups:'Push-ups',
-  chartCaffeine:'Caffeine', chartMood:'Mood', chartHabitTrend:'Done', chartTodos:'Completion', chartTodosSide:'Completion' };
+  chartCaffeine:'Caffeine', chartMood:'Mood', chartHabitTrend:'Done', chartTodos:'Completed', chartTodosSide:'Completed' };
 const BK_MOOD = { 1:'Awful', 2:'Low', 3:'Neutral', 4:'Good', 5:'Amazing' };
 const BK_PCT  = v => Math.round(v) + '%';
 const BK_FMT = {
@@ -4621,7 +4842,7 @@ const BK_FMT = {
   chartCaffeine:v => Math.round(v) + ' mg',
   chartMood:    v => BK_MOOD[Math.round(v)] || String(v),
   chartHabitTrend: v => v >= 1 ? 'Yes' : 'No',
-  chartHabits: BK_PCT, chartTodos: BK_PCT, chartTodosSide: BK_PCT,
+  chartHabits: BK_PCT, chartTodos: v => String(Math.round(v)), chartTodosSide: v => String(Math.round(v)),
   chartPomFocus: v => pomFmtMins(v)
 };
 
@@ -5104,14 +5325,14 @@ function initCharts() {
 
   chartTodos = new Chart(document.getElementById('chartTodos'),{
     type:'line', data:{ labels:L, datasets:[{
-      label:'To-Do Completion',
-      data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)),
+      label:'Tasks Completed',
+      data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoCount(i)),
       borderColor:'#ffffff', backgroundColor:'rgba(255,255,255,0.04)', fill:true,
       tension:.4, pointRadius:2, pointBackgroundColor:'#ffffff', borderWidth:2
     }]},
-    // top padding keeps the task-count label of a 100% day inside the canvas
+    // top padding keeps the task-count label of the tallest day inside the canvas
     options:{...CDEFS, layout:{padding:{top:22}}, scales:{...CDEFS.scales,
-      y:{...CDEFS.scales.y, min:0, max:100, ticks:{...CDEFS.scales.y.ticks, callback:v=>v+'%'}}}},
+      y:{...CDEFS.scales.y, min:0, suggestedMax:4, ticks:{...CDEFS.scales.y.ticks, precision:0, callback:v=>Number.isInteger(v)?v:''}}}},
     plugins:[{
       id:'todoCountLabels',
       afterDatasetsDraw(chart){
@@ -5126,7 +5347,7 @@ function initCharts() {
         const off = (chartRanges.todos === 'week') ? getCurrentWeekRange().start : 0;
         meta.data.forEach((point, i) => {
           const count = dayTodoCount(i + off);
-          const tasks = (S.todos||{})[i + off];
+          const tasks = todosForIdx(i + off);
           if (!tasks || !tasks.length) return;
           ctx.fillText(count, point.x, point.y - 8);
         });
@@ -5142,8 +5363,8 @@ function initCharts() {
     data: {
       labels: dayLabels(),
       datasets: [{
-        label: 'To-Do Completion',
-        data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)),
+        label: 'Tasks Completed',
+        data: Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoCount(i)),
         borderColor: '#ffffff',
         backgroundColor: 'rgba(255,255,255,0.04)',
         fill: true,
@@ -5159,10 +5380,11 @@ function initCharts() {
         ...CDEFS.scales,
         y: {
           ...CDEFS.scales.y,
-          min: 0, max: 100,
+          min: 0, suggestedMax: 4,
           ticks: {
             ...CDEFS.scales.y.ticks,
-            callback: v => v + '%'
+            precision: 0,
+            callback: v => Number.isInteger(v) ? v : ''
           }
         }
       }
@@ -5349,7 +5571,7 @@ function syncCharts() {
 
   // To-Dos
   if (chartTodos) {
-    const tdFull = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+    const tdFull = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoCount(i));
     chartTodos.data.labels = dayLabels();
     chartTodos.data.datasets[0].data = tdFull;
     if (weekMode.todos) {
@@ -5362,7 +5584,7 @@ function syncCharts() {
 
   // To-Dos (To-Do tab side chart — independent copy)
   if (chartTodosSide) {
-    const tdFull = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
+    const tdFull = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoCount(i));
     chartTodosSide.data.labels = dayLabels();
     chartTodosSide.data.datasets[0].data = tdFull;
     if (weekMode.todos) {
@@ -5441,7 +5663,7 @@ function renderArchive() {
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600;color:#e5e7eb">${escHtml(ch.label)}</div>
         <div class="trophy-score" style="color:${col}">${score}%</div>
-        <div class="trophy-label">${escHtml(ch.detail)}</div>
+        <div class="trophy-label">${escHtml(String(ch.detail || '').replace(/Mission Pts/g, 'Growth Pts'))}</div>
       </div>`;
     list.appendChild(card);
   });
@@ -5467,31 +5689,22 @@ function archiveCurrentChallenge() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// CYCLE COMPLETION
+// CALENDAR-MONTH CYCLE — archive builder, one-time migration, automatic rollover
 // ──────────────────────────────────────────────────────────────
-let cycleChecking = false;   // reentrancy guard
-
-// 0-based day index from start date, UNcapped (0–29 = active, >=30 = finished)
-function getRawDayIndex() {
-  if (!S.startDate) return 0;
-  return daysBetween(S.startDate, todayISO());
+// ISO date of day `dayIndex` of the cycle that starts on `base` (default: live cycle)
+function cycleDateISO(dayIndex, base) {
+  return addDaysISO(base || S.startDate, dayIndex);
 }
 
-// Cycle is complete once the 30th day has fully passed (day 31 starts)
-function isCycleComplete() {
-  return getRawDayIndex() >= TOTAL_DAYS;
-}
-
-function cycleDateISO(dayIndex) {
-  const [y, m, d] = S.startDate.split('-');
-  const dt = new Date(+y, +m - 1, +d);
-  dt.setDate(dt.getDate() + dayIndex);
-  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-}
-
-// Build a full archive doc: all 30 days of raw data + summary totals
-function buildCycleArchiveDoc() {
-  const N = TOTAL_DAYS;
+// Build a full archive doc for the first `opts.days` days of a cycle:
+// raw per-day data + summary totals. Reads the S.* arrays, so callers that
+// archive a cycle which is not the live one load it into S first.
+//   opts.startDate  (default S.startDate)   opts.days (default TOTAL_DAYS)
+//   opts.legacy / opts.legacyLength / opts.partial — flags for pre-calendar cycles
+function buildCycleArchiveDoc(opts) {
+  opts = opts || {};
+  const start = opts.startDate || S.startDate;
+  const N = Math.max(1, opts.days != null ? opts.days : TOTAL_DAYS);
   const days = [];
   let sumWater=0, sumSteps=0, sumSleep=0, sumPushups=0, sumCaff=0,
       sumMood=0, moodLogged=0, activeDays=0;
@@ -5500,32 +5713,34 @@ function buildCycleArchiveDoc() {
   for (let i = 0; i < N; i++) {
     const row  = S.habitsHistory[i]||[];
     const rowN = S.habitsHistoryNegative[i]||[];
-    const todos = (S.todos||{})[i]||[];
+    const todos = todosForIdx(i, start).slice();
+    const water = S.waterHistory[i] || 0, steps = S.stepsHistory[i] || 0, sleep = S.sleepHistory[i] || 0,
+          pushups = S.pushupsHistory[i] || 0, caffeine = S.caffeineHistory[i] || 0, mood = S.moodHistory[i] || 0;
     days.push({
       day: i + 1,
-      date: cycleDateISO(i),
-      water: S.waterHistory[i],
-      steps: S.stepsHistory[i],
-      sleep: S.sleepHistory[i],
-      pushups: S.pushupsHistory[i],
-      caffeine: S.caffeineHistory[i],
-      mood: S.moodHistory[i],
+      date: cycleDateISO(i, start),
+      water: water,
+      steps: steps,
+      sleep: sleep,
+      pushups: pushups,
+      caffeine: caffeine,
+      mood: mood,
       habits: row.slice(),
       habitsNegative: rowN.slice(),
       journal: S.journalHistory[i] || '',
       todos: todos.slice()
     });
 
-    sumWater   += S.waterHistory[i];
-    sumSteps   += S.stepsHistory[i];
-    sumSleep   += S.sleepHistory[i];
-    sumPushups += S.pushupsHistory[i];
-    sumCaff    += S.caffeineHistory[i];
-    if (S.moodHistory[i] > 0) { sumMood += S.moodHistory[i]; moodLogged++; }
+    sumWater   += water;
+    sumSteps   += steps;
+    sumSleep   += sleep;
+    sumPushups += pushups;
+    sumCaff    += caffeine;
+    if (mood > 0) { sumMood += mood; moodLogged++; }
     habitDone  += row.filter(Boolean).length;
     habitTotal += S.habits.length;
-    if (S.waterHistory[i] > 0 || S.stepsHistory[i] > 0 || S.sleepHistory[i] > 0 ||
-        S.pushupsHistory[i] > 0 || S.moodHistory[i] > 0 || row.filter(Boolean).length > 0 || rowN.filter(Boolean).length > 0 || todos.length > 0) activeDays++;
+    if (water > 0 || steps > 0 || sleep > 0 ||
+        pushups > 0 || mood > 0 || row.filter(Boolean).length > 0 || rowN.filter(Boolean).length > 0 || todos.length > 0) activeDays++;
 
     const m = masteryPct(i);
     masterySum += m;
@@ -5543,59 +5758,238 @@ function buildCycleArchiveDoc() {
     habitPct:    habitTotal ? Math.round((habitDone / habitTotal) * 100) : 0,
     masteryAvg:  Math.round(masterySum / N),
     masteryEnd:  lastMastery,
-    missionPts:     missionPoints(),
+    missionPts:     missionPoints(N - 1),
     activeDays:  activeDays
   };
 
-  return {
-    id: S.startDate,                  // keyed by cycle start date
+  const doc = {
+    id: start,                        // keyed by cycle start date
     archived: true,
-    startDate: S.startDate,
-    endDate: cycleDateISO(N - 1),
+    startDate: start,
+    endDate: cycleDateISO(N - 1, start),
     archivedAt: todayISO(),
     days: days,
     summary: summary
   };
+  // Monthly tasks of every calendar month this archive touches (kept by month key, never in the day array)
+  const mt = {};
+  days.forEach(d => { const k = monthKeyOf(d.date); const arr = (S.todosMonthly || {})[k];
+    if (!mt[k] && Array.isArray(arr) && arr.length) mt[k] = arr.map(t => ({ text: t.text, done: !!t.done })); });
+  if (Object.keys(mt).length) doc.monthlyTodos = mt;
+  if (opts.legacy)  { doc.legacy = true; if (opts.legacyLength) doc.legacyLength = opts.legacyLength; }
+  if (opts.partial) doc.partial = true;
+  return doc;
 }
 
-// Detect + handle end of cycle. Returns true when cycle is complete.
-function checkCycleCompletion() {
-  if (cycleChecking || !S.startDate) return false;
-  if (!isCycleComplete()) return false;
+const CYCLE_MODEL = 'calendar-v1';   // stored as 'cycleModel' (cloud-synced) once data is calendar-month based
+let cycleTransition = null;          // set by loadState() when a migration / month rollover just happened
+let rolloverShownFor = '';           // one summary popup per rollover per page session
 
-  cycleChecking = true;
+function lsJSON(key, fallback) {
   try {
-    // Only block if the FULL archive already exists in S.cycles (not just a manual trophy in pastChallenges)
-    const alreadyArchived = S.cycleArchivedStartDate === S.startDate ||
-      S.cycles.some(c => c.startDate === S.startDate && c.archived);
+    const raw = localStorage.getItem(key);
+    if (raw == null || raw === '') return fallback;
+    const v = JSON.parse(raw);
+    return v == null ? fallback : v;
+  } catch (e) { return fallback; }
+}
+function lsNumArr(key, len) {
+  const a = lsJSON(key, []);
+  const out = Array.isArray(a) ? a.slice(0, len) : [];
+  while (out.length < len) out.push(0);
+  return out;
+}
+function lsRowsArr(key, len) {
+  const a = lsJSON(key, []);
+  const out = (Array.isArray(a) ? a.slice(0, len) : []).map(r => Array.isArray(r) ? r : []);
+  while (out.length < len) out.push([]);
+  return out;
+}
+function lsObj(key) {
+  const o = lsJSON(key, {});
+  return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {};
+}
 
-    if (!alreadyArchived) {
-      const doc = buildCycleArchiveDoc();
-      S.cycles.push(doc);
-      S.cycleArchivedStartDate = S.startDate;
-      localStorage.setItem('cycles', JSON.stringify(S.cycles));
-      localStorage.setItem('cycleArchivedStartDate', S.cycleArchivedStartDate);
+// Runs at the top of loadState() — i.e. on every app start and every cloud
+// download, so a month boundary that passed while the app was closed (or on
+// another device) is always caught. It works directly on localStorage:
+//   • already on the right month          → nothing to do
+//   • month changed (or old 30-day cycle) → archive the days that belong to
+//     earlier months (once — guarded by startDate), carry over the days that
+//     fall inside the current month, start the new calendar-month cycle.
+// Nothing is deleted: archives/trophies stay, and a raw backup of the old
+// per-day arrays is kept in localStorage.cycleMigrationBackup before a migration.
+function ensureCalendarCycle() {
+  cycleTransition = null;
+  migrateTodosToDates();   // idempotent: legacy cycle-index tasks -> real ISO dates (before any rollover touches them)
+  const today = todayISO();
+  const T     = isoFromDate(getMonthStartDate(parseLocalMidnight(today)));   // 1st of the current month
+  const Tlen  = getCycleLength(T);
+  const nextT = addDaysISO(T, Tlen);
+  const sdRaw = localStorage.getItem('challengeStartDate');
+  const sd    = /^\d{4}-\d{2}-\d{2}$/.test(sdRaw || '') ? sdRaw : null;
+  const isLegacy = localStorage.getItem('cycleModel') !== CYCLE_MODEL;
 
-      // Only add a trophy if one doesn't already exist for this cycle
-      const trophyExists = S.pastChallenges.some(ch => ch.startDate === S.startDate);
-      if (!trophyExists) {
-        S.pastChallenges.push({
-          label:  'Cycle · ' + fmtDate(S.startDate),
-          score:  doc.summary.masteryAvg,
-          detail: '30 days · ' + doc.summary.pushupsTotal.toLocaleString() + ' push-ups · ' +
-                  doc.summary.missionPts.toLocaleString() + ' Mission Pts',
-          date: todayISO(),
-          startDate: S.startDate
-        });
-        localStorage.setItem('pastChallenges', JSON.stringify(S.pastChallenges));
-      }
-    }
-
-    showCycleComplete();
-    return true;
-  } finally {
-    cycleChecking = false;
+  if (!sd) {                                   // first run: start on the 1st of this month
+    localStorage.setItem('challengeStartDate', T);
+    localStorage.setItem('cycleModel', CYCLE_MODEL);
+    TOTAL_DAYS = Tlen;
+    return;
   }
+  if (!isLegacy && sd === T) { TOTAL_DAYS = Tlen; return; }       // normal day-to-day case
+  if (sd >= nextT) { TOTAL_DAYS = getCycleLength(sd); return; }   // start date after this month (clock anomaly): leave data alone
+
+  // ── 1. read the OLD cycle (raw, un-truncated) ──
+  const HIST_KEYS = ['waterHistory','stepsHistory','sleepHistory','pushupsHistory','caffeineHistory','moodHistory',
+                     'habitsHistory','habitsHistoryNegative'];
+  let oldLen = isLegacy ? 30 : getCycleLength(sd);          // pre-calendar cycles were exactly 30 days
+  HIST_KEYS.forEach(k => { const a = lsJSON(k, []); if (Array.isArray(a)) oldLen = Math.max(oldLen, a.length); });
+  oldLen = Math.min(oldLen, 62);
+  const old = {
+    water: lsNumArr('waterHistory', oldLen),   steps: lsNumArr('stepsHistory', oldLen),
+    sleep: lsNumArr('sleepHistory', oldLen),   pushups: lsNumArr('pushupsHistory', oldLen),
+    caffeine: lsNumArr('caffeineHistory', oldLen), mood: lsNumArr('moodHistory', oldLen),
+    hh: lsRowsArr('habitsHistory', oldLen),    hhn: lsRowsArr('habitsHistoryNegative', oldLen),
+    todos: lsObj('todos'),                     journal: lsObj('journalHistory')
+  };
+
+  // Safety net: raw copy of the old cycle, written once, before anything is rewritten.
+  if (isLegacy && !localStorage.getItem('cycleMigrationBackup')) {
+    try {
+      const snap = { at: today, challengeStartDate: sd };
+      HIST_KEYS.concat(['todos','journalHistory']).forEach(k => { snap[k] = localStorage.getItem(k); });
+      localStorage.setItem('cycleMigrationBackup', JSON.stringify(snap));
+    } catch (e) { console.warn('cycleMigrationBackup failed:', e); }
+  }
+
+  // ── 2. split the old days by calendar month: before T → archive, inside T's month → carry over ──
+  const past = [], carry = [];                        // carry: [oldIndex, newIndex]
+  for (let i = 0; i < oldLen; i++) {
+    const iso = addDaysISO(sd, i);
+    if (iso < T) past.push(i);
+    else if (iso < nextT) carry.push([i, daysBetween(T, iso)]);
+  }
+
+  // ── 3. archive the days that belong to earlier months — exactly once ──
+  let doc = null;
+  const cyclesArr = (function() { const c = lsJSON('cycles', []); return Array.isArray(c) ? c : []; })();
+  const alreadyArchived = cyclesArr.some(c => c && c.startDate === sd) ||
+                          localStorage.getItem('cycleArchivedStartDate') === sd;
+  if (past.length && !alreadyArchived) {
+    const hab  = lsJSON('habits', null);
+    const habN = lsJSON('habitsNegative', []);
+    S.habits         = (Array.isArray(hab) && hab.length) ? hab : [...DEFAULT_HABITS];
+    S.habitsNegative = Array.isArray(habN) ? habN : [];
+    S.waterHistory = old.water;     S.stepsHistory = old.steps;   S.sleepHistory = old.sleep;
+    S.pushupsHistory = old.pushups; S.caffeineHistory = old.caffeine; S.moodHistory = old.mood;
+    S.habitsHistory = old.hh;       S.habitsHistoryNegative = old.hhn;
+    S.todosByDate = lsObj('todosByDate'); S.todosMonthly = lsObj('todosMonthly');
+    S.journalHistory = old.journal;
+
+    doc = buildCycleArchiveDoc({
+      startDate: sd, days: past.length,
+      legacy: isLegacy, legacyLength: isLegacy ? oldLen : undefined,
+      partial: past.length < oldLen
+    });
+    cyclesArr.push(doc);
+    localStorage.setItem('cycles', JSON.stringify(cyclesArr));
+    localStorage.setItem('cycleArchivedStartDate', sd);
+
+    const pc  = lsJSON('pastChallenges', []);
+    const pcArr = Array.isArray(pc) ? pc : [];
+    if (!pcArr.some(ch => ch && ch.startDate === sd)) {
+      pcArr.push({
+        label:  'Cycle · ' + fmtDate(sd),
+        score:  doc.summary.masteryAvg,
+        detail: past.length + ' days · ' + doc.summary.pushupsTotal.toLocaleString() + ' push-ups · ' +
+                doc.summary.missionPts.toLocaleString() + ' Mission Pts',
+        date: today,
+        startDate: sd
+      });
+      localStorage.setItem('pastChallenges', JSON.stringify(pcArr));
+    }
+  }
+
+  // ── 4. initialise the new calendar-month cycle (fresh arrays of the right length) ──
+  const zeros = () => new Array(Tlen).fill(0);
+  const nw = { water: zeros(), steps: zeros(), sleep: zeros(), pushups: zeros(), caffeine: zeros(), mood: zeros(),
+               hh: Array.from({ length: Tlen }, () => []), hhn: Array.from({ length: Tlen }, () => []),
+               todos: {}, journal: {} };
+  carry.forEach(([from, to]) => {
+    nw.water[to] = old.water[from];       nw.steps[to] = old.steps[from];
+    nw.sleep[to] = old.sleep[from];       nw.pushups[to] = old.pushups[from];
+    nw.caffeine[to] = old.caffeine[from]; nw.mood[to] = old.mood[from];
+    nw.hh[to] = old.hh[from];             nw.hhn[to] = old.hhn[from];
+    if (old.journal[from])       nw.journal[to] = old.journal[from];
+  });
+  localStorage.setItem('waterHistory',    JSON.stringify(nw.water));
+  localStorage.setItem('stepsHistory',    JSON.stringify(nw.steps));
+  localStorage.setItem('sleepHistory',    JSON.stringify(nw.sleep));
+  localStorage.setItem('pushupsHistory',  JSON.stringify(nw.pushups));
+  localStorage.setItem('caffeineHistory', JSON.stringify(nw.caffeine));
+  localStorage.setItem('moodHistory',     JSON.stringify(nw.mood));
+  localStorage.setItem('habitsHistory',   JSON.stringify(nw.hh));
+  localStorage.setItem('habitsHistoryNegative', JSON.stringify(nw.hhn));
+  localStorage.setItem('journalHistory',  JSON.stringify(nw.journal));
+  localStorage.setItem('challengeStartDate', T);
+  localStorage.setItem('cycleModel', CYCLE_MODEL);
+  // Pomodoro sessions (Firestore) are keyed by day index relative to the old start date:
+  // remember that base so they can be re-keyed by real date once they are loaded.
+  if (sd !== T && !localStorage.getItem('pomBase')) localStorage.setItem('pomBase', sd);
+
+  TOTAL_DAYS = Tlen;
+  cycleTransition = { from: sd, to: T, doc: doc, migrated: isLegacy };
+}
+
+
+// ── TO-DO MIGRATION ───────────────────────────────────────────
+// Old format: localStorage.todos = { dayIdx: [{text,done}] } relative to challengeStartDate.
+// New format: todosByDate { "YYYY-MM-DD": [...] }, todosMonthly { "YYYY-MM": [...] }.
+// The legacy key is NEVER modified or deleted (it stays as a backup). Runs once (todosMigrated=1).
+//  • numeric index + valid start date  -> date = startDate + index   (reliable: the index was always
+//    relative to the current challengeStartDate, which the rollover code rewrote together with the data)
+//  • already an ISO date key           -> kept as that date
+//  • anything else / no start date     -> todosLegacy (kept, nothing is dropped)
+//  • archived cycles: their saved days[].todos are copied to their real date when that date is empty
+function migrateTodosToDates() {
+  try {
+    if (localStorage.getItem('todosMigrated') === '1') return;
+    const legacy = lsObj('todos');
+    const byDate = lsObj('todosByDate');
+    const bin    = lsObj('todosLegacy');
+    const sdRaw  = localStorage.getItem('challengeStartDate');
+    const sd     = /^\d{4}-\d{2}-\d{2}$/.test(sdRaw || '') ? sdRaw : null;
+    const clean  = list => (Array.isArray(list) ? list : [])
+      .filter(t => t && typeof t.text === 'string' && t.text.trim())
+      .map(t => { const o = { text: t.text, done: !!t.done }; if (t.carried) o.carried = true; return o; });
+    const same   = (a, b) => a.text === b.text && a.done === b.done;
+    const put = (iso, list) => {
+      if (!list.length) return;
+      if (!Array.isArray(byDate[iso]) || !byDate[iso].length) { byDate[iso] = list; return; }
+      list.forEach(t => { if (!byDate[iso].some(c => same(c, t))) byDate[iso].push(t); });   // never duplicate
+    };
+    Object.keys(legacy).forEach(k => {
+      const list = clean(legacy[k]);
+      if (!list.length) return;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(k)) { put(k, list); return; }
+      const idx = /^\d+$/.test(k) ? parseInt(k, 10) : -1;
+      if (sd && idx >= 0 && idx <= 61) put(addDaysISO(sd, idx), list);
+      else bin['legacy:' + k] = (bin['legacy:' + k] || []).concat(list);
+    });
+    const cyc = lsJSON('cycles', []);
+    (Array.isArray(cyc) ? cyc : []).forEach(doc => {
+      if (!doc || !Array.isArray(doc.days)) return;
+      doc.days.forEach(d => {
+        if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d.date || '')) return;
+        const list = clean(d.todos);
+        if (list.length && !(Array.isArray(byDate[d.date]) && byDate[d.date].length)) byDate[d.date] = list;
+      });
+    });
+    localStorage.setItem('todosByDate',  JSON.stringify(byDate));
+    localStorage.setItem('todosLegacy',  JSON.stringify(bin));
+    if (localStorage.getItem('todosMonthly') == null || localStorage.getItem('todosMonthly') === '') localStorage.setItem('todosMonthly', '{}');
+    localStorage.setItem('todosMigrated', '1');
+  } catch (e) { console.warn('migrateTodosToDates failed (legacy data untouched):', e); }
 }
 
 // ── CYCLE SUMMARY (reusable for current + historical) ──
@@ -5610,6 +6004,10 @@ function renderCycleSummary(doc, mode) {
   const s     = doc.summary || {};
   const years = fmtDate(doc.startDate) + ' → ' + fmtDate(doc.endDate);
   const isHistory = mode === 'historical';
+  const nDays = (doc.days && doc.days.length) ? doc.days.length : 30;   // days this archive really covers
+  const cycleTitle = (doc.legacy || doc.partial || !doc.startDate)
+    ? nDays + '-Day Cycle Complete'
+    : parseLocalMidnight(doc.startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' Complete';
 
   const stats = [
     ['Avg Water',   (s.waterAvg==null ? '--' : (s.waterAvg).toFixed(1) + ' L')],
@@ -5619,7 +6017,7 @@ function renderCycleSummary(doc, mode) {
     ['Avg Caffeine',s.caffeineAvg==null ? '--' : Math.round(s.caffeineAvg) + ' mg'],
     ['Avg Mood',    s.moodAvg==null ? '--' : (s.moodAvg).toFixed(1) + ' / 5'],
     ['Habit Rate',  s.habitPct==null ? '--' : s.habitPct + ' %'],
-    ['Days Active', s.activeDays==null ? '--' : s.activeDays + ' / 30']
+    ['Days Active', s.activeDays==null ? '--' : s.activeDays + ' / ' + nDays]
   ];
 
   const overlay = document.createElement('div');
@@ -5630,19 +6028,19 @@ function renderCycleSummary(doc, mode) {
 
   const actionBtn = isHistory
     ? '<button class="btn-cancel" style="width:100%;padding:14px;border-radius:12px;font-size:15px" onclick="closeCycleSummary()">Back to Archive</button>'
-    : '<button class="btn-save" style="width:100%;padding:14px;border-radius:12px;font-size:15px" onclick="startNewCycle()">Start New Cycle</button>';
+    : '<button class="btn-save" style="width:100%;padding:14px;border-radius:12px;font-size:15px" onclick="closeCycleSummary()">Continue</button>';
 
   const subtitle = isHistory
     ? 'Viewing archived cycle — read only. No changes will be made to your current challenge.'
-    : 'Your MISSION cycle has finished. All 30 days of progress have been archived — nothing was deleted.';
+    : 'Your monthly cycle has finished. All ' + nDays + ' days of progress have been archived — nothing was deleted. A new month has started automatically.';
 
   overlay.innerHTML =
     '<div class="modal-box" style="max-width:440px;text-align:center;padding:32px 24px;max-height:88dvh;overflow-y:auto">' +
       '<div style="font-size:44px;margin-bottom:12px">' + (isHistory ? '📋' : '🏆') + '</div>' +
-      '<p style="font-size:20px;font-weight:800;color:#ffffff;margin:0 0 4px">' + (isHistory ? 'Archived Cycle' : '30-Day Cycle Complete') + '</p>' +
+      '<p style="font-size:20px;font-weight:800;color:#ffffff;margin:0 0 4px">' + (isHistory ? 'Archived Cycle' : cycleTitle) + '</p>' +
       '<p style="font-size:13px;color:rgba(255,255,255,0.55);margin:0 0 16px;line-height:1.5">' + subtitle + '</p>' +
       '<div class="stat-mono" style="font-size:14px;color:#00FF66;margin-bottom:16px">' +
-        'Mastery: ' + (s.masteryAvg==null ? '--' : s.masteryAvg) + '% &nbsp;·&nbsp; ' + (s.missionPts==null ? '--' : s.missionPts.toLocaleString()) + ' MISSION Pts</div>' +
+        'Growth: ' + (s.masteryAvg==null ? '--' : s.masteryAvg) + '% &nbsp;·&nbsp; ' + (s.missionPts==null ? '--' : s.missionPts.toLocaleString()) + ' Growth Pts</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px 10px;margin-bottom:18px">' +
         stats.map(st =>
           '<div style="flex:1;min-width:42%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);' +
@@ -5659,13 +6057,10 @@ function renderCycleSummary(doc, mode) {
 
   document.body.appendChild(overlay);
 
-  // Historical mode: click outside modal box to close (backdrop click)
-  // Current mode: no backdrop click — user must click "Start New Cycle"
-  if (isHistory) {
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) closeCycleSummary();
-    });
-  }
+  // Click outside the modal box to close (the new month is already running — nothing to confirm)
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeCycleSummary();
+  });
 
   // Render historical charts if raw day data exists
   if (isHistory && doc.days && doc.days.length) {
@@ -5729,13 +6124,20 @@ function closeCycleSummary() {
   histChartInstances = [];
 }
 
-// Current cycle complete — delegates to the shared renderer
-function showCycleComplete() {
+// Month just finished (archived by ensureCalendarCycle) — delegates to the shared renderer
+function showCycleComplete(doc) {
   const existing = document.getElementById('cycleCompleteOverlay');
   if (existing) return;
+  if (doc) renderCycleSummary(doc, 'current');
+}
 
-  const doc = S.cycles.filter(c => c.startDate === S.startDate).pop() || S.cycles[S.cycles.length-1];
-  renderCycleSummary(doc, 'current');
+// Shown once per rollover/migration (page session) when a month was archived
+function showRolloverSummary() {
+  if (!cycleTransition || !cycleTransition.doc) return;
+  const key = cycleTransition.from + '>' + cycleTransition.to;
+  if (rolloverShownFor === key) return;
+  rolloverShownFor = key;
+  showCycleComplete(cycleTransition.doc);
 }
 
 // Historical cycle summary — opens read-only view of an archived cycle
@@ -5757,75 +6159,33 @@ function showHistoricalSummary(startDate) {
   renderCycleSummary(doc, 'historical');
 }
 
-// Reset live state to day 1 of a brand-new cycle (archives are preserved)
-function startNewCycle() {
-  if (selectedDay !== SYSTEM_TODAY) return; // only start new cycle on today
-  if (!confirm('Start a new 30-day cycle? Your completed cycle is archived and will not be deleted.')) return;
+// ── NEW-DAY / NEW-MONTH DETECTION ──
+// TODAY is frozen when the page loads, so a new calendar day (and therefore a new
+// month) is picked up by reloading: boot → loadState() → ensureCalendarCycle()
+// archives the finished month and starts the new one. A timer alone is not
+// trusted (phones sleep, tabs get frozen), so the date is ALSO re-checked
+// whenever the app becomes visible / focused again.
+function liveISO() { return isoFromDate(new Date()); }
 
-  const td = todayISO();
-  localStorage.setItem('challengeStartDate', td);
-  localStorage.setItem('waterHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('stepsHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('sleepHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('pushupsHistory',  JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('caffeineHistory', JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('moodHistory',     JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('habitsHistory',   JSON.stringify(Array.from({length: TOTAL_DAYS}, () => [])));
-  localStorage.setItem('habitsHistoryNegative', JSON.stringify(Array.from({length: TOTAL_DAYS}, () => [])));
-  localStorage.setItem('todos',           JSON.stringify({}));
-  localStorage.setItem('journalHistory',  JSON.stringify({}));
-  localStorage.removeItem('cycleArchivedStartDate');
+function reloadIfNewDay() {
+  if (liveISO() === todayISO()) return false;
+  try { flushHoldCommits(); } catch (e) {}
   location.reload();
+  return true;
 }
 
-// Midnight rollover: fires once at the next 00:00 — reload so the frozen
-// TODAY snapshot picks up the new date; boot then re-runs checkCycleCompletion()
-// Uses a target date computed at schedule time to detect stale TODAY after midnight.
 function scheduleMidnightCheck() {
   const now  = new Date();
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2, 0);
-  const targetDate = next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0')+'-'+String(next.getDate()).padStart(2,'0');
   setTimeout(function() {
-    // Check if the calendar day has actually changed (handles stale TODAY after midnight)
-    const liveDate = new Date();
-    const liveDateStr = liveDate.getFullYear()+'-'+String(liveDate.getMonth()+1).padStart(2,'0')+'-'+String(liveDate.getDate()).padStart(2,'0');
-    if (liveDateStr !== todayISO()) {
-      // Calendar day changed — check cycle completion with the correct live date
-      const rawIdx = daysBetween(S.startDate, liveDateStr);
-      if (S.startDate && rawIdx >= TOTAL_DAYS) {
-        // Cycle is complete — archive and reload
-        checkCycleCompletion();
-      }
-      location.reload();
-    } else {
-      // Same calendar day (timer fired early) — just reload to refresh
-      location.reload();
-    }
+    if (!reloadIfNewDay()) scheduleMidnightCheck();   // timer fired early: just re-arm
   }, next - now);
-}
-
-// ──────────────────────────────────────────────────────────────
-// RESET
-// ──────────────────────────────────────────────────────────────
-function resetChallenge() {
-  if (selectedDay !== SYSTEM_TODAY) return; // only reset on today
-  if (!confirm('Reset the current challenge? Your habit definitions, archived cycles, and past trophies will be preserved. All current cycle data (tracked metrics, habits history, to-dos, journal entries) will be cleared.')) return;
-
-  const td = todayISO();
-  localStorage.setItem('challengeStartDate', td);
-  localStorage.setItem('waterHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('stepsHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('sleepHistory',    JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('pushupsHistory',  JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('caffeineHistory', JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('moodHistory',     JSON.stringify(new Array(TOTAL_DAYS).fill(0)));
-  localStorage.setItem('habitsHistory',   JSON.stringify(Array.from({length: TOTAL_DAYS}, () => [])));
-  localStorage.setItem('habitsHistoryNegative', JSON.stringify(Array.from({length: TOTAL_DAYS}, () => [])));
-  localStorage.setItem('todos',           JSON.stringify({}));
-  localStorage.setItem('journalHistory',  JSON.stringify({}));
-  localStorage.removeItem('cycleArchivedStartDate');
-  // Preserved: habits, habitsNegative, pastChallenges, cycles
-  location.reload();
+  if (!scheduleMidnightCheck._wired) {
+    scheduleMidnightCheck._wired = true;
+    document.addEventListener('visibilitychange', function() { if (!document.hidden) reloadIfNewDay(); });
+    window.addEventListener('focus', reloadIfNewDay);
+    window.addEventListener('pageshow', reloadIfNewDay);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -5840,7 +6200,7 @@ function setHeroLayout() {
     ? card.clientWidth
     : (window.innerWidth >= 900 ? window.innerWidth / 2 - 30 : window.innerWidth - 32);
   f.style.flexDirection = w >= 620 ? 'row' : 'column';
-  f.style.alignItems    = 'center';
+  f.style.alignItems    = w >= 620 ? 'center' : 'flex-start';   // wide: vertically centred beside the ring; narrow: ring + stats hug the left edge
 }
 function setGridCols() {
   const g = document.getElementById('trackerGrid');
@@ -5850,48 +6210,131 @@ function setGridCols() {
 // ──────────────────────────────────────────────────────────────
 // TO-DO LIST
 // ──────────────────────────────────────────────────────────────
+// ── storage helpers: DAILY = todosByDate["YYYY-MM-DD"], MONTHLY = todosMonthly["YYYY-MM"] (independent) ──
+let todoViewMode = 'day';   // shared mode state: 'day' | 'month'
+let todoMonthKey = null;    // null = month of the viewed day; otherwise a past 'YYYY-MM' being browsed
+let todoAddScope = 'day';   // scope chosen in the add modal
+function monthKeyOf(iso) { return String(iso).slice(0, 7); }
+function currentMonthKey() { return monthKeyOf(todayISO()); }
+function viewedMonthKey() { return todoMonthKey || monthKeyOf(cycleDateISO(todoDay)); }
+function todosForIdx(i, base) {                       // read-only; i = cycle day index, resolved to its REAL date
+  const a = (S.todosByDate || {})[cycleDateISO(i, base)];
+  return Array.isArray(a) ? a : [];
+}
 function getDayTodos(dayIdx) {
-  if (!S.todos) S.todos = {};
-  if (!S.todos[dayIdx]) S.todos[dayIdx] = [];
-  return S.todos[dayIdx];
+  if (!S.todosByDate) S.todosByDate = {};
+  const k = cycleDateISO(dayIdx);
+  if (!Array.isArray(S.todosByDate[k])) S.todosByDate[k] = [];
+  return S.todosByDate[k];
+}
+function peekMonthTodos(key) { const a = (S.todosMonthly || {})[key]; return Array.isArray(a) ? a : []; }
+function getMonthTodos(key) {
+  if (!S.todosMonthly) S.todosMonthly = {};
+  if (!Array.isArray(S.todosMonthly[key])) S.todosMonthly[key] = [];
+  return S.todosMonthly[key];
+}
+// Everything the list needs to know about what is currently shown
+function activeTodoCtx() {
+  if (todoViewMode === 'month') {
+    const key = viewedMonthKey(), cur = currentMonthKey();
+    return { scope: 'month', key: key, items: peekMonthTodos(key), canEdit: key === cur, canToggle: key <= cur, showDelete: key === cur };
+  }
+  return { scope: 'day', key: cycleDateISO(todoDay), items: todosForIdx(todoDay),
+           canEdit: todoDay === SYSTEM_TODAY, canToggle: todoDay <= SYSTEM_TODAY, showDelete: todoDay >= SYSTEM_TODAY };
+}
+function refreshTodoCharts() {
+  if (typeof syncCharts === 'function') syncCharts();   // same path as every other chart (keeps Week/Month range)
+}
+function afterTodoChange() {
+  saveState();
+  renderTodoList();
+  updateStreakUI();
+  updateMasteryUI();      // daily to-do completion is part of the day's score
+  refreshTodoCharts();
+}
+
+// ── Day / Month switch ──
+function setTodoViewMode(mode) {
+  if (mode !== 'day' && mode !== 'month') return;
+  if (mode === todoViewMode) return;
+  todoViewMode = mode;        // only the VIEW changes — no task is touched
+  todoMonthKey = null;
+  renderTodoList();
+}
+function syncTodoModeSwitch() {
+  const sw = document.getElementById('todoModeSwitch');
+  if (!sw) return;
+  sw.dataset.mode = todoViewMode;
+  sw.querySelectorAll('[data-mode]').forEach(b => {
+    const on = b.dataset.mode === todoViewMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+function shiftMonthKey(key, delta) {
+  const y = +key.slice(0, 4), m = +key.slice(5, 7) - 1 + delta;
+  const dt = new Date(y, m, 1);
+  return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+}
+function earliestMonthKey() {
+  const keys = Object.keys(S.todosMonthly || {}).filter(k => /^\d{4}-\d{2}$/.test(k) && peekMonthTodos(k).length);
+  keys.push(monthKeyOf(S.startDate || todayISO()));
+  return keys.sort()[0];
+}
+function todoMonthShift(delta) {
+  const next = shiftMonthKey(viewedMonthKey(), delta);
+  if (next > currentMonthKey() || next < earliestMonthKey()) return;
+  const own = monthKeyOf(cycleDateISO(todoDay));
+  todoMonthKey = (next === own) ? null : next;
+  renderTodoList();
 }
 
 function renderTodoList() {
   renderPomodoroBlock();
-  const d = todoDay;
   const list = document.getElementById('todoList');
   const empty = document.getElementById('todoEmpty');
   const label = document.getElementById('todoDateLabel');
   if (!list) return;
 
+  syncTodoModeSwitch();
+  const ctx = activeTodoCtx();
+  const isMonth = ctx.scope === 'month';
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const [y, m, d2] = (S.startDate || todayISO()).split('-');
-  const sDate = new Date(+y, +m - 1, +d2);
-  const dayDate = new Date(sDate);
-  dayDate.setDate(sDate.getDate() + d);
-  if (label) label.textContent = months[dayDate.getMonth()] + ' ' + dayDate.getDate();
 
-  // Read-only indicator for past days
+  const heading = document.getElementById('todoHeading');
+  if (heading) heading.textContent = isMonth ? 'Monthly To-Do' : 'Daily To-Do';
+  if (label) {
+    if (isMonth) label.textContent = months[+ctx.key.slice(5, 7) - 1] + ' ' + ctx.key.slice(0, 4);
+    else { const dd = parseLocalMidnight(ctx.key); label.textContent = months[dd.getMonth()] + ' ' + dd.getDate(); }
+  }
+  const prevB = document.getElementById('todoMonthPrev'), nextB = document.getElementById('todoMonthNext');
+  if (prevB && nextB) {
+    prevB.style.display = nextB.style.display = isMonth ? '' : 'none';
+    if (isMonth) { prevB.disabled = shiftMonthKey(ctx.key, -1) < earliestMonthKey(); nextB.disabled = shiftMonthKey(ctx.key, 1) > currentMonthKey(); }
+  }
+
+  // Read-only indicator for past days / past months
   const readonlyBanner = document.getElementById('todoReadonlyBanner');
-  if (todoDay < SYSTEM_TODAY) {
+  const isPast = isMonth ? ctx.key < currentMonthKey() : todoDay < SYSTEM_TODAY;
+  if (isPast) {
+    const msg = isMonth ? '🔒 Past month — you can mark tasks complete but not delete them'
+                        : '🔒 Past day — you can mark tasks complete but not delete them';
     if (!readonlyBanner) {
       const banner = document.createElement('div');
       banner.id = 'todoReadonlyBanner';
       banner.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.3);' +
         'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);' +
         'border-radius:8px;padding:6px 12px;margin-bottom:12px;text-align:center';
-      banner.textContent = '🔒 Past day — you can mark tasks complete but not delete them';
+      banner.textContent = msg;
       const rightPanel = document.querySelector('.todo-right-panel') ||
                          document.getElementById('todoList').parentElement;
-      if (rightPanel) rightPanel.insertBefore(banner, rightPanel.firstChild.nextSibling);
-    }
-  } else {
-    if (readonlyBanner) readonlyBanner.remove();
-  }
+      if (rightPanel) rightPanel.insertBefore(banner, list);
+    } else readonlyBanner.textContent = msg;
+  } else if (readonlyBanner) readonlyBanner.remove();
 
-  // Carry-over (today only): offer yesterday's unfinished tasks
+  // Carry-over (daily view, today only): offer yesterday's unfinished tasks
   const oldCarry = document.getElementById('todoCarryBtn');
-  const prevTasks = (todoDay === SYSTEM_TODAY && todoDay > 0) ? ((S.todos || {})[todoDay - 1] || []) : [];
+  const prevTasks = (!isMonth && todoDay === SYSTEM_TODAY && todoDay > 0) ? todosForIdx(todoDay - 1) : [];
   const carryable = prevTasks.filter(t => !t.done && !t.carried);
   if (carryable.length) {
     let cbtn = oldCarry;
@@ -5909,12 +6352,17 @@ function renderTodoList() {
     oldCarry.remove();
   }
 
-  const items = getDayTodos(d);
+  const items = ctx.items;
   list.innerHTML = '';
+  list.dataset.scope = ctx.scope;
 
   if (!items.length) {
     list.style.display = 'none';
-    if (empty) empty.style.display = 'block';
+    if (empty) {
+      empty.style.display = 'block';
+      empty.textContent = isMonth ? 'No monthly tasks for this month. Double-tap the To-Do icon (or use the Monthly option) to add one.'
+                                  : 'No tasks for this day. Tap the To-Do icon to add one.';
+    }
     return;
   }
   list.style.display = 'flex';
@@ -5934,9 +6382,9 @@ function renderTodoList() {
     const txt = document.createElement('span');
     txt.className = 'todo-text' + (item.done ? ' done' : '');
     txt.textContent = item.text;
-    if (todoDay === SYSTEM_TODAY) txt.style.cursor = 'pointer'; // tap to edit
+    if (ctx.canEdit) txt.style.cursor = 'pointer'; // tap to edit
 
-    if (todoDay >= SYSTEM_TODAY) {
+    if (ctx.showDelete) {
       const del = document.createElement('button');
       del.className = 'todo-delete';
       del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
@@ -5952,95 +6400,47 @@ function renderTodoList() {
 // Copies yesterday's unfinished tasks to today (originals are flagged so they
 // can't be carried twice and stay as they were in yesterday's history).
 function carryOverTodos() {
-  if (todoDay !== SYSTEM_TODAY || todoDay < 1) return;
-  const prev = (S.todos || {})[todoDay - 1] || [];
+  if (todoViewMode !== 'day' || todoDay !== SYSTEM_TODAY || todoDay < 1) return;
+  const prev = todosForIdx(todoDay - 1);
   const today = getDayTodos(todoDay);
   let n = 0;
   prev.forEach(t => {
     if (!t.done && !t.carried) { t.carried = true; today.push({ text: t.text, done: false }); n++; }
   });
   if (!n) return;
-  saveState();
-  renderTodoList();
-  updateStreakUI();
-  if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
-  if (chartTodosSide) { chartTodosSide.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodosSide.update('none'); }
+  afterTodoChange();
   showToast(n + (n > 1 ? ' tasks' : ' task') + ' carried over');
 }
 
-// Event delegation for todo list — single handler, no per-item listeners
+// Event delegation for todo list — ONE handler (registered once), no per-item listeners
 document.addEventListener('click', function(e) {
   const todoItem = e.target.closest('.todo-task');
   if (!todoItem) return;
   const todoList = document.getElementById('todoList');
   if (!todoList || !todoList.contains(todoItem)) return;
 
-  const d = todoDay;
   const idx = parseInt(todoItem.dataset.todoIdx);
   if (isNaN(idx)) return;
+  const ctx = activeTodoCtx();
+  const item = ctx.items[idx];
+  if (!item || !ctx.canToggle) return;               // future day: fully blocked
 
-  // Future days: fully blocked
-  if (todoDay > SYSTEM_TODAY) return;
-
-  // Past days: ONLY allow checkbox toggle — no delete
-  if (todoDay < SYSTEM_TODAY) {
-    if (e.target.closest('.todo-checkbox')) {
-      // Allow toggle done/undone on past days
-      S.todos[todoDay][idx].done = !S.todos[todoDay][idx].done;
-      uiSound(S.todos[todoDay][idx].done ? 'check' : 'uncheck');
-      saveState();
-      renderTodoList();
-      updateStreakUI();
-      if (chartTodos) {
-        chartTodos.data.datasets[0].data =
-          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
-        chartTodos.update('none');
-      }
-      if (chartTodosSide) {
-        chartTodosSide.data.datasets[0].data =
-          Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
-        chartTodosSide.update('none');
-      }
-    }
-    // Block everything else (delete, etc.)
-    return;
-  }
-
-  // Today: full functionality continues below (existing code unchanged)
-
-  // Checkbox click
+  // Checkbox: allowed on today AND past days/months
   if (e.target.closest('.todo-checkbox')) {
-    S.todos[d][idx].done = !S.todos[d][idx].done;
-    uiSound(S.todos[d][idx].done ? 'check' : 'uncheck');
-    saveState();
-    renderTodoList();
-    updateStreakUI();
-    if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
-    if (chartTodosSide) {
-      chartTodosSide.data.datasets[0].data =
-        Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
-      chartTodosSide.update('none');
-    }
+    item.done = !item.done;
+    uiSound(item.done ? 'check' : 'uncheck');
+    afterTodoChange();
     return;
   }
+  if (!ctx.canEdit) return;                          // past: no edit / delete
 
-  // Tap the task text (today only) → edit it
   if (e.target.closest('.todo-text')) { openTodoModal(idx); return; }
 
-  // Delete click
   if (e.target.closest('.todo-delete')) {
-    S.todos[d].splice(idx, 1);
-    if (!S.todos[d].length) delete S.todos[d];
-    saveState();
-    renderTodoList();
-    updateStreakUI();
-    if (chartTodos) { chartTodos.data.datasets[0].data = Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i)); chartTodos.update('none'); }
-    if (chartTodosSide) {
-      chartTodosSide.data.datasets[0].data =
-        Array.from({length:TOTAL_DAYS},(_,i)=>dayTodoPct(i));
-      chartTodosSide.update('none');
-    }
-    return;
+    ctx.items.splice(idx, 1);
+    const store = ctx.scope === 'month' ? S.todosMonthly : S.todosByDate;
+    if (!ctx.items.length) delete store[ctx.key];
+    afterTodoChange();
   }
 });
 
@@ -6052,12 +6452,12 @@ document.addEventListener('DOMContentLoaded', () => {
   SYSTEM_TODAY = getRealDayIndex();
   selectedDay  = SYSTEM_TODAY;  // Start viewing today
   todoDay      = SYSTEM_TODAY;  // To-Do section starts on today
-  if (checkCycleCompletion()) return;   // cycle finished → completion screen only
-  scheduleMidnightCheck();
+  scheduleMidnightCheck();              // new day / new month → reload → loadState() rolls the cycle over
   setHeroLayout();
   setGridCols();
   renderAll();
   updateStreakUI();
+  showRolloverSummary();                // only when a finished month was just archived
   if (window.ResizeObserver) {
     const hc = document.getElementById('heroCard'), hm = document.getElementById('heatmapCard');
     if (hc) new ResizeObserver(() => setHeroLayout()).observe(hc);
@@ -6169,8 +6569,8 @@ let pomSessionDay = null;
 
 // ── Presence check ("Still there?") ──
 const POM_PRESENCE_EVERY_MS = 30 * 60 * 1000; // running time between checks (focus + break)
-const POM_PRESENCE_WAIT_MS  = 5 * 60 * 1000;  // time to answer before auto-pause
-const POM_PRESENCE_BEEP_MS  = 7000;           // repeat interval of the alert sound
+const POM_PRESENCE_WAIT_MS  = 2 * 60 * 1000;  // time to answer before auto-pause
+const POM_PRESENCE_BEEP_MS  = 5000;           // repeat interval of the alert sound
 let pomPresenceAt = 0;           // last moment the user was confirmed present
 let pomPresencePending = false;  // a check is on screen
 let pomPresenceDeadline = 0;     // when an unanswered check auto-pauses the timer
@@ -6343,21 +6743,30 @@ function pomTick() {
       pomLogSession(); // finalize this focus session (exact seconds)
       pomPhase = 'break';
     } else {
+      // BREAK FINISHED: stop the timer completely (no interval, not running) and wait.
+      // The next focus session only begins when the user presses Start.
+      clearInterval(pomTimer);
+      pomTimer = null;
+      pomRunning = false;
+      pomPresencePending = false;
       if (pomHeldFocus) {
-        // A MANUAL break just ended: continue the parked focus exactly where it stopped.
+        // A MANUAL break ended: the parked focus is restored exactly where it stopped, but paused.
         pomRestoreHeldFocus();
-        pomNotify();
-        pomWriteLiveSession();
-        pomUpdateUI();
-        return;
+      } else {
+        pomPhase = 'focus';
+        // A brand-new focus session is prepared (own config + identity) but NOT started.
+        pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
+        pomSessionKey = pomNewSessionKey();
+        pomSessionDay = SYSTEM_TODAY; // sessions only run on today
+        pomSecondsLeft = pomTotalSeconds();
+        pomLastSavedMin = 0;
       }
-      pomPhase = 'focus';
-      pomFocusStartAt = Date.now();
-      // A brand-new focus session starts with its own config + identity.
-      pomSessionFocusSecs = S.pomodoro.settings.focusMins * 60;
-      pomSessionKey = pomNewSessionKey();
-      pomSessionDay = SYSTEM_TODAY; // sessions only run on today
-      pomWriteLiveSession(); // async — fire and forget
+      pomEndAt = 0;
+      pomSessionValid = true;
+      pomNotify();             // existing end-of-break alert
+      pomWriteLiveSession();   // async — fire and forget (saved as paused)
+      pomUpdateUI();           // button shows "Start"
+      return;
     }
     const total = pomTotalSeconds();
     const chained = pomEndAt + total * 1000;
@@ -6677,7 +7086,9 @@ function pomPresenceTick(now) {
     return true;
   }
   if (now >= pomPresenceNextBeep) {
-    pomPresenceNextBeep = now + POM_PRESENCE_BEEP_MS;
+    // fixed 5 s cadence, anchored to the previous beep (tick jitter can't stretch it)
+    pomPresenceNextBeep = pomPresenceNextBeep ? pomPresenceNextBeep + POM_PRESENCE_BEEP_MS : now + POM_PRESENCE_BEEP_MS;
+    if (pomPresenceNextBeep <= now) pomPresenceNextBeep = now + POM_PRESENCE_BEEP_MS;
     pomSound('alert');
     try { if (navigator.vibrate) navigator.vibrate([150, 80, 150]); } catch (e) {}
   }
@@ -6832,6 +7243,8 @@ function pomSaveCloud() {
         targets:   JSON.stringify(S.pomodoro.targets),
         sessions:  JSON.stringify(S.pomodoro.sessions),
         settings:  JSON.stringify(S.pomodoro.settings),
+        sessionsStart: S.pomodoro.sessionsStart || S.startDate || '',
+        pastSessions:  JSON.stringify(S.pomodoro.pastSessions || {}),
         updatedAt: Date.now()
       });
       if (!pomSavePending) { pomSaveState = 'idle'; pomRefreshStatus(); }
@@ -6843,6 +7256,29 @@ function pomSaveCloud() {
     }
   });
   return pomSaveChain;
+}
+
+// Pomodoro sessions are keyed by day index relative to the cycle start. When the cycle moves to a
+// new calendar month, re-key them by REAL DATE: days that still belong to the live month keep a
+// (new) index, earlier days move to pastSessions["YYYY-MM-DD"] — nothing is dropped or mixed up.
+function pomRebaseSessions() {
+  const P = S.pomodoro;
+  if (!S.startDate) return false;
+  const base = P.sessionsStart;
+  if (!base || base === S.startDate) { P.sessionsStart = S.startDate; return false; }
+  const shift = daysBetween(base, S.startDate);
+  const moved = {}, past = P.pastSessions || (P.pastSessions = {});
+  Object.keys(P.sessions || {}).forEach(k => {
+    const idx = parseInt(k, 10);
+    if (isNaN(idx) || !Array.isArray(P.sessions[k])) return;
+    const ni = idx - shift;
+    if (ni >= 0 && ni < TOTAL_DAYS) moved[ni] = (moved[ni] || []).concat(P.sessions[k]);
+    else { const iso = addDaysISO(base, idx); past[iso] = (past[iso] || []).concat(P.sessions[k]); }
+  });
+  P.sessions = moved;
+  P.sessionsStart = S.startDate;
+  pomSaveCloud();
+  return true;
 }
 
 async function pomLoadFromCloud() {
@@ -6875,8 +7311,19 @@ async function pomLoadFromCloud() {
   if (isObj(settings)) {
     S.pomodoro.settings = Object.assign({ focusMins: 25, breakMins: 5, activeTargetId: null }, settings);
   }
+  // Which start date are the day-index keys of `sessions` relative to? (cloud copy, else a
+  // pending rebase left by a month rollover / migration, else the live cycle)
+  const pastS = (doc.exists && parse(doc.data().pastSessions, null)) || null;
+  if (isObj(pastS)) S.pomodoro.pastSessions = pastS;
+  const pendingBase = localStorage.getItem('pomBase');
+  S.pomodoro.sessionsStart = (doc.exists && doc.data().sessionsStart) || pendingBase || S.startDate;
   pomCloudLoaded = true;
-  if (migrate) await pomSaveCloud();
+  const rebased = pomRebaseSessions();           // re-key sessions to the live month (earlier months → pastSessions)
+  if (pendingBase) {
+    if (!rebased) localStorage.removeItem('pomBase');
+    else pomSaveChain.then(ok => { if (ok) localStorage.removeItem('pomBase'); });
+  }
+  if (migrate && !rebased) await pomSaveCloud();
   // Cloud is now the only home of this data — drop any local copy.
   if (doc.exists || migrate) legacyKeys.forEach(k => localStorage.removeItem(k));
 
