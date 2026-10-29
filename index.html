@@ -378,6 +378,12 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
 .todo-scope{display:grid;width:100%;margin-bottom:14px}
 #nav-todo{touch-action:manipulation}
 @media (prefers-reduced-motion: reduce){.todo-mode-ind,.todo-mode-btn{transition:none}}
+/* FOCUS / FLOW selector inside the timer bubble — same switch as Day/Month, 'flow' = second slot */
+.todo-mode-switch[data-mode="flow"] .todo-mode-ind{transform:translateX(100%)}
+.pom-mode-switch{align-self:center;flex-shrink:0}
+.pom-mode-switch .todo-mode-btn{min-width:68px;min-height:30px;font-size:12px;letter-spacing:.04em}
+body.focus-mode #pomModeSwitch{visibility:hidden}
+#pomodoroSetModal.flow-mode .pom-dur-only{display:none}   /* a running FOCUS/FLOW session is paused before the mode can change */
 .todo-task{display:flex;align-items:center;gap:12px;padding:12px 16px;
   background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
   border-radius:0;transition:all .15s}
@@ -912,8 +918,8 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
     container-type: size;
     container-name: pomcol;
   }
-  .todo-col-center #pomodoroBlock { --pom-chrome: 140px; }
-  .todo-col-center #pomodoroBlock.pom-presence-on { --pom-chrome: 245px; }
+  .todo-col-center #pomodoroBlock { --pom-chrome: 184px; }
+  .todo-col-center #pomodoroBlock.pom-presence-on { --pom-chrome: 289px; }
   .todo-col-center .pom-ring-wrap {
     width: min(100%, calc(100cqh - var(--pom-chrome)), 400px);
     max-width: none;
@@ -1048,13 +1054,33 @@ body.focus-mode #pomodoroBlock {
 
 
 /* ── HERO ROW + DAILY-SCORE HEATMAP ── */
+/* ── GROWTH BUBBLE: stacked + centred by default (mobile); ring left / stats right on wide containers ── */
+#heroCard { container-type: inline-size; container-name: growth; }
+#heroFlex { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.hero-ring { position: relative; flex: 0 0 auto; width: clamp(120px, 48cqw, 180px); aspect-ratio: 1; container-type: inline-size; }
+.hero-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
+.hero-ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.4; }
+.hero-ring-pct { font-size: 21cqw; font-weight: 700; color: #fff; }
+.hero-ring-lbl { font-size: clamp(9px, 6cqw, 11px); color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: .08em; }
+.hero-stats { display: flex; flex-wrap: nowrap; align-items: stretch; justify-content: center; width: 100%; min-width: 0; text-align: center; }
+.hero-stat { flex: 1 1 0; min-width: 0; padding: 0 clamp(4px, 2cqw, 14px); }
+.hero-stat.is-wide { flex-grow: 1.35; }
+.hero-stat-val { font-size: clamp(18px, 6.4cqw, 24px); font-weight: 800; color: #fff; overflow-wrap: anywhere; }
+.hero-stat-lbl { font-size: clamp(8px, 2.5cqw, 10px); color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; white-space: nowrap; }
+.hero-sep { flex: 0 0 1px; background: #1c1c1e; align-self: stretch; }
+@media (min-width: 768px) {
+  @container growth (min-width: 300px) {
+    #heroFlex { flex-direction: row; align-items: center; gap: clamp(14px, 4cqw, 32px); }
+    .hero-ring { width: clamp(104px, 31cqw, 180px); }
+    .hero-stats { flex: 1 1 0; width: auto; justify-content: flex-start; text-align: left; }
+    .hero-stat { padding: 0 clamp(4px, 1.6cqw, 18px); }
+    .hero-stat:first-child { padding-left: 0; }
+    .hero-stat-val { font-size: clamp(17px, 4.6cqw, 24px); }
+    .hero-stat-lbl { font-size: clamp(8px, 1.9cqw, 10px); }
+  }
+}
 .hero-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 @media (min-width: 900px) { .hero-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.hm-wrap { display: grid; grid-template-columns: auto auto; column-gap: 6px; row-gap: 5px; max-width: 100%; }
-.hm-months { position: relative; height: 12px; font-size: 10px; line-height: 12px; color: rgba(255,255,255,.45); }
-.hm-months span { position: absolute; top: 0; white-space: nowrap; }
-.hm-days { display: grid; grid-template-rows: repeat(7, var(--hm-cell)); row-gap: var(--hm-gap); font-size: var(--hm-fs, 10px); color: rgba(255,255,255,.45); }
-.hm-days span { display: flex; align-items: center; height: var(--hm-cell); line-height: 1; white-space: nowrap; }
 .hm-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--hm-cell)); grid-auto-columns: var(--hm-cell); gap: var(--hm-gap); }
 .hm-c { width: var(--hm-cell); height: var(--hm-cell); border-radius: var(--hm-r, 4px); background: rgba(255,255,255,.13); }
 .hm-c.l1 { background: rgba(255,255,255,.42); }
@@ -1065,13 +1091,6 @@ body.focus-mode #pomodoroBlock {
 .hm-c.hm-future { background: rgba(255,255,255,.05); }   /* upcoming date: inactive, no score */
 .hm-c.hm-pad { visibility: hidden; }                       /* filler outside the year / month */
 /* month-by-month layout (used when the single 53-week strip would be too small) */
-.hm-mrows { width: 100%; }
-.hm-mrow { display: flex; gap: 6px; align-items: flex-start; width: 100%; }
-.hm-mrow + .hm-mrow { margin-top: 10px; }
-.hm-days-m { margin-top: 16px; flex: 0 0 auto; min-width: 20px; }
-.hm-mblocks { flex: 1; display: grid; justify-content: space-between; min-width: 0; }
-.hm-mt { height: 12px; line-height: 12px; margin-bottom: 4px; font-size: 10px; color: rgba(255,255,255,.45); }
-.hm-mg { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, var(--hm-cell)); grid-auto-columns: var(--hm-cell); gap: var(--hm-gap); }
 .hm-legend { display: flex; align-items: center; gap: 5px; margin-top: 14px; font-size: 11px; color: rgba(255,255,255,.55); }
 .hm-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; }
 
@@ -1336,11 +1355,11 @@ let currentUID = null;
   <div class="modal-box" style="max-width:360px;padding:24px">
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <p style="font-size:18px;font-weight:700;margin:0">Set Focus Timer</p>
+      <p id="pomSetTitle" style="font-size:18px;font-weight:700;margin:0">Set Focus Timer</p>
     </div>
 
     <!-- Focus duration -->
-    <div style="margin-bottom:16px">
+    <div class="pom-dur-only" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:13px;font-weight:600;color:#ffffff">Focus</span>
       </div>
@@ -1355,10 +1374,10 @@ let currentUID = null;
     </div>
 
     <!-- Divider -->
-    <div style="height:1px;background:rgba(255,255,255,0.05);margin-bottom:16px"></div>
+    <div class="pom-dur-only" style="height:1px;background:rgba(255,255,255,0.05);margin-bottom:16px"></div>
 
     <!-- Break duration -->
-    <div style="margin-bottom:20px">
+    <div class="pom-dur-only" style="margin-bottom:20px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:13px;font-weight:600;color:#ffffff">Break</span>
       </div>
@@ -1465,46 +1484,46 @@ let currentUID = null;
       <!-- MASTERY HERO + DAILY-SCORE HEATMAP (side by side on wide screens, stacked on phones) -->
       <div id="heroRow" class="hero-row">
       <div id="heroCard" class="mission-glass-container" style="border-radius:20px;padding:24px">
-        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:24px" id="heroFlex">
+        <div id="heroFlex">
           <!-- Circular Ring -->
-          <div style="position:relative;width:180px;height:180px;flex-shrink:0">
-            <svg style="width:100%;height:100%;transform:rotate(-90deg)" viewBox="0 0 180 180">
+          <div class="hero-ring">
+            <svg viewBox="0 0 180 180">
               <circle cx="90" cy="90" r="78" stroke="rgba(255,255,255,0.05)" stroke-width="13" fill="none"/>
               <circle id="masteryRing" class="ring-circle" cx="90" cy="90" r="78" stroke="#ffffff" stroke-width="13"
                 fill="none" stroke-linecap="round" stroke-dasharray="0 490.09"/>
             </svg>
-            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.4">
-              <span id="masteryPct" class="stat-mono" style="font-size:38px;font-weight:700;color:#fff">0%</span>
-              <span style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em">Growth</span>
+            <div class="hero-ring-text">
+              <span id="masteryPct" class="stat-mono hero-ring-pct">0%</span>
+              <span class="hero-ring-lbl">Growth</span>
             </div>
           </div>
-          <!-- Left-aligned stats -->
-          <div style="width: 100%; display:flex; flex-wrap:wrap; justify-content:flex-start; gap:12px 32px; text-align:left;">
-            <div>
-              <div id="streakCount" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Consistency</div>
+          <!-- Stats: one row, value above label -->
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div id="streakCount" class="stat-mono hero-stat-val">0</div>
+              <div class="hero-stat-lbl">Consistency</div>
             </div>
-            <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
-            <div>
-              <div id="levelCount" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">1</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Level</div>
+            <div class="hero-sep"></div>
+            <div class="hero-stat">
+              <div id="levelCount" class="stat-mono hero-stat-val">1</div>
+              <div class="hero-stat-lbl">Level</div>
             </div>
-            <div style="width:1px; background:#1c1c1e; align-self:stretch;"></div>
-            <div>
-              <div id="missionPoints" class="stat-mono" style="font-size:24px;font-weight:800;color:#fff">0</div>
-              <div style="font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Growth Pts</div>
+            <div class="hero-sep"></div>
+            <div class="hero-stat is-wide">
+              <div id="missionPoints" class="stat-mono hero-stat-val">0</div>
+              <div class="hero-stat-lbl">Growth Pts</div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- DAILY SCORE HEATMAP -->
-      <div id="heatmapCard" class="mission-glass-container" style="border-radius:20px;padding:20px 22px;display:flex;flex-direction:column;justify-content:center">
+      <div id="heatmapCard" class="mission-glass-container" style="border-radius:20px;padding:20px clamp(12px,3.4vw,22px);display:flex;flex-direction:column;justify-content:center">
         <div class="chart-title-row" style="margin-bottom:14px">
           <div class="glass-title-sm" style="color:#ffffff;margin-bottom:0">Daily Performance</div>
           <span id="heatmapSummary" style="font-size:11px;color:rgba(255,255,255,0.45);white-space:nowrap"></span>
         </div>
-        <div id="heatmapBody" style="display:flex;flex-direction:column;align-items:center;min-height:90px"></div>
+        <div id="heatmapBody" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90px"></div>
       </div>
       </div><!-- /heroRow -->
 
@@ -1861,6 +1880,13 @@ let currentUID = null;
           background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);
           border-radius:10px;padding:8px 14px;text-align:center;width:100%">
           ⏳ Focus Timer is not available for past days
+        </div>
+
+        <!-- FOCUS / FLOW mode selector (same sliding switch as Day/Month) -->
+        <div id="pomModeSwitch" class="todo-mode-switch pom-mode-switch" data-mode="focus" role="radiogroup" aria-label="Timer mode">
+          <span class="todo-mode-ind" aria-hidden="true"></span>
+          <button type="button" class="todo-mode-btn active" data-mode="focus" role="radio" aria-checked="true" onclick="setPomMode('focus')">Focus</button>
+          <button type="button" class="todo-mode-btn" data-mode="flow" role="radio" aria-checked="false" onclick="setPomMode('flow')">Flow</button>
         </div>
 
         <!-- Active target chip -->
@@ -2967,7 +2993,8 @@ function selectDay(dayIndex) {
   }
 
   // Reset pomodoro only if day changed and timer is not running
-  if (!pomRunning) {
+  if (!pomRunning && !flowRunning) {
+    flowReset();   // a paused FLOW session was already saved at pause; start the new day clean
     pomReset();
     pomUpdateUI();
   }
@@ -4600,9 +4627,6 @@ function heatIso(dt) {
   return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
 }
 
-const HM_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const HM_LBL = 26, HM_COLGAP = 6, HM_MONTH_TITLE = 16, HM_ROWGAP = 10, HM_BLOCKGAP = 8;
-const heatGap = c => c >= 14 ? 3 : c >= 8 ? 2 : 1;                         // spacing shrinks with the cells
 const heatLvl = v => !(v > 0) ? 0 : v < 25 ? 1 : v < 50 ? 2 : v < 75 ? 3 : 4;   // same intensity steps as before
 
 // One cell. Future dates are inactive (no score is ever invented for them);
@@ -4615,40 +4639,18 @@ function heatCell(iso, ctx) {
          '" data-d="' + iso + '" data-s="' + v + '"></div>';
 }
 
-// Choose the layout + cell size that makes the WHOLE year fill the card:
-//   'year'   — one GitHub-style strip, 53 week-columns (Sunday-first)
-//   'months' — 12 small month calendars in k columns (used when the strip would be tiny)
-// Cells shrink to fit; months/days are never dropped and nothing scrolls.
+// ONE continuous GitHub-style year grid: 7 rows (Sun–Sat) × N week-columns, chronological, no month
+// headings and no weekday labels. The square cell size comes from the card's real width AND height
+// budget (fractional px, always 1:1) so the grid fills the card; the gap shrinks with the cells.
 function heatPlan(W, H, year) {
   const off = new Date(year, 0, 1).getDay();
-  const nDays = (new Date(year, 11, 31) - new Date(year, 0, 1)) / 864e5 + 1;   // 365 / 366
-  const weeks = Math.ceil((off + Math.round(nDays)) / 7);
-  const CAP = 22;
-  let best = { mode: 'year', cell: 3, gap: 1, weeks: weeks, off: off };
-  for (let c = CAP; c >= 3; c--) {
-    const g = heatGap(c), s = c + g;
-    const w = HM_LBL + HM_COLGAP + weeks * s - g;
-    const h = 12 + 5 + 7 * s - g;
-    if (w <= W && h <= H) { best = { mode: 'year', cell: c, gap: g, weeks: weeks, off: off }; break; }
+  const nDays = Math.round((new Date(year, 11, 31) - new Date(year, 0, 1)) / 864e5) + 1;   // 365 / 366
+  const weeks = Math.ceil((off + nDays) / 7), CAP = 22;
+  for (const [g, min] of [[3, 12], [2, 7], [1, 0]]) {
+    const c = Math.min((W + g) / weeks - g, (H + g) / 7 - g, CAP);
+    if (c >= min) return { cell: Math.max(2, Math.floor(c * 4) / 4), gap: g, weeks: weeks, off: off };
   }
-  let bm = null;
-  [2, 3, 4, 6].forEach(k => {
-    const rows = 12 / k;
-    for (let c = 16; c >= 3; c--) {
-      const g = heatGap(c), s = c + g;
-      const w = HM_LBL + HM_COLGAP + k * (6 * s - g) + (k - 1) * HM_BLOCKGAP;     // a month spans at most 6 week-columns
-      const h = rows * (HM_MONTH_TITLE + 7 * s - g) + (rows - 1) * HM_ROWGAP;
-      if (w <= W && h <= H) {
-        if (!bm || c > bm.cell || (c === bm.cell && k > bm.k)) bm = { mode: 'months', k: k, cell: c, gap: g };
-        break;
-      }
-    }
-  });
-  // Prefer the month calendars when they give clearly bigger cells, or equal/bigger cells while the
-  // single strip would leave most of the card's height empty (the "tiny strip in a big card" problem).
-  const yearH = 12 + 5 + 7 * (best.cell + best.gap) - best.gap;
-  const useMonths = bm && (bm.cell >= best.cell * 1.25 || (bm.cell >= best.cell && yearH < H * 0.6));
-  return useMonths ? bm : best;
+  return { cell: 2, gap: 1, weeks: weeks, off: off };
 }
 
 function renderHeatmap() {
@@ -4658,9 +4660,8 @@ function renderHeatmap() {
   const W = Math.floor(card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
   if (W < 120) return;                             // dashboard hidden: render when it is shown
 
-  // Height budget: when the card sits next to the Mastery card (>=900px) it is
-  // stretched to that card's height, so fill exactly that; on phones it just
-  // needs to stay a sensible size.
+  // Height budget: when the card sits next to the Growth card (>=900px) it is stretched to that
+  // card's height, so fill exactly that; on phones it just needs to stay a sensible size.
   let H = 360;
   const heroFlex = document.getElementById('heroFlex'), titleRow = card.querySelector('.chart-title-row');
   if (window.matchMedia('(min-width: 900px)').matches && heroFlex && heroFlex.offsetHeight) {
@@ -4673,61 +4674,24 @@ function renderHeatmap() {
   const year = TODAY.getFullYear();
   const ctx = { scores: heatmapScores(), today: todayISO(), active: 0 };
   const plan = heatPlan(W, H, year);
-  const cell = plan.cell, gap = plan.gap;
-  const fs = cell >= 12 ? 10 : cell >= 7 ? 9 : 8;
+  const cell = plan.cell, gap = plan.gap, off = plan.off, weeks = plan.weeks;
 
   body.style.setProperty('--hm-cell', cell + 'px');
   body.style.setProperty('--hm-gap', gap + 'px');
-  body.style.setProperty('--hm-r', (cell >= 14 ? 4 : cell >= 8 ? 3 : 2) + 'px');
-  body.style.setProperty('--hm-fs', fs + 'px');
-  const labels = '<span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span>';
-  let html;
+  body.style.setProperty('--hm-r', (cell >= 14 ? 4 : cell >= 8 ? 3 : cell >= 4 ? 2 : 1) + 'px');
 
-  if (plan.mode === 'year') {
-    const step = cell + gap, off = plan.off, weeks = plan.weeks;
-    const jan1 = new Date(year, 0, 1);
-    let cells = '';
-    for (let p = 0; p < weeks * 7; p++) {                 // column-major: p = week*7 + weekday
-      const dt = new Date(year, 0, 1 + (p - off));
-      cells += (dt.getFullYear() === year) ? heatCell(heatIso(dt), ctx) : '<div class="hm-c hm-pad"></div>';
-    }
-    let months = '', lastX = -99;
-    for (let m = 0; m < 12; m++) {
-      const doy = Math.round((new Date(year, m, 1) - jan1) / 864e5);
-      const x = Math.floor((off + doy) / 7) * step;
-      if (x - lastX >= 22) { months += '<span style="left:' + x + 'px">' + HM_MONTHS[m] + '</span>'; lastX = x; }
-    }
-    html = '<div class="hm-wrap">' +
-      '<div></div><div class="hm-months" style="width:' + (weeks * step - gap) + 'px">' + months + '</div>' +
-      '<div class="hm-days">' + labels + '</div>' +
-      '<div class="hm-grid" id="heatmapGrid">' + cells + '</div></div>';
-  } else {
-    const blocks = [];
-    for (let m = 0; m < 12; m++) {
-      const off = new Date(year, m, 1).getDay(), n = getDaysInMonth(year, m + 1), cols = Math.ceil((off + n) / 7);
-      let cells = '';
-      for (let p = 0; p < cols * 7; p++) {
-        const d = p - off + 1;
-        cells += (d >= 1 && d <= n) ? heatCell(year + '-' + pad2(m + 1) + '-' + pad2(d), ctx) : '<div class="hm-c hm-pad"></div>';
-      }
-      blocks.push('<div class="hm-mb"><div class="hm-mt">' + HM_MONTHS[m] + '</div>' +
-                  '<div class="hm-mg" style="grid-template-columns:repeat(' + cols + ',var(--hm-cell))">' + cells + '</div></div>');
-    }
-    html = '<div class="hm-mrows" id="heatmapGrid">';
-    for (let r = 0; r < 12 / plan.k; r++) {
-      html += '<div class="hm-mrow"><div class="hm-days hm-days-m">' + labels + '</div>' +
-              '<div class="hm-mblocks" style="grid-template-columns:repeat(' + plan.k + ',max-content)">' +
-              blocks.slice(r * plan.k, (r + 1) * plan.k).join('') + '</div></div>';
-    }
-    html += '</div>';
+  let cells = '';
+  for (let p = 0; p < weeks * 7; p++) {                 // column-major: p = week*7 + weekday
+    const dt = new Date(year, 0, 1 + (p - off));
+    cells += (dt.getFullYear() === year) ? heatCell(heatIso(dt), ctx) : '<div class="hm-c hm-pad"></div>';
   }
 
-  body.innerHTML = html +
+  body.innerHTML = '<div class="hm-grid" id="heatmapGrid">' + cells + '</div>' +
     '<div class="hm-legend">Less <i style="background:rgba(255,255,255,.13)"></i><i style="background:rgba(255,255,255,.42)"></i>' +
     '<i style="background:rgba(255,255,255,.62)"></i><i style="background:rgba(255,255,255,.82)"></i><i style="background:#fff"></i> More</div>';
 
   const sum = document.getElementById('heatmapSummary');
-  if (sum) sum.textContent = year + ' · ' + ctx.active + ' active day' + (ctx.active === 1 ? '' : 's');
+  if (sum) sum.textContent = year + ' \u00b7 ' + ctx.active + ' active day' + (ctx.active === 1 ? '' : 's');
 
   const grid = document.getElementById('heatmapGrid');
   grid.addEventListener('mouseover', e => { const t = e.target.closest('.hm-c[data-d]'); if (t) heatShowTip(t); });
@@ -6192,15 +6156,8 @@ function scheduleMidnightCheck() {
 // RESPONSIVE LAYOUT
 // ──────────────────────────────────────────────────────────────
 function setHeroLayout() {
-  const f = document.getElementById('heroFlex');
-  if (!f) return;
-  const card = document.getElementById('heroCard');
-  // ring + stats side by side only when the card itself is wide enough
-  const w = card && card.clientWidth
-    ? card.clientWidth
-    : (window.innerWidth >= 900 ? window.innerWidth / 2 - 30 : window.innerWidth - 32);
-  f.style.flexDirection = w >= 620 ? 'row' : 'column';
-  f.style.alignItems    = w >= 620 ? 'center' : 'flex-start';   // wide: vertically centred beside the ring; narrow: ring + stats hug the left edge
+  // Growth bubble layout is pure CSS now (container query on #heroCard) — nothing to do.
+  // Kept as a no-op so existing callers (tab switch / ResizeObserver) keep working.
 }
 function setGridCols() {
   const g = document.getElementById('trackerGrid');
@@ -6662,6 +6619,11 @@ function pomSetFocusMode(on) {
 }
 
 function pomUpdateUI() {
+  if (pomMode === 'flow') { flowUpdateUI(); return; }   // FLOW owns the display while selected
+  const flowSetBtn = document.getElementById('pomodoroSetBtn');
+  if (flowSetBtn) flowSetBtn.style.display = '';          // FOCUS shows its Set/Break/Skip button again
+  const flowDisp = document.getElementById('pomodoroDisplay');
+  if (flowDisp) flowDisp.style.fontSize = '';             // undo FLOW's long-time font size
   const mins =String(Math.floor(pomSecondsLeft / 60)).padStart(2, '0');
   const secs = String(pomSecondsLeft % 60).padStart(2, '0');
   const disp = document.getElementById('pomodoroDisplay');
@@ -6788,6 +6750,7 @@ function pomTick() {
 }
 document.addEventListener('visibilitychange', function() {
   if (!document.hidden && pomRunning) pomTick(); // catch up immediately on return
+  if (!document.hidden && flowRunning) flowTick(); // FLOW is timestamp-based: just refresh
 });
 
 // End-of-phase alert: vibration + a short double beep (audio is unlocked by
@@ -6978,6 +6941,7 @@ function pomSkipBreak() {
 }
 
 function togglePomodoro(atMs) {
+  if (pomMode === 'flow') { flowToggle(); return; }   // Start/Pause button drives FLOW while it is selected
   if (todoDay < SYSTEM_TODAY && !pomRunning) return; // guard: past days can't START (a running timer can always be paused)
   if (!pomRunning) {
     // Start — or resume a paused session
@@ -7146,6 +7110,160 @@ function pomLogSession() {
   pomSaveCloud().then(ok => { if (ok) showToast('Focus session complete ✓'); });
   pomSessionKey = null; // this focus session is finished
   pomClearLiveSession(); // session complete — no longer needs live snapshot
+}
+
+// ── FLOW MODE ─────────────────────────────────────────────────
+// Open-ended count-up timer that shares FOCUS's task selection (S.pomodoro.settings.activeTargetId),
+// its session records (S.pomodoro.sessions[day], saved by pomSaveCloud) and its live-session document.
+// Elapsed time is timestamp-based (base + now - startAt), so throttled tabs cannot lose or add time.
+// One record per FLOW session: {targetId, focusSeconds, focusDone:false, partial:true, sessionId, mode:'flow'} —
+// exactly what FOCUS's in-progress records look like, so every analytics view already counts it, once.
+let pomMode = 'focus';        // 'focus' | 'flow'  (which timer is shown)
+let flowRunning = false;
+let flowTimer = null;         // UI refresh interval only — never used for counting
+let flowStartAt = 0;          // wall-clock ms when the current run began
+let flowBaseSecs = 0;         // seconds accumulated before the current run (paused time is never included)
+let flowSessionKey = null;    // identity of the active FLOW session (its single history record)
+let flowDay = null;           // day index pinned when the session started
+let flowTargetId = null;      // task pinned for this session's time
+let flowLastSavedMin = 0;
+
+function flowElapsedSecs(now) {
+  let s = flowBaseSecs;
+  if (flowRunning && flowStartAt) s += Math.max(0, ((typeof now === 'number' ? now : Date.now()) - flowStartAt) / 1000);
+  return Math.floor(s);
+}
+
+function flowReset() {
+  clearInterval(flowTimer); flowTimer = null;
+  flowRunning = false; flowStartAt = 0; flowBaseSecs = 0;
+  flowSessionKey = null; flowDay = null; flowTargetId = null; flowLastSavedMin = 0;
+}
+
+// Upsert THIS session's record with the exact elapsed seconds (same record on every save — no duplicates).
+function flowLogPartial(secs, quiet) {
+  secs = Math.max(0, Math.floor(secs));
+  if (!flowSessionKey || secs <= 0) return;
+  const d = (flowDay != null) ? flowDay : todoDay;
+  if (!S.pomodoro.sessions[d]) S.pomodoro.sessions[d] = [];
+  const list = S.pomodoro.sessions[d];
+  const stamp = new Date().toISOString();
+  const e = list.find(x => x.sessionId === flowSessionKey);
+  if (e) {
+    e.targetId = flowTargetId; e.focusSeconds = secs; e.focusMins = Math.floor(secs / 60); e.updatedAt = stamp;
+  } else {
+    list.push({ targetId: flowTargetId, focusMins: Math.floor(secs / 60), focusSeconds: secs, breakMins: 0,
+                completedAt: stamp, focusDone: false, partial: true, sessionId: flowSessionKey, mode: 'flow' });
+  }
+  pomSaveCloud().then(ok => { if (ok && !quiet) showToast('Saved to analytics'); });
+}
+
+function flowToggle() {
+  if (!flowRunning) {
+    if (todoDay < SYSTEM_TODAY) return;                        // past days can't start (same rule as FOCUS)
+    if (pomRunning) return;                                    // single active timer
+    const t = S.pomodoro.targets.find(x => x.id === S.pomodoro.settings.activeTargetId);
+    if (!flowSessionKey) {                                     // brand-new FLOW session needs a task
+      if (!t) { showToast('Select a task first'); openPomodoroSetPanel(); return; }
+      flowSessionKey = pomNewSessionKey(); flowDay = todoDay; flowTargetId = t.id; flowBaseSecs = 0;
+    }
+    flowStartAt = Date.now();
+    flowRunning = true;
+    pomSessionValid = true;                                    // shield: navigation never resets a live session
+    flowLastSavedMin = Math.floor(flowBaseSecs / 60);
+    clearInterval(flowTimer);
+    flowTimer = setInterval(flowTick, 1000);
+    pomSound('start');
+    pomWriteLiveSession();
+  } else {
+    flowBaseSecs += Math.max(0, (Date.now() - flowStartAt) / 1000);   // only time that really ran
+    flowStartAt = 0;
+    flowRunning = false;
+    clearInterval(flowTimer); flowTimer = null;
+    pomSound('pause');
+    flowLogPartial(flowBaseSecs);                              // exact progress saved at once
+    pomWriteLiveSession();
+  }
+  flowUpdateUI();
+}
+
+function flowTick() {
+  if (!flowRunning) return;
+  const m = Math.floor(flowElapsedSecs() / 60);
+  if (m >= 1 && m > flowLastSavedMin) {                        // autosave at every elapsed-minute boundary (like FOCUS)
+    flowLastSavedMin = m;
+    flowLogPartial(flowElapsedSecs(), true);
+    pomWriteLiveSession();
+  }
+  flowUpdateUI();
+}
+
+// Changing the task: the time so far stays with the ORIGINAL task; the new task starts its own record.
+function flowApplyTarget(newId) {
+  S.pomodoro.settings.activeTargetId = newId;
+  if (!flowSessionKey || newId === flowTargetId) return;
+  const now = Date.now(), wasRunning = flowRunning;
+  if (wasRunning) { flowBaseSecs += Math.max(0, (now - flowStartAt) / 1000); flowStartAt = now; }
+  const secs = Math.floor(flowBaseSecs);
+  const oldT = S.pomodoro.targets.find(x => x.id === flowTargetId);
+  if (secs > 0) flowLogPartial(secs, true);                    // written to the pinned (old) task
+  flowBaseSecs = 0; flowLastSavedMin = 0;
+  if (wasRunning) {                                            // keep counting, now for the new task
+    flowSessionKey = pomNewSessionKey(); flowTargetId = newId;
+  } else {                                                     // paused: next Start begins a fresh session
+    flowSessionKey = null; flowTargetId = null; flowDay = null;
+  }
+  if (secs > 0) showToast('Time so far saved to ' + (oldT ? oldT.name : 'previous task'));
+  pomWriteLiveSession();
+}
+
+function flowUpdateUI() {
+  const secs = flowElapsedSecs();
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sc = secs % 60;
+  const two = n => String(n).padStart(2, '0');
+  const disp = document.getElementById('pomodoroDisplay');
+  if (disp) {
+    disp.textContent = h > 0 ? h + ':' + two(m) + ':' + two(sc) : two(m) + ':' + two(sc);
+    disp.style.fontSize = h > 0 ? 'clamp(14px, 14.5cqw, 70px)' : '';
+  }
+  const phase = document.getElementById('pomodoroPhaseLabel'); if (phase) phase.textContent = 'Flow';
+  const startBtn = document.getElementById('pomodoroStartBtn'); if (startBtn) startBtn.textContent = flowRunning ? 'Pause' : 'Start';
+  const setBtn = document.getElementById('pomodoroSetBtn'); if (setBtn) setBtn.style.display = 'none';   // no Set / Break / Skip in FLOW
+  const skipBtn = document.getElementById('pomodoroSkipBtn'); if (skipBtn) skipBtn.style.display = 'none';
+  const presBox = document.getElementById('pomodoroPresence'); if (presBox) presBox.style.display = 'none'; // no "Still there?" in FLOW
+  const pb = document.getElementById('pomodoroBlock'); if (pb) pb.classList.remove('pom-presence-on');
+  const ring = document.getElementById('pomodoroRing');
+  if (ring) { const c = 2 * Math.PI * 68; ring.setAttribute('stroke-dasharray', c.toFixed(2) + ' ' + c.toFixed(2)); ring.setAttribute('stroke', '#ffffff'); }
+  const t = S.pomodoro.targets.find(x => x.id === S.pomodoro.settings.activeTargetId);
+  const dot = document.getElementById('pomodoroTargetDot'), label = document.getElementById('pomodoroTargetLabel');
+  if (dot) dot.style.background = t ? t.color : 'rgba(255,255,255,0.3)';
+  if (label) label.textContent = t ? t.name : 'No Target';
+  const todoTabEl = document.getElementById('tab-todo');
+  pomSetFocusMode(flowRunning && !!(todoTabEl && todoTabEl.classList.contains('active')));   // same zoom-in as FOCUS
+}
+
+function syncPomModeSwitch() {
+  const sw = document.getElementById('pomModeSwitch');
+  if (!sw) return;
+  sw.dataset.mode = pomMode;
+  sw.querySelectorAll('[data-mode]').forEach(b => {
+    const on = b.dataset.mode === pomMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+
+// Mode switch. Only ONE timer may run: a running FOCUS/FLOW is paused through its normal Pause path
+// (progress saved), then the view changes. Nothing is reset and nothing starts by itself.
+function setPomMode(mode) {
+  if (mode !== 'focus' && mode !== 'flow') return;
+  if (mode === pomMode) return;
+  if (pomRunning)  { togglePomodoro(); showToast('Focus paused'); }
+  if (flowRunning) { flowToggle();     showToast('Flow paused'); }
+  pomMode = mode;
+  syncPomModeSwitch();
+  pomWriteLiveSession();      // the live document follows the timer now on screen
+  pomUpdateUI();
 }
 
 function renderPomodoroBlock() {
@@ -7341,6 +7459,10 @@ let pomSetTargetTmp = null;
 
 function openPomodoroSetPanel() {
   if (todoDay < SYSTEM_TODAY) return;
+  const setModal = document.getElementById('pomodoroSetModal');
+  if (setModal) setModal.classList.toggle('flow-mode', pomMode === 'flow');   // FLOW: task only, no durations
+  const setTitle = document.getElementById('pomSetTitle');
+  if (setTitle) setTitle.textContent = pomMode === 'flow' ? 'Select Task' : 'Set Focus Timer';
   pomSetFocusTmp  = S.pomodoro.settings.focusMins;
   pomSetBreakTmp  = S.pomodoro.settings.breakMins;
   pomSetTargetTmp = S.pomodoro.settings.activeTargetId;
@@ -7473,6 +7595,14 @@ function deletePomTarget(id) {
 }
 
 function savePomodoroSettings() {
+  if (pomMode === 'flow') {           // FLOW: only the task can change; FOCUS timer + durations untouched
+    if (!pomSetTargetTmp && flowRunning) { showToast('Flow needs a task'); return; }
+    flowApplyTarget(pomSetTargetTmp);
+    pomSaveCloud();
+    closePomodoroSetPanel();
+    pomUpdateUI();
+    return;
+  }
   S.pomodoro.settings.focusMins = pomSetFocusTmp;
   S.pomodoro.settings.breakMins = pomSetBreakTmp;
   S.pomodoro.settings.activeTargetId = pomSetTargetTmp;
@@ -7938,6 +8068,24 @@ function pomLogPartial(elapsedSecs) {
 // duration. sessionId keeps partial history from duplicating; running records
 // the state at save time (restores always come back paused).
 function pomLiveSnapshot() {
+  // The live document describes the timer that is on screen / running. A FLOW session is written
+  // (same document, same fields + mode:'flow') only while FLOW is running or selected.
+  if (flowSessionKey && !pomRunning && (flowRunning || pomMode === 'flow')) {
+    const fe = flowElapsedSecs();
+    return {
+      day:            (flowDay != null) ? flowDay : todoDay,
+      targetId:       flowTargetId,
+      mode:           'flow',
+      focusMins:      Math.round(pomFocusConfigSecs() / 60),
+      breakMins:      S.pomodoro.settings.breakMins,
+      elapsedMins:    Math.floor(fe / 60),
+      elapsedSeconds: fe,
+      phase:          'focus',
+      running:        flowRunning,
+      sessionId:      flowSessionKey,
+      savedAt:        Date.now()
+    };
+  }
   const elapsedSecs = pomElapsedFocusSeconds();
   return {
     day:            (pomSessionDay != null) ? pomSessionDay : todoDay,
@@ -8035,6 +8183,27 @@ async function pomRestoreSession() {
   // Validate: same day, saved within last 2 hours
   if (snap.day !== todoDay) return 'invalid';
   if (Date.now() - (snap.savedAt || 0) > 2 * 60 * 60 * 1000) return 'invalid';
+
+  // FLOW snapshot: restored as a PAUSED flow session with its exact elapsed seconds.
+  if (snap.mode === 'flow') {
+    if (snap.targetId !== undefined) S.pomodoro.settings.activeTargetId = snap.targetId;
+    flowSessionKey  = snap.sessionId || pomNewSessionKey();
+    flowDay         = snap.day;
+    flowTargetId    = (snap.targetId !== undefined) ? snap.targetId : null;
+    flowBaseSecs    = Math.max(0, +snap.elapsedSeconds || 0);
+    flowStartAt     = 0;
+    flowRunning     = false;
+    flowLastSavedMin = Math.floor(flowBaseSecs / 60);
+    pomMode         = 'flow';
+    pomPhase        = 'focus';
+    pomSecondsLeft  = pomTotalSeconds();   // FOCUS side stays a fresh, idle timer
+    pomRunning      = false;
+    pomSessionValid = true;                // shield: navigation must not reset it
+    pomSessionKey   = null;
+    pomSessionDay   = null;
+    syncPomModeSwitch();
+    return 'restored';
+  }
 
   // Restore the session's own configuration FIRST, so every clamp below uses
   // this session's duration and never a page default. A field missing from an
