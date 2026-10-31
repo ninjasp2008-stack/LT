@@ -1,5 +1,5 @@
 <!--
-VERSION: index29.html
+VERSION: index29.html (UI refinement layer appended at end of main <style>)
 BASED ON: index28.html
 CHANGES: [index29] Cycles are now REAL CALENDAR MONTHS (1st → last day, 28/29/30/31 days) instead of a fixed 30-day
          run: automatic archive + new-month start (also catches a month that passed while the app was closed),
@@ -245,10 +245,11 @@ CHANGES: [index29] Cycles are now REAL CALENDAR MONTHS (1st → last day, 28/29/
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 
 <!-- ── PWA: Full-screen standalone mode ── -->
 <meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -275,7 +276,7 @@ html,body{margin:0;padding:0;background:transparent;color:#fff;
 .week-day-item{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:2px;cursor:default;padding:6px 2px;min-width:42px;flex-shrink:0;
-  transition:all .4s cubic-bezier(.16,1,.3,1);
+  transition:color .4s var(--ease-out),background-color .4s var(--ease-out),border-color .4s var(--ease-out),opacity .4s var(--ease-out),transform .4s var(--ease-out),box-shadow .4s var(--ease-out);
   color:rgba(255,255,255,0.4);border-radius:10px;
   font-family:'DM Sans',system-ui,sans-serif;
   user-select:none;
@@ -283,9 +284,9 @@ html,body{margin:0;padding:0;background:transparent;color:#fff;
 .week-day-item.active{
   color:#fff;transform:scale(1.15);cursor:pointer;
 }
-.week-day-item.active:hover{color:#fff}
+@media (hover:hover) and (pointer:fine){.week-day-item.active:hover{color:#fff}}
 .week-day-name{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.week-day-date{font-size:17px;font-weight:700;font-family:'Space Mono',monospace}
+.week-day-date{font-size:17px;font-weight:700;font-family:'DM Sans',system-ui,sans-serif}
 .week-day-spacer{flex-shrink:0;height:1px}
 .week-day-item.future{
   color:rgba(255,255,255,0.3);pointer-events:none;cursor:default;opacity:0.3;
@@ -293,9 +294,9 @@ html,body{margin:0;padding:0;background:transparent;color:#fff;
 .week-day-item.past{
   color:rgba(255,255,255,0.55);cursor:pointer;opacity:0.85;
 }
-.week-day-item.past:hover{
+@media (hover:hover) and (pointer:fine){.week-day-item.past:hover{
   color:rgba(255,255,255,0.8);opacity:1;
-}
+}}
 .week-day-item.selected{
   color:#fff;opacity:1;
   border:1px solid rgba(255,255,255,0.25);
@@ -315,13 +316,13 @@ html,body{margin:0;padding:0;background:transparent;color:#fff;
 }
 .week-calendar-header .progress{
   font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);
-  font-family:'Space Mono',monospace;
+  font-family:'DM Sans',system-ui,sans-serif;
 }
 .week-day-status{
   position:absolute;left:50%;transform:translateX(-50%);
   text-align:center;width:max-content;
   font-size:13.75px;font-weight:700;color:rgba(255,255,255,0.5);
-  font-family:'Space Mono',monospace;
+  font-family:'DM Sans',system-ui,sans-serif;
 }
 .week-day-status.today{
   color:#fff;
@@ -386,13 +387,13 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 #pomodoroSetModal.flow-mode .pom-dur-only{display:none}   /* a running FOCUS/FLOW session is paused before the mode can change */
 .todo-task{display:flex;align-items:center;gap:12px;padding:12px 16px;
   background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.05);
-  border-radius:0;transition:all .15s}
+  border-radius:0;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
 .todo-task:last-child{border-bottom:none}
-.todo-task:hover{border-color:rgba(255,255,255,0.12)}
+@media (hover:hover) and (pointer:fine){.todo-task:hover{border-color:rgba(255,255,255,0.12)}}
 .todo-checkbox{width:22px;height:22px;border-radius:6px;flex-shrink:0;
   border:2px solid rgba(255,255,255,0.4);background:none;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .15s}
+  transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
 .todo-checkbox.done{background:rgba(255,255,255,0.8);border-color:rgba(255,255,255,0.8)}
 .todo-checkbox svg{opacity:0;transition:opacity .15s}
 .todo-checkbox.done svg{opacity:1}
@@ -400,8 +401,8 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 .todo-text.done{text-decoration:line-through;opacity:0.5}
 .todo-delete{width:28px;height:28px;border:none;background:none;
   color:#636366;cursor:pointer;border-radius:6px;display:flex;
-  align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
-.todo-delete:hover{color:#ef4444;background:rgba(239,68,68,0.1)}
+  align-items:center;justify-content:center;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);flex-shrink:0}
+@media (hover:hover) and (pointer:fine){.todo-delete:hover{color:#ef4444;background:rgba(239,68,68,0.1)}}
 
 /* ── BOTTOM NAV (compact grey bar, white active block) ── */
 /* ── BOTTOM NAV ── */
@@ -443,9 +444,9 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
   cursor: pointer;
   transition: color 0.25s ease, opacity 0.25s ease;
 }
-.nav-btn:hover {
+@media (hover:hover) and (pointer:fine){.nav-btn:hover{
   color: rgba(255,255,255,0.7);
-}
+}}
 .nav-btn.active {
   background: none;
   color: #ffffff;
@@ -484,10 +485,10 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
   width:100%;max-width:100%;overflow-x:hidden;margin:0 auto;align-items:center}
 
 .grid-header-name{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.04em;
-  padding:0 4px 4px 0;text-align:left;font-family:'Space Mono',monospace}
+  padding:0 4px 4px 0;text-align:left;font-family:'DM Sans',system-ui,sans-serif}
 
 .grid-header-letter{font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);
-  text-align:center;padding:0 0 4px;font-family:'Space Mono',monospace}
+  text-align:center;padding:0 0 4px;font-family:'DM Sans',system-ui,sans-serif}
 
 .grid-row-name{font-size:13px;color:#9ca3af;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;padding-right:8px;min-width:0}
@@ -496,8 +497,8 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 .grid-cell-week{width:36px;height:36px;border-radius:6px;
   background:#111115;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  transition:all .15s;opacity:.55;justify-self:center}
-.grid-cell-week:hover{opacity:.8}
+  transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);opacity:.55;justify-self:center}
+@media (hover:hover) and (pointer:fine){.grid-cell-week:hover{opacity:.8}}
 .grid-cell-week.is-done{opacity:1}
 .grid-cell-week.is-today{opacity:1}
 .grid-cell-week.is-done-neg{opacity:1}
@@ -505,13 +506,13 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 
 .grid-cell-week.is-past{opacity:.35}
 .grid-cell-week.is-future{opacity:.1;cursor:default}
-.grid-cell-week.is-future:hover{opacity:.1}
+@media (hover:hover) and (pointer:fine){.grid-cell-week.is-future:hover{opacity:.1}}
 
 /* ── WEEK NAV ARROWS ── */
 .week-nav-arrow{background:transparent;border:1px solid rgba(255,255,255,0.12);
   color:#9ca3af;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;
-  font-family:'Space Mono',monospace;transition:all .15s}
-.week-nav-arrow:hover{border-color:#00FF66;color:#ffffff}
+  font-family:'DM Sans',system-ui,sans-serif;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.week-nav-arrow:hover{border-color:#00FF66;color:#ffffff}}
 
 /* ── PROGRESS RING ── */
 .ring-circle{transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1)}
@@ -522,11 +523,11 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 /* ── HABIT TOGGLE BTNS ── */
 .hcheck{width:24px;height:24px;border-radius:50%;border:2px solid #3d3027;
   background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .2s;flex-shrink:0}
+  transition:color .2s var(--ease-out),background-color .2s var(--ease-out),border-color .2s var(--ease-out),opacity .2s var(--ease-out),transform .2s var(--ease-out),box-shadow .2s var(--ease-out);flex-shrink:0}
 .hcheck.done{background:#00FF66;border-color:#00FF66}
 .hcheck svg{opacity:0;transition:opacity .15s}
 .hcheck.done svg{opacity:1}
-.hcheck:hover:not(.done){border-color:#00FF66}
+@media (hover:hover) and (pointer:fine){.hcheck:hover:not(.done){border-color:#00FF66}}
 
 /* ── INPUT SHARED ── */
 .mission-input{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:12px;
@@ -539,7 +540,7 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
   color:#ffffff;font-size:22px;font-weight:700;width:44px;height:44px;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:background .15s;flex-shrink:0}
-.step-btn:hover{background:rgba(255,255,255,0.08)}
+@media (hover:hover) and (pointer:fine){.step-btn:hover{background:rgba(255,255,255,0.08)}}
 
 /* ── GLASS BTN (Solid Performance) ── */
 .glass-btn {
@@ -550,42 +551,42 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
   z-index: 10;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s ease;
+  transition:color 0.15s var(--ease-out),background-color 0.15s var(--ease-out),border-color 0.15s var(--ease-out),opacity 0.15s var(--ease-out),transform 0.15s var(--ease-out),box-shadow 0.15s var(--ease-out);
 }
-.glass-btn:hover {
+@media (hover:hover) and (pointer:fine){.glass-btn:hover{
   background: rgba(255, 255, 255, 0.12) !important;
   border-color: rgba(255, 255, 255, 0.5) !important;
-}
+}}
 
 /* ── QUICK BTNS ── */
 .qbtn{background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.05);border-radius:8px;
   color:#a0a0a0;font-size:12px;padding:6px 0;cursor:pointer;
-  transition:all .15s;flex:1;font-family:inherit}
-.qbtn:hover{border-color:rgba(255,255,255,0.2);color:#fff}
+  transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);flex:1;font-family:inherit}
+@media (hover:hover) and (pointer:fine){.qbtn:hover{border-color:rgba(255,255,255,0.2);color:#fff}}
 
 /* ── ACTION BTNS ── */
 .btn-cancel{flex:1;padding:12px;border:1px solid rgba(255,255,255,0.2);border-radius:12px;
   background:rgba(0,0,0,0.2);color:#ffffff;cursor:pointer;font-family:inherit;font-size:14px;
   transition:background .15s}
-.btn-cancel:hover{background:rgba(255,255,255,0.06)}
+@media (hover:hover) and (pointer:fine){.btn-cancel:hover{background:rgba(255,255,255,0.06)}}
 .btn-save{flex:1;padding:12px;border-radius:12px;
   background:#ffffff;
   border:none;color:#000000;font-weight:700;cursor:pointer;
   font-family:inherit;font-size:14px;transition:background .15s}
-.btn-save:hover{background:#e5e7eb}
+@media (hover:hover) and (pointer:fine){.btn-save:hover{background:#e5e7eb}}
 .btn-danger{padding:8px 14px;border:1px solid #7f1d1d;border-radius:8px;
   background:none;color:#ef4444;cursor:pointer;font-size:12px;
-  font-family:inherit;transition:all .15s}
-.btn-danger:hover{background:#7f1d1d22}
+  font-family:inherit;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.btn-danger:hover{background:#7f1d1d22}}
 .btn-primary{padding:8px 14px;border:1px solid rgba(255,255,255,0.6);border-radius:8px;
   background:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:12px;
-  font-family:inherit;transition:all .15s}
-.btn-primary:hover{border-color:#ffffff;color:#ffffff;background:rgba(255,255,255,.08)}
+  font-family:inherit;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.btn-primary:hover{border-color:#ffffff;color:#ffffff;background:rgba(255,255,255,.08)}}
 .btn-icon{width:32px;height:32px;border:1px solid rgba(255,255,255,0.05);border-radius:8px;
   background:rgba(0,0,0,0.2);color:#a0a0a0;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;transition:all .15s;flex-shrink:0}
-.btn-icon:hover{border-color:rgba(255,255,255,0.15);color:#fff}
-.btn-icon.red:hover{border-color:#ef4444;color:#ef4444}
+  justify-content:center;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);flex-shrink:0}
+@media (hover:hover) and (pointer:fine){.btn-icon:hover{border-color:rgba(255,255,255,0.15);color:#fff}}
+@media (hover:hover) and (pointer:fine){.btn-icon.red:hover{border-color:#ef4444;color:#ef4444}}
 
 /* ── PUSH-UP BAR ── */
 .pushup-bar{background:linear-gradient(90deg,#f97316,#ef4444);
@@ -609,11 +610,11 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   background:radial-gradient(ellipse at 50% 50%, rgba(255,255,255,.03) 0%, transparent 60%);
   pointer-events:none}
 #quoteTxt{
-  font-family:'Space Mono',monospace;font-size:15px;font-weight:700;
+  font-family:'DM Sans',system-ui,sans-serif;font-size:15px;font-weight:700;
   color:#ffffff;line-height:1.5;letter-spacing:-.01em}
 #quoteDay{
   font-size:10px;color:#3f3f3f;text-transform:uppercase;letter-spacing:.1em;
-  margin-top:8px;font-family:'Space Mono',monospace}
+  margin-top:8px;font-family:'DM Sans',system-ui,sans-serif}
 
 /* ── CAFFEINE WARNING ── */
 #caffeineWarning{
@@ -626,7 +627,7 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   background:#080604;border:1px solid #221d19;border-radius:14px;
   padding:16px;display:flex;align-items:center;gap:14px;
   cursor:pointer;transition:background .15s,border-color .15s}
-.trophy-card:hover{background:#0d0a07;border-color:#3a2f25}
+@media (hover:hover) and (pointer:fine){.trophy-card:hover{background:#0d0a07;border-color:#3a2f25}}
 .trophy-card:active{background:#12100c}
 .trophy-card:focus-visible{outline:2px solid #f59e0b;outline-offset:2px}
 .trophy-icon{width:44px;height:44px;border-radius:12px;
@@ -643,7 +644,7 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .caff-cup.filled{opacity:1}
 
 /* ── STAT MONO ── */
-.stat-mono{font-family:'Space Mono',monospace}
+.stat-mono{font-family:'DM Sans',system-ui,sans-serif}
 
 /* ── MOOD SELECTOR BUTTONS ── */
 .mood-btn{
@@ -652,10 +653,10 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   color:#a0a0a0;font-size:15px;font-weight:500;
   cursor:pointer;text-align:center;
   font-family:'DM Sans',system-ui,sans-serif;
-  transition:all .18s cubic-bezier(.4,0,.2,1);
+  transition:color .18s var(--ease-out),background-color .18s var(--ease-out),border-color .18s var(--ease-out),opacity .18s var(--ease-out),transform .18s var(--ease-out),box-shadow .18s var(--ease-out);
   letter-spacing:.01em;
 }
-.mood-btn:hover{border-color:rgba(255,255,255,0.15);color:#fff;background:rgba(255,255,255,0.06)}
+@media (hover:hover) and (pointer:fine){.mood-btn:hover{border-color:rgba(255,255,255,0.15);color:#fff;background:rgba(255,255,255,0.06)}}
 .mood-btn.selected{
   background:rgba(255,255,255,0.15);
   border-color:#ffffff;
@@ -676,16 +677,16 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   flex-direction: column;
   justify-content: space-between;
 }
-.mission-glass-card:hover {
+@media (hover:hover) and (pointer:fine){.mission-glass-card:hover{
   border-color: rgba(255, 255, 255, 0.12);
-}
+}}
 
 /* ── STATIC PROGRESS FILL (bottom-up, no waves, no animations) ── */
 .progress-fill{
   position:absolute;left:0;right:0;bottom:0;top:auto;
   width:100%;height:0%;
   border-radius:0 0 18px 18px;
-  transition:height .4s cubic-bezier(.4,0,.2,1);
+  transition:height .38s var(--ease-out);
   pointer-events:none;z-index:1;
 }
 .progress-fill.water-fill{background:#0a2647}
@@ -696,11 +697,11 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .progress-fill.mood-fill{}
 
 /* ── HOLD SYSTEM (tap / hold left = down, right = up) ── */
-.progress-fill{will-change:height}
+.progress-fill{will-change:auto}
 .mission-glass-card.hold-card{
   touch-action:pan-y;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;cursor:pointer;
-  transition:transform .14s cubic-bezier(.4,0,.2,1), border-color .15s ease;
+  transition:transform .14s var(--ease-out), border-color .15s var(--ease-out);
 }
 .mission-glass-card.hold-card.hold-active{transform:scale(.988);border-color:rgba(255,255,255,0.22)}
 /* while pressed the fill tracks the value closely instead of lagging behind */
@@ -737,13 +738,13 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
   background:none;border:1px solid rgba(255,255,255,0.2);border-radius:8px;
   color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;
   font-family:'DM Sans',sans-serif;padding:3px 10px;cursor:pointer;
-  transition:all .15s;white-space:nowrap;flex-shrink:0;line-height:1.4;
+  transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);white-space:nowrap;flex-shrink:0;line-height:1.4;
   text-shadow:0 0 4px rgba(255,255,255,0.15);
   box-shadow:0 0 4px rgba(255,255,255,0.05)}
-.range-toggle:hover{
+@media (hover:hover) and (pointer:fine){.range-toggle:hover{
   border-color:rgba(255,255,255,0.45);color:rgba(255,255,255,0.85);
   text-shadow:0 0 8px rgba(255,255,255,0.35);
-  box-shadow:0 0 8px rgba(255,255,255,0.12)}
+  box-shadow:0 0 8px rgba(255,255,255,0.12)}}
 .range-toggle.active{
   border-color:rgba(255,255,255,0.55);color:#fff;
   background:rgba(255,255,255,0.05);
@@ -757,18 +758,18 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .journal-grid{display:flex;flex-direction:column;gap:10px}
 .journal-card{
   background:#0d0d11;border:1px solid rgba(255,255,255,0.06);border-radius:14px;
-  padding:16px;transition:all .2s;position:relative
+  padding:16px;transition:color .2s var(--ease-out),background-color .2s var(--ease-out),border-color .2s var(--ease-out),opacity .2s var(--ease-out),transform .2s var(--ease-out),box-shadow .2s var(--ease-out);position:relative
 }
-.journal-card:hover{border-color:rgba(255,255,255,0.12)}
-.journal-card-date{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;font-family:'Space Mono',monospace}
+@media (hover:hover) and (pointer:fine){.journal-card:hover{border-color:rgba(255,255,255,0.12)}}
+.journal-card-date{font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);margin-bottom:6px;font-family:'DM Sans',system-ui,sans-serif}
 .journal-card-text{font-size:13px;color:#d1d5db;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
 .journal-card-edit{
   position:absolute;top:10px;right:10px;width:28px;height:28px;
   background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.25);cursor:pointer;
   border:1px solid transparent;border-radius:6px;display:flex;align-items:center;
-  justify-content:center;transition:all .15s
+  justify-content:center;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)
 }
-.journal-card-edit:hover{border-color:rgba(255,255,255,0.08);color:#ffffff}
+@media (hover:hover) and (pointer:fine){.journal-card-edit:hover{border-color:rgba(255,255,255,0.08);color:#ffffff}}
 .journal-card-short{grid-column:span 1}
 .journal-card-med{grid-column:span 2}
 .journal-card-long{grid-column:span 3}
@@ -783,11 +784,11 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .journal-cycle-nav::-webkit-scrollbar{display:none}
 .journal-cycle-btn{
   flex:0 0 auto;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;
-  font-family:'Space Mono',monospace;cursor:pointer;white-space:nowrap;
+  font-family:'DM Sans',system-ui,sans-serif;cursor:pointer;white-space:nowrap;
   background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
-  color:rgba(255,255,255,0.45);transition:all .18s
+  color:rgba(255,255,255,0.45);transition:color .18s var(--ease-out),background-color .18s var(--ease-out),border-color .18s var(--ease-out),opacity .18s var(--ease-out),transform .18s var(--ease-out),box-shadow .18s var(--ease-out)
 }
-.journal-cycle-btn:hover{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75)}
+@media (hover:hover) and (pointer:fine){.journal-cycle-btn:hover{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.75)}}
 .journal-cycle-btn.active{
   background:rgba(139,92,246,0.18);border-color:rgba(139,92,246,0.5);
   color:#c4b5fd
@@ -808,9 +809,9 @@ textarea.mission-ta:focus{border-color:rgba(255,255,255,0.2)}
 .journal-day-nav-btn{
   width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);
   background:rgba(255,255,255,0.04);color:#fff;font-size:16px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;transition:all .2s
+  display:flex;align-items:center;justify-content:center;transition:color .2s var(--ease-out),background-color .2s var(--ease-out),border-color .2s var(--ease-out),opacity .2s var(--ease-out),transform .2s var(--ease-out),box-shadow .2s var(--ease-out)
 }
-.journal-day-nav-btn:hover:not(:disabled){background:rgba(255,255,255,0.1)}
+@media (hover:hover) and (pointer:fine){.journal-day-nav-btn:hover:not(:disabled){background:rgba(255,255,255,0.1)}}
 .journal-day-nav-btn:disabled{opacity:0.25;cursor:default;pointer-events:none}
 .journal-day-nav-date{font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);min-width:120px;text-align:center}
 
@@ -1127,13 +1128,267 @@ body.focus-mode #pomodoroBlock {
 #pomDonutHost{container-type:inline-size}
 #pomDonutSvg .pd-slice{cursor:pointer;transition:opacity .25s ease}
 #pomDonutSvg.has-hover .pd-slice:not(.is-hover){opacity:.4}
-#pomDonutSvg .pd-pct{pointer-events:none;font-family:'Space Mono',monospace;font-weight:700;fill:#fff;text-anchor:middle;dominant-baseline:central;
+#pomDonutSvg .pd-pct{pointer-events:none;font-family:'DM Sans',system-ui,sans-serif;font-weight:700;fill:#fff;text-anchor:middle;dominant-baseline:central;
   transition:opacity .25s}
 #pomDonutSvg.has-hover .pd-pct:not(.is-hover){opacity:.35}
 .pd-legend-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;cursor:pointer;transition:background .2s,opacity .2s}
 .pd-legend-row.is-hover{background:rgba(255,255,255,0.08)}
 .pd-legend-wrap.has-hover .pd-legend-row:not(.is-hover) .pd-l-label{color:rgba(255,255,255,0.45)}
 .pd-legend-row.is-hover .pd-l-label{color:#fff}
+
+/* ═══════════════════════════════════════════════════════════════
+   UI REFINEMENT LAYER — Apple-inspired polish (visual only)
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme:dark;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-io:cubic-bezier(.77,0,.175,1);
+  --ease-sheet:cubic-bezier(.32,.72,0,1);
+  --surface:#111114;
+  --surface-2:#18181c;
+  --hairline:rgba(255,255,255,.08);
+  --hairline-2:rgba(255,255,255,.14);
+  --label-2:rgba(235,235,245,.6);
+  --label-3:rgba(235,235,245,.3);
+  --r-card:20px;--r-ctl:12px;
+  --shadow-card:inset 0 1px 0 rgba(255,255,255,.04),0 1px 2px rgba(0,0,0,.4);
+}
+html,body{font-feature-settings:"kern","calt";font-variant-numeric:tabular-nums;
+  text-rendering:optimizeLegibility;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button,[role=button],.hcheck,.todo-checkbox,.mood-btn,.trophy-card{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+
+/* Scrollbars: quiet, thin */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:3px}
+@media (hover:hover) and (pointer:fine){::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.28)}}
+
+/* Focus: visible for keyboard only */
+:focus{outline:none}
+:focus-visible{outline:2px solid rgba(255,255,255,.65);outline-offset:2px;border-radius:inherit}
+.mission-input:focus-visible,textarea.mission-ta:focus-visible{outline:none}
+
+/* Typography: size-specific tracking, hierarchy by weight */
+.glass-title{font-size:19px;font-weight:700;font-style:normal;letter-spacing:-.022em;line-height:1.2;margin-bottom:4px}
+.glass-title-sm{font-size:15px;font-weight:600;font-style:normal;letter-spacing:-.014em;line-height:1.25}
+.todo-heading{font-size:17px;font-weight:700;letter-spacing:-.018em}
+.week-calendar-header .month{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.week-day-name{font-size:10px;font-weight:600;letter-spacing:.06em}
+.week-day-date{font-size:18px;font-weight:600;letter-spacing:-.02em}
+.week-day-status,.week-calendar-header .progress{font-weight:600;letter-spacing:-.005em}
+.todo-text{font-size:15px;line-height:1.4;letter-spacing:-.006em}
+.stat-mono{font-weight:600;letter-spacing:-.02em}
+
+/* Surfaces: one consistent card language */
+.mission-glass-card,.mission-glass-container,.journal-card,.trophy-card{
+  background:var(--surface);border:1px solid var(--hairline);box-shadow:var(--shadow-card)}
+.mission-glass-container{border-radius:var(--r-card);padding:20px}
+.mission-glass-card{border-radius:var(--r-card)}
+.progress-fill{border-radius:0 0 var(--r-card) var(--r-card)}
+.journal-card{border-radius:16px;transition:border-color .2s var(--ease-out),background-color .2s var(--ease-out),transform .2s var(--ease-out)}
+.mission-glass-card,.trophy-card{transition:border-color .2s var(--ease-out),transform .16s var(--ease-out),background-color .2s}
+@media (hover:hover) and (pointer:fine){
+  .mission-glass-card:hover,.journal-card:hover,.trophy-card:hover{border-color:var(--hairline-2)}
+}
+.mission-glass-card:not(.hold-card):active{transform:scale(.985)}
+
+/* Buttons: instant press feedback, specific transitions */
+.btn-save,.btn-cancel,.btn-primary,.btn-danger,.btn-icon,.glass-btn,.qbtn,.step-btn,.range-toggle,
+.mood-btn,.week-nav-arrow,.todo-month-nav,.journal-cycle-btn,.journal-day-nav-btn,.todo-delete,#pomodoroSetBtn,#pomodoroStartBtn{
+  transition:transform .14s var(--ease-out),background-color .18s var(--ease-out),border-color .18s var(--ease-out),color .18s var(--ease-out),box-shadow .18s var(--ease-out),opacity .18s;
+  -webkit-user-select:none;user-select:none}
+.btn-save:active,.btn-cancel:active,.btn-primary:active,.btn-danger:active,.btn-icon:active,.glass-btn:active,
+.qbtn:active,.step-btn:active,.range-toggle:active,.mood-btn:active,.week-nav-arrow:active,.todo-month-nav:active:not(:disabled),
+.journal-cycle-btn:active,.journal-day-nav-btn:active:not(:disabled),#pomodoroSetBtn:active,#pomodoroStartBtn:active{transform:scale(.96)}
+.btn-save{border-radius:14px;padding:13px;font-weight:600;letter-spacing:-.01em}
+.btn-cancel{border-radius:14px;padding:13px;font-weight:600;letter-spacing:-.01em;background:rgba(255,255,255,.08);border-color:transparent;color:#fff}
+@media (hover:hover) and (pointer:fine){.btn-cancel:hover{background:rgba(255,255,255,.13)}}
+.btn-primary{border-radius:10px;border-color:var(--hairline-2);font-weight:600}
+.step-btn{border-radius:14px;background:rgba(255,255,255,.07);border-color:transparent}
+@media (hover:hover) and (pointer:fine){.step-btn:hover{background:rgba(255,255,255,.12)}}
+.qbtn{border-radius:10px;background:rgba(255,255,255,.07);border-color:transparent;font-weight:600}
+@media (hover:hover) and (pointer:fine){.qbtn:hover{background:rgba(255,255,255,.12);border-color:transparent}}
+.glass-btn{border-color:var(--hairline-2) !important;background:rgba(255,255,255,.07) !important;border-radius:var(--r-ctl)}
+@media (hover:hover) and (pointer:fine){.glass-btn:hover{background:rgba(255,255,255,.13) !important;border-color:rgba(255,255,255,.22) !important}}
+.mood-btn{border-radius:14px}
+.mood-btn.selected{transition:transform .2s var(--ease-out),background-color .2s,border-color .2s}
+
+/* Segmented range toggles: clean, no neon glow */
+.range-toggle{border:none;background:rgba(255,255,255,.08);color:var(--label-2);text-shadow:none;box-shadow:none;
+  border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;letter-spacing:-.005em;line-height:1.3}
+@media (hover:hover) and (pointer:fine){.range-toggle:hover{background:rgba(255,255,255,.14);color:#fff;text-shadow:none;box-shadow:none;border:none}}
+.range-toggle.active{background:#fff;color:#0a0a0c;text-shadow:none;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.range-toggle:focus-visible{box-shadow:0 0 0 2px #000,0 0 0 4px rgba(255,255,255,.6)}
+
+/* Day / Month / Focus switch: spring-like indicator */
+.todo-mode-switch{background:rgba(255,255,255,.08);border-color:transparent}
+.todo-mode-ind{transition:transform .32s var(--ease-sheet);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.todo-mode-btn{font-weight:600;letter-spacing:-.01em;transition:color .2s var(--ease-out)}
+.todo-mode-btn:not(.active):active{opacity:.6}
+.todo-month-nav{position:relative;background:rgba(255,255,255,.1)}
+.todo-month-nav::after,.week-nav-arrow::after,.todo-delete::after{content:"";position:absolute;inset:-9px}
+.week-nav-arrow,.todo-delete{position:relative}
+
+/* Inputs */
+.mission-input,textarea.mission-ta{background:rgba(255,255,255,.05);border:1px solid transparent;border-radius:14px;
+  transition:border-color .2s var(--ease-out),background-color .2s var(--ease-out),box-shadow .2s var(--ease-out)}
+.mission-input:focus,textarea.mission-ta:focus{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.3);box-shadow:0 0 0 4px rgba(255,255,255,.07)}
+textarea.mission-ta{font-size:16px;line-height:1.5;letter-spacing:-.006em}
+
+/* Tasks & checkboxes */
+.todo-task{transition:background-color .18s var(--ease-out),border-color .18s;border-bottom-color:var(--hairline)}
+.todo-checkbox{border-width:1.5px;border-radius:50%;border-color:rgba(255,255,255,.35);
+  transition:background-color .2s var(--ease-out),border-color .2s var(--ease-out),transform .16s var(--ease-out)}
+.todo-checkbox:active{transform:scale(.88)}
+.todo-checkbox.done{background:#fff;border-color:#fff}
+.todo-checkbox svg{transform:scale(.6);transition:opacity .15s,transform .25s var(--ease-out)}
+.todo-checkbox.done svg{transform:scale(1)}
+.todo-text{transition:opacity .25s var(--ease-out),color .25s}
+.todo-delete{transition:color .15s,background-color .15s,transform .14s var(--ease-out)}
+.todo-delete:active{transform:scale(.9)}
+.hcheck{transition:background-color .2s var(--ease-out),border-color .2s var(--ease-out),transform .16s var(--ease-out)}
+.hcheck:active{transform:scale(.88)}
+.hcheck svg{transition:opacity .15s,transform .25s var(--ease-out)}
+.grid-cell-week{transition:background-color .18s var(--ease-out),border-color .18s,transform .14s var(--ease-out)}
+.grid-cell-week:not(.is-future):active{transform:scale(.88)}
+
+/* Week strip */
+.week-day-item{transition:transform .3s var(--ease-out),color .2s,background-color .2s,border-color .2s,opacity .2s;border:1px solid transparent}
+.week-day-item.past:active{transform:scale(.94)}
+.week-day-item.selected{background:rgba(255,255,255,.08);border-color:transparent;box-shadow:none}
+.week-calendar-header{border-bottom-color:var(--hairline)}
+
+/* Floating tab bar: Apple-style glass with pill selection */
+.floating-nav{background:rgba(24,24,28,.62);backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);
+  border:1px solid rgba(255,255,255,.1);border-top-color:rgba(255,255,255,.18);padding:8px 10px;border-radius:30px;
+  bottom:max(16px,calc(env(safe-area-inset-bottom) + 8px));
+  box-shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3)}
+.nav-btn{position:relative;width:48px;height:44px;border-radius:22px;color:rgba(255,255,255,.5);
+  transition:color .2s var(--ease-out),background-color .25s var(--ease-out),transform .14s var(--ease-out)}
+.nav-btn:active{transform:scale(.92)}
+.nav-btn.active{background:rgba(255,255,255,.14);color:#fff}
+.nav-btn.active svg{transform:none;filter:none;animation:none}
+@media (hover:hover) and (pointer:fine){.nav-btn:hover:not(.active){color:rgba(255,255,255,.8)}}
+
+/* Modals: blurred scrim, sheet-like entrance, faster exit */
+.modal-overlay{background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .2s var(--ease-out)}
+.modal-box{background:var(--surface-2);border:1px solid var(--hairline);border-radius:26px;padding:24px;
+  box-shadow:0 24px 64px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);
+  opacity:0;transform:translateY(16px) scale(.97);
+  transition:transform .16s var(--ease-out),opacity .16s var(--ease-out)}
+.modal-overlay.open .modal-box{opacity:1;transform:none;transition:transform .34s var(--ease-sheet),opacity .22s var(--ease-out)}
+.modal-box-water,.modal-box-sleep,.modal-box-steps,.modal-box-pushups,.modal-box-caffeine,.modal-box-mood{background:var(--surface-2)}
+@media (max-width:520px){
+  .modal-overlay{align-items:flex-end}
+  .modal-box{width:100%;max-width:none;border-radius:28px 28px 0 0;border-bottom:none;
+    padding:24px 20px calc(24px + env(safe-area-inset-bottom));transform:translateY(40px)}
+}
+
+/* Tab panels: soft entrance (backwards fill => no lingering transform) */
+@keyframes panelIn{from{opacity:0;transform:translateY(8px)}}
+.tab-panel.active{animation:panelIn .32s var(--ease-out) backwards}
+
+/* Charts tooltip */
+.bk-tip{border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%)}
+.pd-legend-row{transition:opacity .2s var(--ease-out),background-color .2s}
+.hm-c{transition:transform .15s var(--ease-out),opacity .2s}
+
+/* Mobile consistency */
+@media (max-width:640px){
+  .mission-glass-container{padding:16px;border-radius:18px}
+  .glass-title{font-size:18px}
+  input[type=text],input[type=search],input:not([type]){font-size:max(16px,1em)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .tab-panel.active{animation:none}
+  .modal-box,.modal-overlay.open .modal-box{transform:none !important;transition:opacity .2s}
+  *{scroll-behavior:auto !important}
+  .btn-save:active,.btn-cancel:active,.qbtn:active,.step-btn:active,.nav-btn:active,.mood-btn:active,.hcheck:active,.todo-checkbox:active{transform:none}
+}
+@media (prefers-reduced-transparency:reduce){
+  .floating-nav{background:#18181c;backdrop-filter:none;-webkit-backdrop-filter:none}
+  .modal-overlay{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(0,0,0,.8)}
+  .bk-tip{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  :root{--hairline:rgba(255,255,255,.3);--hairline-2:rgba(255,255,255,.5)}
+}
+
+/* ═══════════════ MOTION PASS — easing, layers, containment ═══════════════ */
+/* Layout/paint of fills & heatmaps stays inside their card */
+.mission-glass-card{contain:layout paint}
+.mission-glass-card.hold-card.hold-active .progress-fill{transition:height .16s linear}
+
+/* Hidden modals are fully removed from compositing (no 12 idle blur layers) */
+.modal-overlay{visibility:hidden;transition:opacity .2s var(--ease-out),visibility 0s linear .2s}
+.modal-overlay.open{visibility:visible;transition:opacity .2s var(--ease-out),visibility 0s}
+.modal-overlay.open .modal-box{will-change:transform,opacity}
+.modal-overlay:not(.open) .modal-box{will-change:auto}
+
+/* Cheaper blur on the always-on tab bar (re-sampled while content scrolls beneath) */
+.floating-nav{backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%);
+  contain:layout style}
+.bk-tip{backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%)}
+
+/* Tab switch: quick, compositor-driven; incoming panel only fades/rises 6px */
+@keyframes panelIn{from{opacity:0;transform:translateY(6px)}}
+.tab-panel.active{animation:panelIn .26s var(--ease-out) backwards}
+
+/* Staggered entrance, only while a panel carries .entering (set by switchTab) (30–50ms steps, opacity+transform only) */
+@keyframes cardIn{from{opacity:0;transform:translateY(8px)}}
+.tab-panel.entering .habits-pair>*,
+.tab-panel.entering #trackerGrid>*,
+.tab-panel.entering .journal-grid>*{animation:cardIn .3s var(--ease-out) backwards}
+.tab-panel.entering .habits-pair>*:nth-child(2),.tab-panel.entering #trackerGrid>*:nth-child(2),.tab-panel.entering .journal-grid>*:nth-child(2){animation-delay:40ms}
+.tab-panel.entering #trackerGrid>*:nth-child(3),.tab-panel.entering .journal-grid>*:nth-child(3){animation-delay:80ms}
+.tab-panel.entering #trackerGrid>*:nth-child(4),.tab-panel.entering .journal-grid>*:nth-child(4){animation-delay:120ms}
+
+/* Press feedback is instant; release eases back (asymmetric) */
+.btn-save:active,.btn-cancel:active,.qbtn:active,.step-btn:active,.nav-btn:active,.mood-btn:active,.range-toggle:active{transition-duration:.08s}
+.nav-btn svg{transition:transform .2s var(--ease-out),opacity .2s}
+.nav-btn.active svg{transform:scale(1.06)}
+
+/* Week strip / list items: no layout-affecting transitions */
+.week-day-item{will-change:auto}
+.hm-c{transition:opacity .18s var(--ease-out)}
+
+/* Touch: no hover-lingering on tap; hover motion only for real pointers */
+@media (hover:none){
+  .grid-cell-week:hover,.range-toggle:hover,.btn-cancel:hover,.qbtn:hover,.step-btn:hover,.glass-btn:hover{transition-duration:0s}
+}
+@media (prefers-reduced-motion:reduce){
+  .tab-panel.active .habits-pair>*,.tab-panel.active #trackerGrid>*,.tab-panel.active .journal-grid>*{animation:none}
+  .progress-fill{transition-duration:.01s}
+  .modal-overlay,.modal-overlay.open{transition-duration:.15s}
+}
+
+/* ═══════════════ MOBILE-NATIVE LAYER ═══════════════ */
+html{-webkit-text-size-adjust:100%;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+body{overscroll-behavior:none}
+.mission-global-bg{width:100%;height:100%;min-height:100dvh;inset:0}
+.tab-scroll,.modal-box,.journal-cycle-nav{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.tab-scroll.no-cal-header{padding-top:max(20px,env(safe-area-inset-top,0px))}
+button,[role=button],a,.nav-btn,.hcheck,.todo-checkbox,.mood-btn,.range-toggle,.week-day-item,.grid-cell-week,.trophy-card,.qbtn,.step-btn,.journal-cycle-btn{
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+@media (pointer:coarse){input,textarea,select{font-size:max(16px,1em)}}
+.floating-nav{padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+.modal-overlay{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+
+#pomodoroDisplay{font-variant-numeric:tabular-nums}
+
+/* ── Timer face: one shared typographic system for FOCUS + FLOW ──
+   Ring box is the size container (cqw). Inner clear diameter of the ring is ~79cqw,
+   so "MM:SS" at 19cqw spans ~57cqw: large, with breathing room, never touching the stroke. */
+.pom-digits{
+  font-size:clamp(18px,19cqw,130px);
+  line-height:1;font-weight:600;letter-spacing:-.035em;color:#fff;white-space:nowrap;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum","lnum","kern";
+  text-align:center;transform:translateY(-.02em);   /* optical centre: digits carry no descenders */}
+.pom-phase{
+  position:absolute;left:0;right:0;top:calc(50% + 15cqw);text-align:center;
+  font-size:clamp(10px,5.4cqw,26px);line-height:1;font-weight:600;letter-spacing:.14em;text-indent:.14em;
+  text-transform:uppercase;color:rgba(255,255,255,.42);white-space:nowrap}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1167,7 +1422,7 @@ let currentUID = null;
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
       <button class="step-btn" onclick="adjSleepTemp(-0.5)">−</button>
       <div style="flex:1;text-align:center">
-        <span id="sleepInputVal" style="font-size:44px;font-weight:800;color:#ffffff;font-family:'Space Mono',monospace">7.5</span>
+        <span id="sleepInputVal" style="font-size:44px;font-weight:800;color:#ffffff;font-family:'DM Sans',system-ui,sans-serif">7.5</span>
         <span style="font-size:18px;color:#a0a0a0;margin-left:4px">hrs</span>
       </div>
       <button class="step-btn" onclick="adjSleepTemp(0.5)">+</button>
@@ -1907,13 +2162,9 @@ let currentUID = null;
               stroke="#ffffff" stroke-width="10" fill="none"
               stroke-linecap="round" stroke-dasharray="427.26 427.26"/>
           </svg>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;
-            align-items:center;justify-content:center;gap:2px">
-            <span id="pomodoroDisplay" class="stat-mono"
-              style="font-size:clamp(16px, 20cqw, 96px);line-height:1;font-weight:700;color:#fff;white-space:nowrap">25:00</span>
-            <span id="pomodoroPhaseLabel"
-              style="font-size:clamp(8px, 4.6cqw, 22px);color:rgba(255,255,255,0.4);text-transform:uppercase;
-              letter-spacing:.08em">Focus</span>
+          <div class="pom-face" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+            <span id="pomodoroDisplay" class="stat-mono pom-digits">25:00</span>
+            <span id="pomodoroPhaseLabel" class="pom-phase">Focus</span>
           </div>
         </div>
 
@@ -1989,7 +2240,7 @@ let currentUID = null;
             <p style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);
               text-transform:uppercase;letter-spacing:.06em;margin:0">Day View</p>
             <span id="pomAnalyticsDayLabel"
-              style="font-size:10px;color:rgba(255,255,255,0.4);font-family:'Space Mono',monospace"></span>
+              style="font-size:10px;color:rgba(255,255,255,0.4);font-family:'DM Sans',system-ui,sans-serif"></span>
           </div>
           <div id="pomAnalyticsStrip" style="display:flex;gap:4px;overflow-x:auto;
             scrollbar-width:none;-ms-overflow-style:none;padding:2px 0"></div>
@@ -2072,9 +2323,9 @@ let currentUID = null;
 
         <!-- Navigator -->
         <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:16px">
-          <button id="habitTrendPrev" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'Space Mono',monospace;cursor:pointer;padding:4px 8px;opacity:0.7">&lt;</button>
+          <button id="habitTrendPrev" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'DM Sans',system-ui,sans-serif;cursor:pointer;padding:4px 8px;opacity:0.7">&lt;</button>
           <span id="habitTrendLabel" style="font-size:13px;font-weight:600;color:#ffffff;font-family:'DM Sans',sans-serif;min-width:120px;text-align:center">–</span>
-          <button id="habitTrendNext" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'Space Mono',monospace;cursor:pointer;padding:4px 8px;opacity:0.7">&gt;</button>
+          <button id="habitTrendNext" style="background:none;border:none;color:#ffffff;font-size:16px;font-family:'DM Sans',system-ui,sans-serif;cursor:pointer;padding:4px 8px;opacity:0.7">&gt;</button>
         </div>
 
         <!-- Chart -->
@@ -3308,12 +3559,18 @@ function renderJournalEntries() {
   });
 }
 
+function _enterPanel(id) {
+  const p = document.getElementById(id); if (!p) return;
+  p.classList.add('entering'); clearTimeout(p._enterT);
+  p._enterT = setTimeout(() => p.classList.remove('entering'), 450);
+}
 function switchTab(name) {
   // Focus mode locks navigation: the user can only leave by pausing the timer.
   if (document.body.classList.contains('focus-mode') && name !== 'todo') return;
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
+  _enterPanel('tab-'+name);
   document.getElementById('nav-'+name).classList.add('active');
 
   // Calendar visible only on Dashboard and To-Do pages
@@ -6618,6 +6875,12 @@ function pomSetFocusMode(on) {
   }
 }
 
+// Digit size for the ring face, in cqw of the ring box. Same rule for FOCUS and FLOW:
+// 5 chars (MM:SS) = full size; 6 = 100:00; 7 = H:MM:SS. Keeps text inside the ring.
+function pomDigitSize(txt) {
+  const n = String(txt).length;
+  return n >= 7 ? 'clamp(12px, 14cqw, 96px)' : n === 6 ? 'clamp(14px, 15.5cqw, 104px)' : '';
+}
 function pomUpdateUI() {
   if (pomMode === 'flow') { flowUpdateUI(); return; }   // FLOW owns the display while selected
   const flowSetBtn = document.getElementById('pomodoroSetBtn');
@@ -6631,7 +6894,7 @@ function pomUpdateUI() {
   const ring = document.getElementById('pomodoroRing');
   const startBtn = document.getElementById('pomodoroStartBtn');
 
-  if (disp) disp.textContent = mins + ':' + secs;
+  if (disp) { disp.textContent = mins + ':' + secs; disp.style.fontSize = pomDigitSize(disp.textContent); }
   if (phase) phase.textContent = pomPhase === 'focus' ? 'Focus' : 'Break';
   if (startBtn) startBtn.textContent = pomRunning ? 'Pause' : 'Start';
   const skipBtn = document.getElementById('pomodoroSkipBtn');
@@ -7224,7 +7487,7 @@ function flowUpdateUI() {
   const disp = document.getElementById('pomodoroDisplay');
   if (disp) {
     disp.textContent = h > 0 ? h + ':' + two(m) + ':' + two(sc) : two(m) + ':' + two(sc);
-    disp.style.fontSize = h > 0 ? 'clamp(14px, 14.5cqw, 70px)' : '';
+    disp.style.fontSize = pomDigitSize(disp.textContent);
   }
   const phase = document.getElementById('pomodoroPhaseLabel'); if (phase) phase.textContent = 'Flow';
   const startBtn = document.getElementById('pomodoroStartBtn'); if (startBtn) startBtn.textContent = flowRunning ? 'Pause' : 'Start';
@@ -7495,7 +7758,7 @@ function renderPomTargetList() {
     const btn = document.createElement('button');
     btn.style.cssText = 'flex:0 0 auto;display:flex;align-items:center;gap:6px;' +
       'padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;' +
-      'cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;' +
+      'cursor:pointer;white-space:nowrap;font-family:inherit;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);' +
       (pomSetTargetTmp === t.id
         ? 'background:' + t.color + '22;border:1.5px solid ' + t.color + ';color:#fff'
         : 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)');
@@ -7531,7 +7794,7 @@ function renderPomTargetList() {
   newBtn.style.cssText = 'flex:0 0 auto;padding:7px 14px;border-radius:20px;font-size:12px;' +
     'font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;' +
     'background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.15);' +
-    'color:rgba(255,255,255,0.5);transition:all .15s';
+    'color:rgba(255,255,255,0.5);transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)';
   newBtn.textContent = '+ New Target';
   newBtn.addEventListener('click', function() { openNewTargetModal(); });
   list.appendChild(newBtn);
@@ -7637,7 +7900,7 @@ function renderNewTargetColorRow() {
   POM_COLORS.forEach(color => {
     const sw = document.createElement('div');
     sw.style.cssText = 'width:28px;height:28px;border-radius:50%;cursor:pointer;' +
-      'background:' + color + ';transition:all .15s;flex-shrink:0;' +
+      'background:' + color + ';transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);flex-shrink:0;' +
       (newTargetColorTmp === color
         ? 'outline:3px solid #ffffff;outline-offset:2px;transform:scale(1.15)'
         : 'opacity:0.7');
@@ -7688,8 +7951,8 @@ function buildPomAnalyticsStrip() {
     const item = document.createElement('div');
     item.style.cssText = 'flex:0 0 auto;width:28px;height:28px;border-radius:8px;' +
       'display:flex;align-items:center;justify-content:center;font-size:11px;' +
-      'font-weight:700;font-family:"Space Mono",monospace;cursor:' +
-      (isFuture ? 'default' : 'pointer') + ';transition:all .15s;' +
+      'font-weight:700;font-family:"DM Sans",system-ui,sans-serif;cursor:' +
+      (isFuture ? 'default' : 'pointer') + ';transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out);' +
       (isSelected
         ? 'background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.4);color:#fff'
         : isFuture
