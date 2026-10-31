@@ -1389,6 +1389,10 @@ button,[role=button],a,.nav-btn,.hcheck,.todo-checkbox,.mood-btn,.range-toggle,.
   position:absolute;left:0;right:0;top:calc(50% + 15cqw);text-align:center;
   font-size:clamp(10px,5.4cqw,26px);line-height:1;font-weight:600;letter-spacing:.14em;text-indent:.14em;
   text-transform:uppercase;color:rgba(255,255,255,.42);white-space:nowrap}
+
+/* ── Scrollbars hidden everywhere (scrolling still works) ── */
+html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
+*::-webkit-scrollbar,::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important;background:transparent !important}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
