@@ -5016,8 +5016,33 @@ function masteryPct(dayIdx) {
 
 function computeStreak() {
   let s = 0;
+  let reachedMonthStart = true;
   for (let i = SYSTEM_TODAY; i >= 0; i--) {
-    if (computeDailyScore(i) >= STREAK_THRESHOLD) s++; else break;
+    if (computeDailyScore(i) >= STREAK_THRESHOLD) s++; else { reachedMonthStart = false; break; }
+  }
+  // FIX: the streak used to reset to 0 on the 1st of every month. If the whole live month
+  // qualifies, keep counting back through the archived months (looked up by real date).
+  if (reachedMonthStart && S.startDate) {
+    const map = {};
+    (S.cycles || []).forEach(doc => {
+      if (!doc || !Array.isArray(doc.days)) return;
+      let tp = (S.habits || []).length, tn = (S.habitsNegative || []).length;
+      doc.days.forEach(d => {
+        tp = Math.max(tp, ((d && d.habits) || []).length);
+        tn = Math.max(tn, ((d && d.habitsNegative) || []).length);
+      });
+      doc.days.forEach(d => {
+        if (!d || !d.date) return;
+        map[d.date] = scoreFromDay({ habits: d.habits, habitsNeg: d.habitsNegative, water: d.water, sleep: d.sleep,
+          steps: d.steps, pushups: d.pushups, caffeine: d.caffeine, mood: d.mood, todos: d.todos }, tp, tn);
+      });
+    });
+    const dt = parseLocalMidnight(cycleDateISO(0));
+    for (let guard = 0; guard < 3700; guard++) {
+      dt.setDate(dt.getDate() - 1);
+      const v = map[isoFromDate(dt)];
+      if (typeof v === 'number' && v >= STREAK_THRESHOLD) s++; else break;
+    }
   }
   return s;
 }
@@ -6110,6 +6135,7 @@ function ensureCalendarCycle() {
     S.habitsHistory = old.hh;       S.habitsHistoryNegative = old.hhn;
     S.todosByDate = lsObj('todosByDate'); S.todosMonthly = lsObj('todosMonthly');
     S.journalHistory = old.journal;
+    S.startDate = sd;   // FIX: archive helpers (todosForIdx/cycleDateISO) read S.startDate, which is still null on a fresh page load
 
     doc = buildCycleArchiveDoc({
       startDate: sd, days: past.length,
