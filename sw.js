@@ -1,8 +1,11 @@
-const CACHE_NAME = 'apex-tracker-v2';
+const CACHE_NAME = 'apex-tracker-v3';
 
 const APP_SHELL = [
   './',
-  './index.html'
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 // Install: cache the basic app files
