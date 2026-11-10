@@ -261,9 +261,10 @@ CHANGES: [index29] Cycles are now REAL CALENDAR MONTHS (1st → last day, 28/29/
 
 <title>Target</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700;800&display=swap">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
 
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0;background:transparent;color:#fff;
@@ -1395,6 +1396,28 @@ button,[role=button],a,.nav-btn,.hcheck,.todo-checkbox,.mood-btn,.range-toggle,.
 /* ── Scrollbars hidden everywhere (scrolling still works) ── */
 html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
 *::-webkit-scrollbar,::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important;background:transparent !important}
+
+/* ═══════ MOBILE PERFORMANCE LAYER (<=767px only; desktop untouched) ═══════ */
+@media (max-width:767px){
+  :root{--focus-dur:.35s}
+  /* backdrop-filter over scrolling content is the main GPU cost on low-end Android */
+  .floating-nav{background:#18181c;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+  #globalCalendarWrapper{background:rgba(10,10,12,.97) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important}
+  .modal-overlay{background:rgba(0,0,0,.75);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .bk-tip{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
+  .mission-glass-card,.mission-glass-container,.journal-card,.trophy-card,.modal-box{box-shadow:none}
+  /* decorative entrance animations */
+  .tab-panel.active,
+  .tab-panel.entering .habits-pair>*,
+  .tab-panel.entering #trackerGrid>*,
+  .tab-panel.entering .journal-grid>*{animation:none !important}
+  .nav-btn svg{transition:none}
+  /* modals: simple fade instead of slide + scale */
+  .modal-box,
+  .modal-overlay.open .modal-box{transform:none;transition:opacity .15s linear;will-change:auto}
+  .modal-overlay,.modal-overlay.open{transition-duration:.15s}
+  .progress-fill{transition-duration:.2s}
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1414,6 +1437,192 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 let currentUID = null;
 </script>
+<style id="food-css">
+/* ═══════════════════════════════════════════════════════════════
+   FOOD TRACKER — tab #3 (after To-Do / Pomodoro). Self-contained, fd- prefix.
+   Uses the site's tokens: --surface, --surface-2, --hairline, --ease-out, --ease-sheet.
+   Only transform / opacity are animated (the ring animates stroke-dashoffset: a 350ms data transition).
+   ═══════════════════════════════════════════════════════════════ */
+#tab-food .fd-wrap{max-width:560px;margin:0 auto;padding:16px 16px 170px;display:flex;flex-direction:column;gap:14px}
+
+/* Header: title + day navigation */
+.fd-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fd-title{font-size:19px;font-weight:700;letter-spacing:-.022em;line-height:1.2;margin:0}
+.fd-daynav{display:flex;align-items:center;gap:2px}
+.fd-iconbtn{width:44px;height:44px;border-radius:14px;border:none;background:transparent;color:rgba(255,255,255,.7);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit;
+  transition:transform .14s var(--ease-out),background-color .18s var(--ease-out),color .18s var(--ease-out),opacity .18s}
+.fd-iconbtn:active:not(:disabled){transform:scale(.94)}
+.fd-iconbtn:disabled{opacity:.25;cursor:default}
+@media (hover:hover) and (pointer:fine){.fd-iconbtn:hover:not(:disabled){background:rgba(255,255,255,.08);color:#fff}}
+.fd-daylabel{min-width:104px;text-align:center;font-size:14px;font-weight:600;letter-spacing:-.01em}
+
+/* Summary card */
+.fd-card{background:var(--surface);border:1px solid var(--hairline);box-shadow:var(--shadow-card);border-radius:var(--r-card);padding:20px}
+.fd-sum{display:flex;flex-direction:column;align-items:center;gap:6px}
+.fd-ringwrap{position:relative;width:176px;height:176px}
+.fd-ring{width:100%;height:100%;transform:rotate(-90deg);display:block}
+.fd-ring-track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:10}
+.fd-ring-fill{fill:none;stroke:#fff;stroke-width:10;stroke-linecap:round;
+  transition:stroke-dashoffset .35s var(--ease-out)}
+.fd-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.fd-eaten{font-size:36px;font-weight:600;letter-spacing:-.03em;line-height:1}
+.fd-of{font-size:13px;color:var(--label-2)}
+.fd-left{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.fd-goalbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:none;
+  background:rgba(255,255,255,.07);color:rgba(255,255,255,.85);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:transform .14s var(--ease-out),background-color .18s var(--ease-out)}
+.fd-goalbtn:active{transform:scale(.96)}
+@media (hover:hover) and (pointer:fine){.fd-goalbtn:hover{background:rgba(255,255,255,.12)}}
+
+/* Macro rows */
+.fd-macros{display:flex;flex-direction:column;gap:14px;margin-top:18px}
+.fd-macro-top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:6px}
+.fd-macro-name{font-weight:600;letter-spacing:-.005em}
+.fd-macro-val{color:var(--label-2)}
+.fd-macro-val b{color:#fff;font-weight:600}
+.fd-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.fd-bar>i{display:block;height:100%;width:100%;border-radius:3px;background:rgba(255,255,255,.9);transform-origin:left center;
+  transform:scaleX(0);transition:transform .35s var(--ease-out)}
+
+/* Meals */
+.fd-meal{padding:6px 6px 8px}
+.fd-meal-head{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px 6px}
+.fd-meal-name{font-size:13px;font-weight:600;letter-spacing:.01em;color:var(--label-2)}
+.fd-meal-kcal{font-size:13px;font-weight:600;color:var(--label-2)}
+.fd-row{display:flex;align-items:center;gap:4px;border-radius:14px}
+.fd-row-main{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:56px;padding:6px 8px 6px 14px;
+  border:none;background:transparent;color:inherit;font-family:inherit;text-align:left;cursor:pointer;border-radius:14px;
+  transition:background-color .18s var(--ease-out),transform .14s var(--ease-out)}
+.fd-row-main:active{transform:scale(.985)}
+@media (hover:hover) and (pointer:fine){.fd-row-main:hover{background:rgba(255,255,255,.05)}}
+.fd-row-name{font-size:15px;letter-spacing:-.006em;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+.fd-row-sub{font-size:12px;color:var(--label-2);margin-top:2px}
+.fd-row-k{font-size:15px;font-weight:600;white-space:nowrap}
+.fd-row-k small{font-size:11px;font-weight:500;color:var(--label-2);margin-left:2px}
+.fd-del{flex:none;width:44px;height:44px}
+.fd-del svg{display:block}
+
+/* Empty state */
+.fd-empty{text-align:center;padding:28px 20px 24px}
+.fd-empty h3{margin:0 0 6px;font-size:17px;font-weight:700;letter-spacing:-.018em}
+.fd-empty p{margin:0 0 16px;font-size:14px;line-height:1.45;color:var(--label-2)}
+
+/* Buttons shared by page + sheet */
+.fd-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:14px;border:none;
+  font-family:inherit;font-size:15px;font-weight:600;letter-spacing:-.01em;cursor:pointer;
+  transition:transform .14s var(--ease-out),background-color .18s var(--ease-out),opacity .18s}
+.fd-btn:active:not(:disabled){transform:scale(.97)}
+.fd-btn:disabled{opacity:.4;cursor:default}
+.fd-btn-primary{background:#fff;color:#0a0a0c}
+.fd-btn-ghost{background:rgba(255,255,255,.08);color:#fff}
+@media (hover:hover) and (pointer:fine){.fd-btn-primary:hover:not(:disabled){background:rgba(255,255,255,.9)}.fd-btn-ghost:hover:not(:disabled){background:rgba(255,255,255,.13)}}
+
+/* Floating add button (above the nav) */
+.fd-fab{position:fixed;left:50%;z-index:90;transform:translateX(-50%);min-height:52px;padding:0 24px 0 20px;border-radius:26px;
+  bottom:calc(max(16px,calc(env(safe-area-inset-bottom) + 8px)) + 72px);
+  background:#fff;color:#0a0a0c;border:none;font-family:inherit;font-size:15px;font-weight:600;letter-spacing:-.01em;
+  display:none;align-items:center;gap:8px;cursor:pointer;box-shadow:0 10px 28px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3);
+  transition:transform .14s var(--ease-out),opacity .18s var(--ease-out)}
+#tab-food.active ~ .fd-fab{display:flex}
+.fd-fab:active{transform:translateX(-50%) scale(.96)}
+body.focus-mode .fd-fab{display:none !important}
+
+/* Bottom sheet */
+.fd-overlay{position:fixed;inset:0;z-index:400;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  opacity:0;visibility:hidden;transition:opacity .2s var(--ease-out),visibility 0s linear .2s}
+.fd-overlay.open{opacity:1;visibility:visible;transition:opacity .2s var(--ease-out),visibility 0s}
+.fd-sheet{width:100%;max-width:520px;max-height:min(88dvh,760px);display:flex;flex-direction:column;
+  background:var(--surface-2);border:1px solid var(--hairline);border-bottom:none;border-radius:28px 28px 0 0;
+  box-shadow:0 -24px 64px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);
+  transform:translateY(40px);opacity:0;transition:transform .2s var(--ease-out),opacity .16s var(--ease-out)}
+.fd-overlay.open .fd-sheet{transform:none;opacity:1;transition:transform .34s var(--ease-sheet),opacity .22s var(--ease-out)}
+.fd-grab{width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);margin:8px auto 0;flex:none}
+.fd-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:6px 8px 0 8px;flex:none}
+.fd-sheet-title{flex:1;font-size:17px;font-weight:700;letter-spacing:-.018em;margin:0}
+.fd-iconbtn[hidden]{display:none}
+.fd-input[type=search]::-webkit-search-cancel-button,.fd-input[type=search]::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
+.fd-sheet-body{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:10px 20px calc(20px + env(safe-area-inset-bottom,0px))}
+.fd-view[hidden]{display:none}
+
+/* Fields */
+.fd-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.fd-label{font-size:12px;font-weight:600;color:var(--label-2);letter-spacing:.01em}
+.fd-input{width:100%;min-height:48px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.25);
+  color:#fff;font-family:inherit;font-size:16px;outline:none;transition:border-color .18s var(--ease-out)}
+.fd-input:focus{border-color:rgba(255,255,255,.28)}
+.fd-input::placeholder{color:rgba(235,235,245,.55)}
+.fd-searchrow{position:relative;display:flex;align-items:center}
+.fd-searchrow .fd-input{padding-right:52px}
+.fd-searchrow .fd-iconbtn{position:absolute;right:2px;top:2px}
+.fd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fd-err{min-height:18px;font-size:12.5px;color:#fbbf24;margin:-4px 0 10px}
+.fd-note{font-size:12.5px;line-height:1.45;color:var(--label-2);margin:0 0 14px}
+
+/* Result list */
+.fd-sec{font-size:12px;font-weight:600;color:var(--label-2);letter-spacing:.04em;margin:14px 4px 4px}
+.fd-res{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:6px 10px;border:none;background:transparent;
+  color:inherit;font-family:inherit;text-align:left;cursor:pointer;border-radius:14px;
+  transition:background-color .18s var(--ease-out),transform .14s var(--ease-out)}
+.fd-res:active{transform:scale(.985)}
+@media (hover:hover) and (pointer:fine){.fd-res:hover{background:rgba(255,255,255,.06)}}
+.fd-res-name{font-size:15px;letter-spacing:-.006em;line-height:1.3}
+.fd-res-ar{font-size:12.5px;color:var(--label-2);margin-top:1px}
+.fd-res-k{font-size:13px;color:var(--label-2);white-space:nowrap}
+.fd-res-ai{border:1px dashed rgba(255,255,255,.16);margin-top:10px}
+
+/* Amount step */
+.fd-food-name{font-size:19px;font-weight:700;letter-spacing:-.022em;line-height:1.25;margin:2px 0 2px}
+.fd-food-sub{font-size:13px;color:var(--label-2);margin:0 0 16px}
+.fd-amt{display:flex;align-items:center;gap:10px}
+.fd-amt .fd-input{font-size:28px;font-weight:600;letter-spacing:-.02em;min-height:60px;text-align:center}
+.fd-unit{font-size:15px;font-weight:600;color:var(--label-2)}
+.fd-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
+.fd-chip{min-height:44px;padding:0 16px;border-radius:999px;border:none;background:rgba(255,255,255,.07);color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+  transition:transform .14s var(--ease-out),background-color .18s var(--ease-out)}
+.fd-chip:active{transform:scale(.95)}
+@media (hover:hover) and (pointer:fine){.fd-chip:hover{background:rgba(255,255,255,.13)}}
+.fd-preview{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:14px 8px;border-radius:16px;background:rgba(255,255,255,.04);margin-bottom:16px;text-align:center}
+.fd-preview b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em}
+.fd-preview span{display:block;font-size:11.5px;color:var(--label-2);margin-top:2px}
+
+/* Segmented control (meal) */
+.fd-seg{position:relative;display:grid;grid-template-columns:repeat(4,1fr);padding:3px;border-radius:14px;background:rgba(255,255,255,.07);margin-bottom:16px}
+.fd-seg-ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/4);border-radius:11px;background:#fff;
+  transform:translateX(calc(var(--i,0)*100%));transition:transform .26s var(--ease-io);z-index:0}
+.fd-seg button{position:relative;z-index:1;min-height:44px;border:none;background:transparent;color:rgba(255,255,255,.75);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+  border-radius:11px;transition:color .2s var(--ease-out)}
+.fd-seg button[aria-checked="true"]{color:#0a0a0c}
+.fd-actions{display:flex;gap:10px}
+.fd-actions .fd-btn{flex:1}
+
+/* Scanner */
+.fd-video{width:100%;aspect-ratio:4/3;border-radius:16px;background:#000;object-fit:cover;display:block;margin-bottom:12px}
+
+/* Toast with undo */
+.fd-toast{position:fixed;left:50%;z-index:500;display:flex;align-items:center;gap:4px;padding:4px 4px 4px 18px;border-radius:999px;max-width:calc(100% - 32px);
+  bottom:calc(max(16px,calc(env(safe-area-inset-bottom) + 8px)) + 140px);
+  background:rgba(40,40,46,.92);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid var(--hairline-2);
+  box-shadow:0 12px 32px rgba(0,0,0,.5);font-size:14px;font-weight:500;
+  opacity:0;visibility:hidden;transform:translate(-50%,10px);transition:opacity .2s var(--ease-out),transform .2s var(--ease-out),visibility 0s linear .2s}
+.fd-toast.show{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .2s var(--ease-out),transform .26s var(--ease-out),visibility 0s}
+.fd-toast span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fd-toast button{min-height:44px;padding:0 16px;border:none;border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+
+/* Nav: 6 buttons now — give the bar a little more room on narrow phones */
+@media (max-width:420px){.floating-nav{width:calc(100% - 24px);max-width:none;gap:0}}
+
+@media (prefers-reduced-motion:reduce){
+  .fd-ring-fill,.fd-bar>i,.fd-sheet,.fd-toast,.fd-seg-ind{transition-duration:.01ms !important}
+  .fd-overlay.open .fd-sheet{transform:none}
+}
+/* ── Food tracker: follow the existing mobile low-performance layer (<=767px) ── */
+@media (max-width:767px){
+  .fd-overlay{background:rgba(0,0,0,.75);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .fd-toast{background:rgba(40,40,46,.98);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
+</style>
 </head>
 <body>
 <div class="mission-global-bg"></div>
@@ -2470,6 +2679,68 @@ let currentUID = null;
     </div>
   </div><!-- /tab-analytics -->
 
+    <!-- ──────── FOOD TRACKER TAB (3rd, after To-Do / Pomodoro) ──────── -->
+  <div id="tab-food" class="tab-panel tab-scroll">
+    <div class="fd-wrap">
+
+      <div class="fd-head">
+        <h2 class="fd-title">Food</h2>
+        <div class="fd-daynav">
+          <button type="button" class="fd-iconbtn" id="fdPrev" aria-label="Previous day">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="fd-daylabel" id="fdDayLabel" aria-live="polite">Today</div>
+          <button type="button" class="fd-iconbtn" id="fdNext" aria-label="Next day">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="fd-card">
+        <div class="fd-sum">
+          <div class="fd-ringwrap" id="fdRing" role="img" aria-label="0 of 2,700 calories">
+            <svg class="fd-ring" viewBox="0 0 176 176" aria-hidden="true">
+              <circle class="fd-ring-track" cx="88" cy="88" r="83"/>
+              <circle class="fd-ring-fill" id="fdRingFill" cx="88" cy="88" r="83"/>
+            </svg>
+            <div class="fd-ring-center">
+              <div class="fd-eaten" id="fdEaten">0</div>
+              <div class="fd-of" id="fdOf">of 2,700 kcal</div>
+            </div>
+          </div>
+          <div class="fd-left" id="fdLeft">2,700 kcal left</div>
+          <button type="button" class="fd-goalbtn" id="fdGoalBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+            <span id="fdGoalTxt">Daily goal</span>
+          </button>
+        </div>
+
+        <div class="fd-macros">
+          <div>
+            <div class="fd-macro-top"><span class="fd-macro-name">Protein</span><span class="fd-macro-val" id="fdPv"></span></div>
+            <div class="fd-bar" id="fdPb" role="progressbar" aria-label="Protein" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+          </div>
+          <div>
+            <div class="fd-macro-top"><span class="fd-macro-name">Carbs</span><span class="fd-macro-val" id="fdCv"></span></div>
+            <div class="fd-bar" id="fdCb" role="progressbar" aria-label="Carbs" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+          </div>
+          <div>
+            <div class="fd-macro-top"><span class="fd-macro-name">Fat</span><span class="fd-macro-val" id="fdFv"></span></div>
+            <div class="fd-bar" id="fdFb" role="progressbar" aria-label="Fat" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="fdList" style="display:flex;flex-direction:column;gap:14px"></div>
+
+    </div>
+  </div><!-- /tab-food -->
+  <button type="button" class="fd-fab" id="fdFab">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    Add food
+  </button>
+
+
   <!-- FLOATING GLASS BUBBLE NAV -->
   <nav class="floating-nav">
     <button id="nav-dashboard" class="nav-btn active" onclick="switchTab('dashboard')">
@@ -2485,6 +2756,12 @@ let currentUID = null;
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>
         <path d="M6 8h.01"/><path d="M6 12h.01"/><path d="M6 16h.01"/>
+      </svg>
+    </button>
+    <button id="nav-food" class="nav-btn" onclick="switchTab('food')" aria-label="Food">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
+        <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
       </svg>
     </button>
     <button id="nav-habits" class="nav-btn" data-nav="habits">
@@ -2508,6 +2785,115 @@ let currentUID = null;
       </svg>
     </button>
   </nav>
+
+  <!-- FOOD TRACKER: bottom sheet (search · scan · new food · amount · goals) + undo toast -->
+  <div class="fd-overlay" id="fdOverlay">
+    <div class="fd-sheet" role="dialog" aria-modal="true" aria-labelledby="fdSheetTitle">
+      <div class="fd-grab" aria-hidden="true"></div>
+      <div class="fd-sheet-head">
+        <button type="button" class="fd-iconbtn" id="fdBack" aria-label="Back" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <h3 class="fd-sheet-title" id="fdSheetTitle">Add food</h3>
+        <button type="button" class="fd-iconbtn" id="fdClose" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="fd-sheet-body">
+
+        <!-- SEARCH -->
+        <section class="fd-view" id="fdVSearch">
+          <div class="fd-searchrow">
+            <input id="fdQ" class="fd-input" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+                   placeholder="Search foods — bread, خبز, poulet" aria-label="Search foods">
+            <button type="button" class="fd-iconbtn" id="fdScanBtn" aria-label="Scan barcode">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8"/><path d="M11 8v8"/><path d="M15 8v8"/><path d="M18 8v8"/></svg>
+            </button>
+          </div>
+          <div id="fdResults"></div>
+        </section>
+
+        <!-- SCAN -->
+        <section class="fd-view" id="fdVScan" hidden>
+          <video id="fdVideo" class="fd-video" playsinline muted hidden></video>
+          <p class="fd-note" id="fdScanMsg"></p>
+          <div class="fd-field">
+            <label class="fd-label" for="fdBarcode">Barcode number</label>
+            <input id="fdBarcode" class="fd-input" inputmode="numeric" autocomplete="off" placeholder="e.g. 1234567890123">
+          </div>
+          <button type="button" class="fd-btn fd-btn-primary" id="fdBarcodeGo" style="width:100%">Look up</button>
+        </section>
+
+        <!-- NEW FOOD -->
+        <section class="fd-view" id="fdVForm" hidden>
+          <p class="fd-note" id="fdFormNote"></p>
+          <div class="fd-field">
+            <label class="fd-label" for="fdFName">Name</label>
+            <input id="fdFName" class="fd-input" maxlength="60" autocomplete="off">
+          </div>
+          <div class="fd-grid2">
+            <div class="fd-field"><label class="fd-label" for="fdFK">Calories / 100 g</label><input id="fdFK" class="fd-input" inputmode="decimal" autocomplete="off"></div>
+            <div class="fd-field"><label class="fd-label" for="fdFP">Protein (g)</label><input id="fdFP" class="fd-input" inputmode="decimal" autocomplete="off"></div>
+            <div class="fd-field"><label class="fd-label" for="fdFC">Carbs (g)</label><input id="fdFC" class="fd-input" inputmode="decimal" autocomplete="off"></div>
+            <div class="fd-field"><label class="fd-label" for="fdFF">Fat (g)</label><input id="fdFF" class="fd-input" inputmode="decimal" autocomplete="off"></div>
+          </div>
+          <div class="fd-field">
+            <label class="fd-label" for="fdFBar">Barcode (optional)</label>
+            <input id="fdFBar" class="fd-input" inputmode="numeric" autocomplete="off">
+          </div>
+          <div class="fd-err" id="fdFErr" role="alert"></div>
+          <button type="button" class="fd-btn fd-btn-primary" id="fdFSave" style="width:100%">Save &amp; continue</button>
+        </section>
+
+        <!-- AMOUNT -->
+        <section class="fd-view" id="fdVAmount" hidden>
+          <h4 class="fd-food-name" id="fdAName"></h4>
+          <p class="fd-food-sub" id="fdASub"></p>
+          <div class="fd-amt">
+            <input id="fdGrams" class="fd-input" inputmode="decimal" autocomplete="off" aria-label="Amount in grams">
+            <span class="fd-unit">g</span>
+          </div>
+          <div class="fd-chips" id="fdChips"></div>
+          <div class="fd-preview" aria-live="polite">
+            <div><b id="fdPK">0</b><span>kcal</span></div>
+            <div><b id="fdPP">0</b><span>protein</span></div>
+            <div><b id="fdPC">0</b><span>carbs</span></div>
+            <div><b id="fdPF">0</b><span>fat</span></div>
+          </div>
+          <div class="fd-seg" id="fdSeg" role="radiogroup" aria-label="Meal">
+            <i class="fd-seg-ind" id="fdSegInd" aria-hidden="true"></i>
+            <button type="button" role="radio" data-meal="breakfast" aria-checked="false">Breakfast</button>
+            <button type="button" role="radio" data-meal="lunch" aria-checked="false">Lunch</button>
+            <button type="button" role="radio" data-meal="dinner" aria-checked="false">Dinner</button>
+            <button type="button" role="radio" data-meal="snack" aria-checked="false">Snack</button>
+          </div>
+          <div class="fd-actions">
+            <button type="button" class="fd-btn fd-btn-ghost" id="fdADel" hidden>Remove</button>
+            <button type="button" class="fd-btn fd-btn-primary" id="fdASave">Add</button>
+          </div>
+        </section>
+
+        <!-- GOALS -->
+        <section class="fd-view" id="fdVGoals" hidden>
+          <div class="fd-field"><label class="fd-label" for="fdGK">Calories per day</label><input id="fdGK" class="fd-input" inputmode="numeric" autocomplete="off"></div>
+          <div class="fd-grid2">
+            <div class="fd-field"><label class="fd-label" for="fdGP">Protein (g)</label><input id="fdGP" class="fd-input" inputmode="numeric" autocomplete="off"></div>
+            <div class="fd-field"><label class="fd-label" for="fdGF">Fat (g)</label><input id="fdGF" class="fd-input" inputmode="numeric" autocomplete="off"></div>
+          </div>
+          <p class="fd-note" id="fdGNote"></p>
+          <div class="fd-err" id="fdGErr" role="alert"></div>
+          <button type="button" class="fd-btn fd-btn-primary" id="fdGSave" style="width:100%">Save goals</button>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="fd-toast" id="fdToast" role="status" aria-live="polite">
+    <span id="fdToastMsg"></span>
+    <button type="button" id="fdToastUndo">Undo</button>
+  </div>
 </div><!-- /app -->
 
 <!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
@@ -2516,6 +2902,7 @@ let currentUID = null;
 
 // ── SINGLE SOURCE OF TRUTH for today's date (frozen at script parse)
 const TODAY = new Date();
+const IS_MOBILE = window.matchMedia("(max-width:767px)").matches;   // mobile-only perf paths
 
 // ── CONSTANTS
 let   TOTAL_DAYS   = 31;   // days in the LIVE calendar-month cycle (28-31) — set by ensureCalendarCycle()/loadState()
@@ -3647,6 +4034,7 @@ function switchTab(name) {
     }, 50);
   }
   if (name === 'journaling'){ renderJournalEntries(); }
+  if (name === 'food' && window.renderFood) { window.renderFood(); }
   if (name === 'analytics') {
     setTimeout(() => {
       pomAnalyticsDay = SYSTEM_TODAY;
@@ -4881,8 +5269,13 @@ function heatmapScoreFor(iso, scores) {
   return (typeof v === 'number' && isFinite(v)) ? v : undefined;
 }
 
-let heatmapRaf = 0, heatTipEl = null, heatTipTimer = 0;
+let heatmapRaf = 0, heatTipEl = null, heatTipTimer = 0, heatmapTimer = 0;
 function scheduleHeatmap() {
+  if (IS_MOBILE) {                       // mobile: one render after a burst of changes (hold-to-step etc.)
+    clearTimeout(heatmapTimer);
+    heatmapTimer = setTimeout(renderHeatmap, 400);
+    return;
+  }
   if (heatmapRaf) return;
   heatmapRaf = requestAnimationFrame(() => { heatmapRaf = 0; renderHeatmap(); });
 }
@@ -5427,7 +5820,7 @@ function bkScales() {
 
 const CDEFS = {
   responsive: true, maintainAspectRatio: false,
-  animation:  { duration: 300 },
+  animation:  { duration: IS_MOBILE ? 0 : 300 },
   interaction: { mode: 'index', intersect: false, axis: 'x' },
   hover: { mode: 'index', intersect: false },
   layout: { padding: { top: 6, right: 6 } },
@@ -6489,6 +6882,10 @@ function activeTodoCtx() {
            canEdit: todoDay === SYSTEM_TODAY, canToggle: todoDay <= SYSTEM_TODAY, showDelete: todoDay >= SYSTEM_TODAY };
 }
 function refreshTodoCharts() {
+  if (IS_MOBILE) {   // hidden charts are re-synced by switchTab() when their tab opens
+    const a = document.getElementById('tab-analytics'), t = document.getElementById('tab-todo');
+    if (!((a && a.classList.contains('active')) || (t && t.classList.contains('active')))) return;
+  }
   if (typeof syncCharts === 'function') syncCharts();   // same path as every other chart (keeps Week/Month range)
 }
 function afterTodoChange() {
@@ -8543,5 +8940,576 @@ async function pomRestoreSession() {
       });
     }
   </script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   FOOD TRACKER — Gemini-assisted nutrition estimates.
+   Local food history/custom foods/goals/recent items remain in localStorage.
+   Gemini requests use the Cloudflare Worker; no API key is stored in this page.
+   Barcode lookup remains local/manual until Open Food Facts is connected.
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  const LS_LOG = 'foodLog', LS_CUSTOM = 'foodCustom', LS_GOALS = 'foodGoals', LS_RECENT = 'foodRecent';
+  const MEALS = [['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['snack', 'Snacks']];
+  const DEF_GOALS = { kcal: 2700, p: 110, f: 80 };
+  // Gemini requests go through the Cloudflare Worker; the API key never enters this file.
+  const AI_ENDPOINT = 'https://calorietarget.slimaneprs1.workers.dev';
+  const RING_R = 83, RING_C = 2 * Math.PI * RING_R;
+
+  // ── tiny helpers
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const pad = n => (n < 10 ? '0' : '') + n;
+  const keyOf = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const r1 = n => Math.round(n * 10) / 10;
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  function load(key, fb) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; } catch (e) { return fb; } }
+  function store(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage full / blocked: the UI still works for the session */ } }
+  function num(v) { const n = parseFloat(String(v).trim().replace(',', '.')); return isFinite(n) ? n : NaN; }
+  // Search normaliser: case, French accents, Arabic diacritics and alef/ta-marbuta/ya variants
+  function norm(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[ً-ٰٟ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
+  }
+
+  // ── seed foods: per 100 g  (k = kcal, p/c/f = grams).  approx = home recipes vary.  alt = FR / Darija aliases
+  const F = (id, en, ar, k, p, c, f, x) => Object.assign({ id, en, ar, k, p, c, f }, x || {});
+  const SEED = [
+    F('khobz', 'Bread, white (khobz)', 'خبز', 266, 8.9, 49, 3.2, { alt: 'pain baguette khobz' }),
+    F('bread_whole', 'Bread, whole wheat', 'خبز كامل', 252, 12.5, 42.7, 3.5, { alt: 'pain complet' }),
+    F('rice', 'Rice, white, cooked', 'أرز مطبوخ', 130, 2.7, 28, 0.3, { alt: 'riz ruz rouz' }),
+    F('pasta', 'Pasta, cooked', 'معكرونة مطبوخة', 158, 5.8, 31, 0.9, { alt: 'pates makarouna maakrouna' }),
+    F('couscous', 'Couscous, cooked', 'كسكسي مطبوخ', 112, 3.8, 23.2, 0.2, { alt: 'couscous kesksi seksu' }),
+    F('semolina', 'Semolina, dry', 'سميد', 360, 12.7, 72.8, 1.1, { alt: 'semoule smid smida' }),
+    F('oats', 'Oats, dry', 'شوفان', 389, 16.9, 66.3, 6.9, { alt: 'flocons avoine' }),
+    F('potato_boiled', 'Potato, boiled', 'بطاطا مسلوقة', 87, 1.9, 20.1, 0.1, { alt: 'pomme de terre batata' }),
+    F('fries_home', 'Fried potatoes (home, little oil)', 'بطاطا مقلية (بالدار)', 220, 3, 26, 12, { approx: true, alt: 'fries chips frites maison batata mkali' }),
+    F('fries_rest', 'French fries (restaurant)', 'بطاطا مقلية (مطعم)', 312, 3.4, 41, 15, { alt: 'frites fries batata' }),
+    F('egg_boiled', 'Egg, boiled', 'بيض مسلوق', 155, 12.6, 1.1, 10.6, { alt: 'oeuf bid bayd', serv: { l: '1 egg', g: 50 } }),
+    F('egg_fried', 'Egg, fried', 'بيض مقلي', 196, 13.6, 0.8, 14.8, { alt: 'oeuf au plat bid bayd', serv: { l: '1 egg', g: 46 } }),
+    F('chicken_breast', 'Chicken breast, cooked', 'صدر دجاج مطبوخ', 165, 31, 0, 3.6, { alt: 'poulet blanc djaj djedj' }),
+    F('chicken_thigh', 'Chicken thigh, cooked (skinless)', 'فخذ دجاج', 209, 26, 0, 10.9, { alt: 'poulet cuisse djaj djedj' }),
+    F('beef_ground', 'Ground beef, cooked', 'لحم بقري مفروم', 250, 26, 0, 15, { alt: 'viande hachee boeuf lham' }),
+    F('lamb', 'Lamb, cooked', 'لحم غنم', 294, 25, 0, 21, { alt: 'agneau mouton lham' }),
+    F('tuna_water', 'Tuna, canned in water', 'تونة بالماء', 116, 25.5, 0, 0.8, { alt: 'thon' }),
+    F('tuna_oil', 'Tuna, canned in oil (drained)', 'تونة بالزيت', 198, 29, 0, 8.2, { alt: 'thon huile' }),
+    F('sardines', 'Sardines, canned', 'سردين معلب', 208, 24.6, 0, 11.5, { alt: 'sardine' }),
+    F('salmon', 'Salmon, cooked', 'سلمون', 206, 22.1, 0, 12.4, { alt: 'saumon' }),
+    F('milk', 'Milk, whole', 'حليب', 61, 3.2, 4.8, 3.3, { alt: 'lait halib', serv: { l: '1 glass', g: 240 } }),
+    F('yogurt', 'Yogurt, plain', 'لبن / زبادي', 61, 3.5, 4.7, 3.3, { alt: 'yaourt yaourt nature laban' }),
+    F('cheese', 'Cheese, cheddar-type', 'جبن', 403, 24.9, 1.3, 33.1, { alt: 'fromage jben' }),
+    F('cheese_proc', 'Cheese spread, processed', 'جبن مطبوخ (مثلثات)', 275, 10, 6, 24, { approx: true, alt: 'fromage fondu portion' }),
+    F('butter', 'Butter', 'زبدة', 717, 0.9, 0.1, 81, { alt: 'beurre zebda', serv: { l: '1 tbsp', g: 14 } }),
+    F('olive_oil', 'Olive oil', 'زيت زيتون', 884, 0, 0, 100, { alt: 'huile olive zit zitoun', serv: { l: '1 tbsp', g: 13.5 } }),
+    F('honey', 'Honey', 'عسل', 304, 0.3, 82.4, 0, { alt: 'miel assel', serv: { l: '1 tbsp', g: 21 } }),
+    F('sugar', 'Sugar', 'سكر', 387, 0, 100, 0, { alt: 'sucre sokar', serv: { l: '1 tsp', g: 4 } }),
+    F('dates', 'Dates', 'تمر', 282, 2.5, 75, 0.4, { alt: 'dattes tmar deglet', serv: { l: '1 date', g: 8 } }),
+    F('almonds', 'Almonds', 'لوز', 579, 21.2, 21.6, 49.9, { alt: 'amandes' }),
+    F('peanuts', 'Peanuts', 'فول سوداني', 567, 25.8, 16.1, 49.2, { alt: 'cacahuetes cacahuete' }),
+    F('walnuts', 'Walnuts', 'جوز', 654, 15.2, 13.7, 65.2, { alt: 'noix' }),
+    F('peanut_butter', 'Peanut butter', 'زبدة الفول السوداني', 588, 25, 20, 50, { alt: 'beurre de cacahuete' }),
+    F('choc_spread', 'Chocolate-hazelnut spread', 'شوكولاتة للدهن', 539, 6.3, 57.5, 30.9, { alt: 'nutella pate a tartiner' }),
+    F('banana', 'Banana', 'موز', 89, 1.1, 22.8, 0.3, { alt: 'banane', serv: { l: '1 banana', g: 118 } }),
+    F('apple', 'Apple', 'تفاح', 52, 0.3, 13.8, 0.2, { alt: 'pomme tefah', serv: { l: '1 apple', g: 182 } }),
+    F('orange', 'Orange', 'برتقال', 47, 0.9, 11.8, 0.1, { alt: 'orange', serv: { l: '1 orange', g: 131 } }),
+    F('tomato', 'Tomato', 'طماطم', 18, 0.9, 3.9, 0.2, { alt: 'tomate tomatich' }),
+    F('cucumber', 'Cucumber', 'خيار', 15, 0.7, 3.6, 0.1, { alt: 'concombre' }),
+    F('onion', 'Onion', 'بصل', 40, 1.1, 9.3, 0.1, { alt: 'oignon besla' }),
+    F('carrot', 'Carrot', 'جزر', 41, 0.9, 9.6, 0.2, { alt: 'carotte' }),
+    F('orange_juice', 'Orange juice', 'عصير برتقال', 45, 0.7, 10.4, 0.2, { alt: 'jus orange' }),
+    F('lentils', 'Lentils, cooked', 'عدس مطبوخ', 116, 9, 20.1, 0.4, { alt: 'lentilles 3dess' }),
+    F('chickpeas', 'Chickpeas, cooked', 'حمص مطبوخ', 164, 8.9, 27.4, 2.6, { alt: 'pois chiches hommos' }),
+    F('white_beans', 'White beans, cooked', 'فاصوليا بيضاء مطبوخة', 139, 9.7, 25.1, 0.5, { alt: 'haricots blancs loubia' }),
+    F('fava', 'Fava beans, cooked', 'فول مطبوخ', 110, 7.6, 19.7, 0.4, { alt: 'feves foul' }),
+    F('hummus', 'Hummus (dip)', 'حمص بالطحينة', 166, 7.9, 14.3, 9.6, { alt: 'houmous' }),
+    F('soda', 'Soft drink (cola)', 'مشروب غازي', 42, 0, 10.6, 0, { alt: 'soda coca boisson gazeuse' }),
+    F('pizza', 'Pizza slice', 'بيتزا', 266, 11, 33, 10, { alt: 'pizza' }),
+    F('mhajeb', 'Mhajeb (fried, filled)', 'مهاجب', 200, 5, 32, 6, { approx: true, alt: 'mhadjeb mahdjouba' }),
+    F('makroud', 'Makroud', 'مقروض', 390, 4, 62, 14, { approx: true, alt: 'makrout makrod' }),
+    F('zlabia', 'Zlabia', 'زلابية', 410, 3, 64, 16, { approx: true, alt: 'zlabiya' }),
+    F('chorba_frik', 'Chorba frik', 'شوربة فريك', 50, 3, 6, 1.5, { approx: true, alt: 'chorba soupe' }),
+    F('tajine_chicken', 'Chicken tajine (with sauce)', 'طاجين دجاج', 120, 10, 6, 6, { approx: true, alt: 'tajine tagine djaj' }),
+    F('couscous_meat', 'Couscous with meat & vegetables', 'كسكسي بالخضر واللحم', 150, 8, 22, 3, { approx: true, alt: 'couscous plat seksu' })
+  ];
+
+  // ── state
+  const st = { day: new Date(), view: 'search', food: null, editing: null, meal: 'lunch', prevFocus: null, stream: null, scanning: false, undo: null, undoT: null, formWarned: false, formBarcode: '', aiGrams: 100 };
+
+  // ── data access
+  const getLog = () => load(LS_LOG, {});
+  const getCustom = () => load(LS_CUSTOM, []);
+  function getGoals() {
+    const g = load(LS_GOALS, null) || {};
+    const kcal = g.kcal >= 800 && g.kcal <= 8000 ? g.kcal : DEF_GOALS.kcal;
+    const p = g.p >= 0 && g.p <= 400 ? g.p : DEF_GOALS.p;
+    const f = g.f >= 0 && g.f <= 300 ? g.f : DEF_GOALS.f;
+    return { kcal, p, f, c: Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4)) };
+  }
+  function allFoods() {
+    return getCustom().map(c => Object.assign({ mine: true }, c)).concat(SEED);
+  }
+  const findFood = id => allFoods().find(x => x.id === id) || null;
+  function dayEntries(d) { return (getLog()[keyOf(d || st.day)] || []).slice().sort((a, b) => a.ts - b.ts); }
+  function setDayEntries(key, arr) { const log = getLog(); if (arr.length) log[key] = arr; else delete log[key]; store(LS_LOG, log); }
+  function totals(list) {
+    const t = { k: 0, p: 0, c: 0, f: 0 };
+    list.forEach(e => { const m = e.g / 100; t.k += e.k * m; t.p += e.p * m; t.c += e.c * m; t.f += e.f * m; });
+    return t;
+  }
+  function defaultMeal() {
+    const h = new Date().getHours();
+    if (h >= 4 && h < 11) return 'breakfast';
+    if (h >= 11 && h < 16) return 'lunch';
+    if (h >= 18 && h < 22) return 'dinner';
+    return 'snack';
+  }
+
+  // ═════════════ PAGE RENDER ═════════════
+  function dayLabel() {
+    const today = new Date(), k = keyOf(st.day);
+    if (k === keyOf(today)) return 'Today';
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    if (k === keyOf(y)) return 'Yesterday';
+    return st.day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function setMacro(idV, idB, val, target) {
+    const pct = target > 0 ? Math.min(val / target, 1) : 0;
+    $(idV).innerHTML = '<b>' + fmt(val) + '</b> / ' + fmt(target) + ' g';
+    const bar = $(idB);
+    bar.setAttribute('aria-valuenow', Math.round(pct * 100));
+    bar.setAttribute('aria-valuetext', fmt(val) + ' of ' + fmt(target) + ' grams');
+    bar.firstElementChild.style.transform = 'scaleX(' + pct + ')';
+  }
+  function render() {
+    const list = dayEntries(), t = totals(list), g = getGoals();
+    const eaten = Math.round(t.k), left = g.kcal - eaten;
+    $('fdDayLabel').textContent = dayLabel();
+    $('fdNext').disabled = keyOf(st.day) >= keyOf(new Date());
+    $('fdEaten').textContent = fmt(eaten);
+    $('fdOf').textContent = 'of ' + fmt(g.kcal) + ' kcal';
+    $('fdLeft').textContent = left >= 0 ? fmt(left) + ' kcal left' : fmt(-left) + ' kcal over goal';
+    $('fdGoalTxt').textContent = 'Goal ' + fmt(g.kcal) + ' · P ' + g.p + ' g';
+    $('fdRing').setAttribute('aria-label', fmt(eaten) + ' of ' + fmt(g.kcal) + ' calories');
+    const fill = $('fdRingFill');
+    fill.setAttribute('stroke-dasharray', RING_C.toFixed(2));
+    fill.setAttribute('stroke-dashoffset', (RING_C * (1 - Math.min(eaten / g.kcal, 1))).toFixed(2));
+    setMacro('fdPv', 'fdPb', t.p, g.p);
+    setMacro('fdCv', 'fdCb', t.c, g.c);
+    setMacro('fdFv', 'fdFb', t.f, g.f);
+
+    const box = $('fdList');
+    if (!list.length) {
+      box.innerHTML = '<div class="fd-card fd-empty"><h3>Nothing logged yet</h3><p style="margin:0">Tap <b>Add food</b> to search, scan a barcode, or enter something of your own.</p></div>';
+      return;
+    }
+    let html = '';
+    MEALS.forEach(m => {
+      const rows = list.filter(e => e.meal === m[0]);
+      if (!rows.length) return;
+      const sub = Math.round(rows.reduce((s, e) => s + e.k * e.g / 100, 0));
+      html += '<div class="fd-card fd-meal"><div class="fd-meal-head"><span class="fd-meal-name">' + m[1] + '</span><span class="fd-meal-kcal">' + fmt(sub) + ' kcal</span></div>';
+      rows.forEach(e => {
+        const k = e.k * e.g / 100, m1 = e.g / 100;
+        html += '<div class="fd-row"><button type="button" class="fd-row-main" data-edit="' + esc(e.id) + '"><div style="min-width:0">' +
+          '<div class="fd-row-name">' + esc(e.n) + '</div>' +
+          '<div class="fd-row-sub">' + r1(e.g) + ' g · P ' + r1(e.p * m1) + ' · C ' + r1(e.c * m1) + ' · F ' + r1(e.f * m1) + '</div></div>' +
+          '<div class="fd-row-k">' + (e.ap ? '≈ ' : '') + fmt(k) + '<small>kcal</small></div></button>' +
+          '<button type="button" class="fd-iconbtn fd-del" data-del="' + esc(e.id) + '" aria-label="Remove ' + esc(e.n) + '">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>';
+      });
+      html += '</div>';
+    });
+    box.innerHTML = html;
+  }
+
+  // ═════════════ SHEET ═════════════
+  const VIEWS = { search: 'fdVSearch', scan: 'fdVScan', form: 'fdVForm', amount: 'fdVAmount', goals: 'fdVGoals' };
+  const TITLES = { search: 'Add food', scan: 'Scan barcode', form: 'New food', amount: 'Amount', goals: 'Daily goals' };
+  function showView(name) {
+    if (name !== 'scan') stopScan();
+    st.view = name;
+    Object.keys(VIEWS).forEach(k => { $(VIEWS[k]).hidden = k !== name; });
+    $('fdSheetTitle').textContent = name === 'amount' && st.editing ? 'Edit entry' : TITLES[name];
+    $('fdBack').hidden = !(name === 'scan' || name === 'form' || (name === 'amount' && !st.editing));
+    $('fdSheetTitle').style.paddingLeft = $('fdBack').hidden ? '12px' : '0';
+    document.querySelector('#fdOverlay .fd-sheet-body').scrollTop = 0;
+  }
+  function openSheet(name) {
+    st.prevFocus = document.activeElement;
+    $('fdOverlay').classList.add('open');
+    showView(name);
+  }
+  function closeSheet() {
+    stopScan();
+    $('fdOverlay').classList.remove('open');
+    st.editing = null;
+    if (st.prevFocus && st.prevFocus.focus) { try { st.prevFocus.focus({ preventScroll: true }); } catch (e) { /* element gone */ } }
+  }
+  const sheetOpen = () => $('fdOverlay').classList.contains('open');
+  function focusLater(el, select) { setTimeout(() => { try { el.focus(); if (select && el.select) el.select(); } catch (e) { /* ignore */ } }, 60); }
+
+  function startAdd() {
+    st.editing = null; st.food = null; st.meal = defaultMeal();
+    $('fdQ').value = '';
+    renderResults();
+    openSheet('search');
+    focusLater($('fdQ'));
+  }
+
+  // ── search
+  function foodRow(f) {
+    return '<button type="button" class="fd-res" data-fid="' + esc(f.id) + '"><div style="min-width:0"><div class="fd-res-name">' + esc(f.en) + '</div>' +
+      (f.ar ? '<div class="fd-res-ar" dir="auto">' + esc(f.ar) + '</div>' : '') + '</div>' +
+      '<div class="fd-res-k">' + (f.approx ? '≈ ' : '') + fmt(f.k) + ' kcal</div></button>';
+  }
+  function search(q) {
+    const toks = norm(q).split(/\s+/).filter(Boolean);
+    const out = [];
+    allFoods().forEach(f => {
+      const hay = norm(f.en + ' ' + (f.ar || '') + ' ' + (f.alt || '') + ' ' + (f.barcode || ''));
+      let score = 0;
+      for (const t of toks) {
+        // plural-tolerant: "eggs" → "egg", "potatoes" → "potato"
+        const forms = [t];
+        if (t.length > 3 && t.slice(-2) === 'es') forms.push(t.slice(0, -2));
+        if (t.length > 3 && t.slice(-1) === 's') forms.push(t.slice(0, -1));
+        let i = -1;
+        for (const w of forms) { const j = hay.indexOf(w); if (j >= 0 && (i < 0 || j < i)) i = j; }
+        if (i < 0) return;
+        score += i === 0 ? 0 : (hay.charAt(i - 1) === ' ' ? 1 : 2);
+      }
+      out.push({ f, score: score - (f.mine ? 0.5 : 0) });
+    });
+    out.sort((a, b) => a.score - b.score || a.f.en.length - b.f.en.length);
+    return out.slice(0, 25).map(x => x.f);
+  }
+  function renderResults() {
+    const q = $('fdQ').value.trim(), box = $('fdResults');
+    let html = '';
+    if (!q) {
+      const recent = load(LS_RECENT, []).map(findFood).filter(Boolean).slice(0, 6);
+      const mine = getCustom().map(c => Object.assign({ mine: true }, c)).slice(-8).reverse();
+      if (recent.length) html += '<div class="fd-sec">RECENT</div>' + recent.map(foodRow).join('');
+      if (mine.length) html += '<div class="fd-sec">MY FOODS</div>' + mine.map(foodRow).join('');
+      html += '<div class="fd-sec">COMMON</div>' + SEED.slice(0, 14).map(foodRow).join('');
+    } else {
+      const res = search(q);
+      html += res.length ? res.map(foodRow).join('') : '<p class="fd-note" style="margin:16px 4px 4px">No match for “' + esc(q) + '”.</p>';
+      // Ask Gemini to estimate a food that is not already in the local catalogue.
+      html += '<button type="button" class="fd-res fd-res-ai" data-ai="1"><div><div class="fd-res-name">✦ Describe it: “' + esc(q) + '”</div>' +
+        '<div class="fd-res-ar">Estimate calories and macros with Gemini AI</div></div></button>';
+    }
+    box.innerHTML = html;
+  }
+
+  // ── pick a food → amount
+  function chooseFood(f) {
+    st.food = f; st.editing = null;
+    openAmount(f.serv ? f.serv.g : 100);
+  }
+  function openAmount(grams) {
+    const f = st.food;
+    $('fdAName').textContent = f.en;
+    $('fdASub').textContent = (f.approx ? '≈ ' : '') + fmt(f.k) + ' kcal per 100 g' + (f.approx ? ' · estimate, recipes vary' : '');
+    $('fdGrams').value = r1(grams);
+    const chips = [];
+    if (f.serv) chips.push([f.serv.l + ' · ' + f.serv.g + ' g', f.serv.g]);
+    [50, 100, 150, 250].forEach(g => chips.push([g + ' g', g]));
+    $('fdChips').innerHTML = chips.map(c => '<button type="button" class="fd-chip" data-g="' + c[1] + '">' + esc(c[0]) + '</button>').join('');
+    $('fdADel').hidden = !st.editing;
+    $('fdASave').textContent = st.editing ? 'Save' : 'Add';
+    setMeal(st.meal);
+    showView('amount');
+    updatePreview();
+    focusLater($('fdGrams'), true);
+  }
+  function gramsVal() { const g = num($('fdGrams').value); return g > 0 && g <= 5000 ? g : NaN; }
+  function updatePreview() {
+    const g = gramsVal(), f = st.food, ok = isFinite(g);
+    const m = ok ? g / 100 : 0;
+    $('fdPK').textContent = fmt(f.k * m);
+    $('fdPP').textContent = fmt(f.p * m);
+    $('fdPC').textContent = fmt(f.c * m);
+    $('fdPF').textContent = fmt(f.f * m);
+    $('fdASave').disabled = !ok;
+  }
+  function setMeal(m) {
+    st.meal = m;
+    let idx = 0;
+    $('fdSeg').querySelectorAll('button').forEach((b, i) => { const on = b.dataset.meal === m; b.setAttribute('aria-checked', on); if (on) idx = i; });
+    $('fdSegInd').style.setProperty('--i', idx);
+  }
+  function saveAmount() {
+    const g = gramsVal(); if (!isFinite(g)) return;
+    const key = keyOf(st.day), list = dayEntries();
+    if (st.editing) {
+      const e = list.find(x => x.id === st.editing);
+      if (e) { e.g = g; e.meal = st.meal; }
+    } else {
+      const f = st.food;
+      list.push({ id: uid(), fid: f.id, n: f.en, k: f.k, p: f.p, c: f.c, f: f.f, g, meal: st.meal, ap: !!f.approx, ts: Date.now() });
+      const rec = [st.food.id].concat(load(LS_RECENT, []).filter(x => x !== st.food.id)).slice(0, 12);
+      store(LS_RECENT, rec);
+    }
+    setDayEntries(key, list);
+    closeSheet();
+    render();
+  }
+  function editEntry(id) {
+    const e = dayEntries().find(x => x.id === id); if (!e) return;
+    st.editing = id;
+    st.food = { id: e.fid, en: e.n, k: e.k, p: e.p, c: e.c, f: e.f, approx: e.ap };
+    st.meal = e.meal;
+    openSheet('amount');
+    openAmount(e.g);
+  }
+  function removeEntry(id) {
+    const key = keyOf(st.day), list = dayEntries(), i = list.findIndex(x => x.id === id);
+    if (i < 0) return;
+    const gone = list.splice(i, 1)[0];
+    setDayEntries(key, list);
+    render();
+    showUndo('Removed ' + gone.n, () => { const l = dayEntries(new Date(key + 'T12:00:00')); l.push(gone); setDayEntries(key, l); render(); });
+  }
+
+  // ── toast with undo
+  function showUndo(msg, fn) {
+    clearTimeout(st.undoT);
+    st.undo = fn;
+    $('fdToastMsg').textContent = msg;
+    $('fdToast').classList.add('show');
+    st.undoT = setTimeout(hideToast, 5000);
+  }
+  function hideToast() { $('fdToast').classList.remove('show'); st.undo = null; clearTimeout(st.undoT); }
+
+  // ── manual form (the "add it yourself" path: new food / unknown barcode / AI placeholder)
+  function openForm(opts) {
+    opts = opts || {};
+    ['fdFName', 'fdFK', 'fdFP', 'fdFC', 'fdFF'].forEach(id => { $(id).value = ''; });
+    $('fdFName').value = opts.name || '';
+    $('fdFBar').value = opts.barcode || '';
+    if (opts.k != null) $('fdFK').value = opts.k;
+    if (opts.p != null) $('fdFP').value = opts.p;
+    if (opts.c != null) $('fdFC').value = opts.c;
+    if (opts.f != null) $('fdFF').value = opts.f;
+    st.aiGrams = Number.isFinite(Number(opts.grams)) && Number(opts.grams) > 0
+      ? Math.min(5000, Number(opts.grams)) : 100;
+    $('fdFErr').textContent = '';
+    $('fdFormNote').textContent = opts.note || 'Values per 100 g. Check them before saving; saved foods are available next time.';
+    st.formWarned = false;
+    showView('form');
+    focusLater($(opts.name ? 'fdFK' : 'fdFName'));
+  }
+
+  // Gemini nutrition estimate via the secured Cloudflare Worker.
+  async function askAI(text) {
+    const response = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: String(text || '').trim().slice(0, 200) })
+    });
+    let data;
+    try { data = await response.json(); }
+    catch (_) { throw new Error('The AI service returned an unreadable response.'); }
+    if (!response.ok) throw new Error(data && data.error ? data.error : 'AI request failed (' + response.status + ').');
+    return data;
+  }
+
+  async function runAI(query, button) {
+    query = String(query || '').trim();
+    if (!query) return;
+    const originalHTML = button ? button.innerHTML : '';
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<div><div class="fd-res-name">✦ Estimating nutrition…</div><div class="fd-res-ar">Connecting to Gemini</div></div>';
+    }
+    try {
+      const a = await askAI(query);
+      const vals = [a.k, a.p, a.c, a.f, a.grams].map(Number);
+      if (!a.name || !vals.every(Number.isFinite) ||
+          vals[0] < 0 || vals[0] > 900 ||
+          vals.slice(1, 4).some(v => v < 0 || v > 100) ||
+          vals[1] + vals[2] + vals[3] > 100.5 ||
+          vals[4] <= 0 || vals[4] > 5000) {
+        throw new Error('Gemini returned values outside the expected nutrition ranges. Please try again or enter them manually.');
+      }
+      const consistency = Math.abs((4 * vals[1] + 4 * vals[2] + 9 * vals[3]) - vals[0]);
+      const note = 'Gemini estimate per 100 g · confidence: ' + String(a.confidence || 'unknown') +
+        ' · suggested portion: ' + Math.round(vals[4]) + ' g. Estimates can vary by recipe; review and edit before saving.' +
+        (consistency > Math.max(40, vals[0] * 0.3) ? ' Macro-to-calorie values look inconsistent, so double-check them.' : '');
+      openForm({
+        name: String(a.name).slice(0, 100),
+        k: vals[0], p: vals[1], c: vals[2], f: vals[3],
+        grams: vals[4], note
+      });
+    } catch (error) {
+      openForm({
+        name: query,
+        note: 'Gemini could not estimate this food: ' + (error && error.message ? error.message : 'Unknown error') +
+          ' You can enter the nutrition values manually.'
+      });
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+      }
+    }
+  }
+  function saveForm() {
+    const name = $('fdFName').value.trim(), k = num($('fdFK').value);
+    const p = $('fdFP').value.trim() === '' ? 0 : num($('fdFP').value);
+    const c = $('fdFC').value.trim() === '' ? 0 : num($('fdFC').value);
+    const f = $('fdFF').value.trim() === '' ? 0 : num($('fdFF').value);
+    const bar = $('fdFBar').value.replace(/\D/g, '');
+    const err = m => { $('fdFErr').textContent = m; };
+    if (!name) return err('Give it a name.');
+    if (!isFinite(k) || k < 0 || k > 900) return err('Calories per 100 g must be between 0 and 900.');
+    if (![p, c, f].every(x => isFinite(x) && x >= 0 && x <= 100)) return err('Protein, carbs and fat must be between 0 and 100 g.');
+    if (p + c + f > 100.5) return err('Protein + carbs + fat can’t add up to more than 100 g per 100 g.');
+    const est = 4 * p + 4 * c + 9 * f;
+    if (!st.formWarned && Math.abs(est - k) > Math.max(40, k * 0.3)) {
+      st.formWarned = true;
+      return err('These don’t quite add up: 4·P + 4·C + 9·F ≈ ' + Math.round(est) + ' kcal. Check the label, or press Save again to keep it.');
+    }
+    const food = { id: 'c_' + uid(), en: name, ar: '', k, p, c, f };
+    if (bar) food.barcode = bar;
+    const custom = getCustom(); custom.push(food); store(LS_CUSTOM, custom);
+    st.food = Object.assign({ mine: true }, food);
+    st.editing = null;
+    openAmount(st.aiGrams || 100);
+    st.aiGrams = 100;
+  }
+
+  // ── barcode: camera (BarcodeDetector, no network) or typed number. Unknown code → manual form.
+  function stopScan() {
+    st.scanning = false;
+    if (st.stream) { st.stream.getTracks().forEach(t => t.stop()); st.stream = null; }
+    const v = $('fdVideo'); if (v) { v.pause && v.pause(); v.srcObject = null; v.hidden = true; }
+  }
+  function lookupBarcode(code) {
+    code = String(code || '').replace(/\D/g, '');
+    if (code.length < 6) { $('fdScanMsg').textContent = 'That doesn’t look like a barcode. Check the number under the lines.'; return; }
+    const hit = getCustom().find(c => c.barcode === code);
+    if (hit) { chooseFood(Object.assign({ mine: true }, hit)); return; }
+    // Later: fetch Open Food Facts here before falling back to the form.
+    openForm({ barcode: code, note: 'New product. Enter the values per 100 g from the label once. It is saved, so next scan is instant.' });
+  }
+  function startScan() {
+    showView('scan');
+    $('fdBarcode').value = '';
+    const msg = $('fdScanMsg');
+    msg.textContent = 'Point the camera at the barcode, or type the number.';
+    if (!('BarcodeDetector' in window) || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      msg.textContent = 'This browser can’t scan with the camera. Type the barcode number instead.';
+      focusLater($('fdBarcode')); return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+      if (st.view !== 'scan') { stream.getTracks().forEach(t => t.stop()); return; }
+      st.stream = stream;
+      const v = $('fdVideo'); v.srcObject = stream; v.hidden = false; v.play();
+      let det;
+      try { det = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] }); } catch (e) { det = new window.BarcodeDetector(); }
+      st.scanning = true;
+      (function loop() {
+        if (!st.scanning) return;
+        det.detect(v).then(codes => {
+          if (!st.scanning) return;
+          if (codes && codes.length) { const c = codes[0].rawValue; stopScan(); lookupBarcode(c); } else setTimeout(loop, 250);
+        }).catch(() => setTimeout(loop, 400));
+      })();
+    }).catch(() => {
+      msg.textContent = 'Camera access was blocked. Type the barcode number instead.';
+      focusLater($('fdBarcode'));
+    });
+  }
+
+  // ── goals
+  function openGoals() {
+    const g = getGoals();
+    $('fdGK').value = g.kcal; $('fdGP').value = g.p; $('fdGF').value = g.f;
+    $('fdGErr').textContent = '';
+    st.prevFocus = document.activeElement;
+    $('fdOverlay').classList.add('open');
+    showView('goals');
+    updateGoalNote();
+  }
+  function updateGoalNote() {
+    const k = num($('fdGK').value), p = num($('fdGP').value), f = num($('fdGF').value);
+    $('fdGNote').textContent = [k, p, f].every(isFinite) && k > p * 4 + f * 9 ? 'Carbs fill the rest: about ' + fmt((k - p * 4 - f * 9) / 4) + ' g a day.' : '';
+  }
+  function saveGoals() {
+    const k = num($('fdGK').value), p = num($('fdGP').value), f = num($('fdGF').value), err = m => { $('fdGErr').textContent = m; };
+    if (!(k >= 800 && k <= 8000)) return err('Calories should be between 800 and 8,000.');
+    if (!(p >= 0 && p <= 400)) return err('Protein should be between 0 and 400 g.');
+    if (!(f >= 0 && f <= 300)) return err('Fat should be between 0 and 300 g.');
+    if (p * 4 + f * 9 >= k) return err('Protein and fat already use up all your calories.');
+    store(LS_GOALS, { kcal: Math.round(k), p: Math.round(p), f: Math.round(f) });
+    closeSheet(); render();
+  }
+
+  // ═════════════ WIRING ═════════════
+  function wire() {
+    $('fdPrev').addEventListener('click', () => { st.day.setDate(st.day.getDate() - 1); st.day = new Date(st.day); render(); });
+    $('fdNext').addEventListener('click', () => { if (keyOf(st.day) >= keyOf(new Date())) return; st.day.setDate(st.day.getDate() + 1); st.day = new Date(st.day); render(); });
+    $('fdFab').addEventListener('click', startAdd);
+    $('fdGoalBtn').addEventListener('click', openGoals);
+    $('fdList').addEventListener('click', e => {
+      const t = e.target.closest('[data-edit],[data-del],[data-act]'); if (!t) return;
+      if (t.dataset.act === 'add') startAdd();
+      else if (t.dataset.edit) editEntry(t.dataset.edit);
+      else if (t.dataset.del) removeEntry(t.dataset.del);
+    });
+
+    $('fdClose').addEventListener('click', closeSheet);
+    $('fdOverlay').addEventListener('click', e => { if (e.target === $('fdOverlay')) closeSheet(); });
+    $('fdBack').addEventListener('click', () => { showView('search'); focusLater($('fdQ')); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else hideToast(); } });
+
+    $('fdQ').addEventListener('input', renderResults);
+    $('fdQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('fdResults').querySelector('.fd-res'); if (b) b.click(); } });
+    $('fdScanBtn').addEventListener('click', startScan);
+    $('fdResults').addEventListener('click', e => {
+      const t = e.target.closest('[data-fid],[data-ai]'); if (!t) return;
+      if (t.dataset.ai) { runAI($('fdQ').value.trim(), t); return; }
+      const f = findFood(t.dataset.fid); if (f) chooseFood(f);
+    });
+
+    $('fdBarcodeGo').addEventListener('click', () => lookupBarcode($('fdBarcode').value));
+    $('fdBarcode').addEventListener('keydown', e => { if (e.key === 'Enter') lookupBarcode($('fdBarcode').value); });
+
+    $('fdFSave').addEventListener('click', saveForm);
+    ['fdFName', 'fdFK', 'fdFP', 'fdFC', 'fdFF', 'fdFBar'].forEach(id => {
+      $(id).addEventListener('input', () => { st.formWarned = false; $('fdFErr').textContent = ''; });
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') saveForm(); });
+    });
+
+    $('fdGrams').addEventListener('input', updatePreview);
+    $('fdGrams').addEventListener('keydown', e => { if (e.key === 'Enter') saveAmount(); });
+    $('fdChips').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (!b) return; $('fdGrams').value = b.dataset.g; updatePreview(); });
+    $('fdSeg').addEventListener('click', e => { const b = e.target.closest('[data-meal]'); if (b) setMeal(b.dataset.meal); });
+    $('fdASave').addEventListener('click', saveAmount);
+    $('fdADel').addEventListener('click', () => { const id = st.editing; closeSheet(); removeEntry(id); });
+
+    ['fdGK', 'fdGP', 'fdGF'].forEach(id => {
+      $(id).addEventListener('input', () => { $('fdGErr').textContent = ''; updateGoalNote(); });
+      $(id).addEventListener('keydown', e => { if (e.key === 'Enter') saveGoals(); });
+    });
+    $('fdGSave').addEventListener('click', saveGoals);
+
+    $('fdToastUndo').addEventListener('click', () => { const fn = st.undo; hideToast(); if (fn) fn(); });
+  }
+
+  function init() {
+    if (!$('tab-food')) return;
+    wire();
+    render();
+    window.renderFood = render;   // called by switchTab('food') so the page is always fresh
+  }
+  init();
+})();
+</script>
+
 </body>
 </html>
