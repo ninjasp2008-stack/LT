@@ -2856,14 +2856,29 @@ body.focus-mode .fd-fab{display:none !important}
 
         <!-- SEARCH -->
         <section class="fd-view" id="fdVSearch">
-          <div class="fd-searchrow">
+          <div class="fd-searchrow" style="position:relative">
             <input id="fdQ" class="fd-input" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
                    placeholder="Search foods — bread, خبز, poulet" aria-label="Search foods">
-            <button type="button" class="fd-iconbtn" id="fdScanBtn" aria-label="Scan barcode">
+            <button type="button" class="fd-iconbtn" id="fdScanBtn" aria-label="Camera: scan barcode or food photo" aria-haspopup="menu">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8"/><path d="M11 8v8"/><path d="M15 8v8"/><path d="M18 8v8"/></svg>
             </button>
           </div>
+          <div id="fdCamMenu" hidden role="menu" style="position:absolute;right:0;top:100%;margin-top:6px;z-index:5;min-width:190px;padding:6px;border-radius:14px;background:#1c1c1e;border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 32px rgba(0,0,0,.45)">
+            <button type="button" role="menuitem" class="fd-res" data-cam="scan"><div class="fd-res-name">Scan barcode</div></button>
+            <button type="button" role="menuitem" class="fd-res" data-cam="photo"><div class="fd-res-name">Food photo</div></button>
+          </div>
+          <input type="file" id="fdPhotoIn" accept="image/*" capture="environment" hidden>
           <div id="fdResults"></div>
+        </section>
+
+        <!-- PHOTO -->
+        <section class="fd-view" id="fdVPhoto" hidden>
+          <p class="fd-note" id="fdPhNote" aria-live="polite"></p>
+          <div id="fdPhRows"></div>
+          <input id="fdPhAdd" class="fd-input" placeholder="Add a missing item, e.g. olive oil" aria-label="Add ingredient" maxlength="60" style="margin-bottom:12px">
+          <div class="fd-preview" aria-live="polite"><div><b id="fdPhK">0</b><span>kcal</span></div><div><b id="fdPhP">0</b><span>protein</span></div><div><b id="fdPhC">0</b><span>carbs</span></div><div><b id="fdPhF">0</b><span>fat</span></div></div>
+          <div class="fd-chips" id="fdPhMeal"><button type="button" class="fd-chip" data-meal="breakfast">Breakfast</button><button type="button" class="fd-chip" data-meal="lunch">Lunch</button><button type="button" class="fd-chip" data-meal="dinner">Dinner</button><button type="button" class="fd-chip" data-meal="snack">Snack</button></div>
+          <button type="button" class="fd-btn fd-btn-primary" id="fdPhSave" style="width:100%" disabled>Add to log</button>
         </section>
 
         <!-- SCAN -->
@@ -2904,7 +2919,11 @@ body.focus-mode .fd-fab{display:none !important}
           <p class="fd-food-sub" id="fdASub"></p>
           <div class="fd-amt">
             <input id="fdGrams" class="fd-input" inputmode="decimal" autocomplete="off" aria-label="Amount in grams">
-            <span class="fd-unit">g</span>
+            <input id="fdUQty" class="fd-input" inputmode="decimal" aria-label="Quantity" autocomplete="off" style="display:none"><span class="fd-unit" id="fdUnit" style="cursor:pointer;padding:8px 4px;white-space:nowrap">g</span>
+          </div>
+          <div id="fdUBox" style="display:none;margin:4px 0 10px">
+            <div class="fd-chips" id="fdUSz"></div>
+            <label class="fd-note" style="display:flex;gap:8px;align-items:center;margin:8px 0 0">≈ <input id="fdUG" class="fd-input" inputmode="decimal" aria-label="Estimated grams per unit" style="min-height:36px;width:84px;font-size:15px;text-align:center"> g each · estimated, edit to override</label>
           </div>
           <div class="fd-chips" id="fdChips"></div>
           <details class="fd-det" id="fdDet" hidden style="margin:12px 0 0">
@@ -2912,7 +2931,6 @@ body.focus-mode .fd-fab{display:none !important}
             <div style="display:grid;gap:8px;margin-top:8px">
               <input id="fdDName" class="fd-input" placeholder="Food name" aria-label="Food name" maxlength="100">
               <input id="fdDDesc" class="fd-input" placeholder="Description / ingredients" aria-label="Description" maxlength="200">
-              <div style="display:flex;gap:8px;align-items:flex-start"><input id="fdDQty" class="fd-input" inputmode="decimal" placeholder="Qty" aria-label="Quantity" style="flex:0 0 76px"><div class="fd-chips" id="fdDSz" style="margin:0" hidden></div></div>
               <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><input id="fdDK" class="fd-input" inputmode="decimal" placeholder="kcal" aria-label="kcal per 100 g"><input id="fdDP" class="fd-input" inputmode="decimal" placeholder="P" aria-label="Protein per 100 g"><input id="fdDC" class="fd-input" inputmode="decimal" placeholder="C" aria-label="Carbs per 100 g"><input id="fdDF" class="fd-input" inputmode="decimal" placeholder="F" aria-label="Fat per 100 g"></div>
               <p class="fd-note" style="margin:0">Nutrition values are per 100 g.</p>
               <button type="button" class="fd-btn fd-btn-ghost" id="fdDAI">✦ Re-estimate with Gemini</button>
@@ -9041,21 +9059,33 @@ async function pomRestoreSession() {
   // ── smart natural-language logging (additive; entries keep per-100 g values + grams `g`)
   const LS_SERV = 'foodServ';
   const NUMW = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, half: 0.5, dozen: 12 };
-  const UNITS = { piece: 'piece', pieces: 'piece', slice: 'slice', slices: 'slice', bowl: 'bowl', bowls: 'bowl', cup: 'cup', cups: 'cup', can: 'can', cans: 'can', container: 'container', containers: 'container', pot: 'container', pots: 'container', tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', spoons: 'tbsp', tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp', glass: 'glass', glasses: 'glass', plate: 'plate', plates: 'plate', serving: 'serving', servings: 'serving', bottle: 'bottle', bottles: 'bottle' };
+  const UNITS = { piece: 'piece', pieces: 'piece', slice: 'slice', slices: 'slice', bowl: 'bowl', bowls: 'bowl', cup: 'cup', cups: 'cup', can: 'can', cans: 'can', container: 'container', containers: 'container', pot: 'container', pots: 'container', tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', spoons: 'tbsp', tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp', glass: 'glass', glasses: 'glass', plate: 'plate', plates: 'plate', serving: 'serving', servings: 'serving', bottle: 'bottle', bottles: 'bottle', handful: 'handful', handfuls: 'handful' };
   const SIZEABLE = { container: 1, bowl: 1, slice: 1, cup: 1, glass: 1, plate: 1, bottle: 1, can: 1 };
   const SZ_SCALE = { small: 0.75, medium: 1, large: 1.35 };
   const COOK = ['fried', 'grilled', 'boiled', 'baked', 'roasted', 'steamed', 'scrambled', 'raw', 'smoked'];
   // built-in serving weights (g): [food regex, accepted units, {size: g}]
+  const W = (a, b, c) => ({ small: a, medium: b, large: c });
+  const PL = { piece: 'pieces', slice: 'slices', container: 'containers', cup: 'cups', glass: 'glasses', bowl: 'bowls', can: 'cans', serving: 'servings', bottle: 'bottles', plate: 'plates', handful: 'handfuls', tbsp: 'tbsp', tsp: 'tsp' };
   const SERV = [
-    [/yogh?urt|yaourt|zabadi/, ['container', 'cup'], { small: 100, medium: 125, large: 170 }],
-    [/pizza/, ['slice', 'piece'], { small: 80, medium: 110, large: 150 }],
-    [/\beggs?\b|\boeufs?\b/, ['piece'], { small: 40, medium: 50, large: 60 }],
-    [/bread|toast|khobz|baguette/, ['slice', 'piece'], { small: 25, medium: 30, large: 40 }],
-    [/banana|banane/, ['piece'], { small: 100, medium: 118, large: 136 }],
-    [/apple|pomme/, ['piece'], { small: 150, medium: 182, large: 220 }],
-    [/\brice\b|\briz\b/, ['cup'], { small: 130, medium: 160, large: 200 }],
-    [/olive oil|huile/, ['tbsp'], { small: 14, medium: 14, large: 14 }],
-    [/tuna|thon/, ['can'], { small: 112, medium: 140, large: 170 }]
+    [/yogh?urt|yaourt|zabadi/, { container: W(100, 125, 170), cup: W(180, 245, 300) }],
+    [/pizza/, { slice: W(80, 110, 150) }],
+    [/\beggs?\b|\boeufs?\b/, { piece: W(40, 50, 60) }],
+    [/bread|toast|khobz|baguette/, { slice: W(25, 30, 40), piece: W(25, 30, 40) }],
+    [/\bmilk\b|\blait\b/, { glass: W(200, 240, 300), cup: W(200, 240, 300) }],
+    [/banana|banane/, { piece: W(100, 118, 136) }],
+    [/apple|pomme/, { piece: W(150, 182, 220) }],
+    [/chicken|poulet|djej/, { piece: W(80, 120, 160) }],
+    [/\brice\b|\briz\b/, { cup: W(130, 160, 200), bowl: W(150, 200, 260) }],
+    [/pasta|spaghetti|macaroni/, { cup: W(110, 140, 180), bowl: W(150, 200, 260) }],
+    [/\bdates?\b|tmar|tamr/, { piece: W(6, 8, 12) }],
+    [/potato|patate|batata/, { piece: W(100, 150, 220) }],
+    [/cheese|fromage|jben/, { slice: W(15, 20, 28) }],
+    [/tuna|thon/, { can: W(112, 140, 170) }],
+    [/\bfish\b|poisson|salmon/, { piece: W(80, 120, 160) }],
+    [/cookie|biscuit/, { piece: W(10, 15, 25) }],
+    [/peanut butter|beurre de cacahu/, { tbsp: W(16, 16, 16) }],
+    [/\bnuts?\b|almond|peanut|walnut|cashew|amande/, { handful: W(20, 28, 40) }],
+    [/olive oil|huile/, { tsp: W(4.5, 4.5, 4.5), tbsp: W(14, 14, 14) }]
   ];
   function parseSmart(text) {
     const s = String(text || '').trim().replace(/\s+/g, ' ');
@@ -9084,9 +9114,16 @@ async function pomRestoreSession() {
   function isSmart(p) { return !!p.food && (isFinite(p.q) || isFinite(p.w)); }
   function builtinServ(food, u, sz) {
     const f = norm(food), s = SZ_SCALE[sz] ? sz : 'medium';
-    for (const r of SERV) if (r[0].test(f) && (!u || r[1].indexOf(u) >= 0)) return { u: u || r[1][0], g: r[2][s] };
+    for (const r of SERV) if (r[0].test(f)) { const uu = u ? (r[1][u] ? u : null) : Object.keys(r[1])[0]; return uu ? { u: uu, g: r[1][uu][s] } : null; }
     return null;
   }
+  function unitOpts(name, f) {
+    const n = norm(name), o = [];
+    for (const r of SERV) if (r[0].test(n)) { Object.keys(r[1]).forEach(u => o.push({ u, w: r[1][u] })); break; }
+    if (!o.length && f && f.serv && f.serv.g > 0) o.push({ u: 'serving', w: { medium: f.serv.g } });
+    return o;
+  }
+  function ulabel(u, q) { return q === 1 ? u : (PL[u] || u + 's'); }
   function unitQuery(p) {
     const core = (p.cm && p.food.indexOf(p.cm) < 0 ? p.cm + ' ' : '') + p.food + (p.ing.length ? ' with ' + p.ing.join(', ') : '');
     return p.w ? core : '1 ' + (p.sz ? p.sz + ' ' : '') + (p.u && p.u !== 'piece' ? p.u + ' of ' : '') + (p.mod ? 'homemade ' : '') + core;
@@ -9247,14 +9284,14 @@ async function pomRestoreSession() {
   }
 
   // ═════════════ SHEET ═════════════
-  const VIEWS = { search: 'fdVSearch', scan: 'fdVScan', form: 'fdVForm', amount: 'fdVAmount', goals: 'fdVGoals' };
-  const TITLES = { search: 'Add food', scan: 'Scan barcode', form: 'New food', amount: 'Amount', goals: 'Daily goals' };
+  const VIEWS = { photo: 'fdVPhoto', search: 'fdVSearch', scan: 'fdVScan', form: 'fdVForm', amount: 'fdVAmount', goals: 'fdVGoals' };
+  const TITLES = { photo: 'Meal photo', search: 'Add food', scan: 'Scan barcode', form: 'New food', amount: 'Amount', goals: 'Daily goals' };
   function showView(name) {
     if (name !== 'scan') stopScan();
     st.view = name;
     Object.keys(VIEWS).forEach(k => { $(VIEWS[k]).hidden = k !== name; });
     $('fdSheetTitle').textContent = name === 'amount' && st.editing ? 'Edit entry' : TITLES[name];
-    $('fdBack').hidden = !(name === 'scan' || name === 'form' || (name === 'amount' && !st.editing));
+    $('fdBack').hidden = !(name === 'scan' || name === 'form' || name === 'photo' || (name === 'amount' && !st.editing));
     $('fdSheetTitle').style.paddingLeft = $('fdBack').hidden ? '12px' : '0';
     document.querySelector('#fdOverlay .fd-sheet-body').scrollTop = 0;
   }
@@ -9346,6 +9383,7 @@ async function pomRestoreSession() {
     setMeal(st.meal);
     showView('amount');
     updatePreview();
+    initUnits();
     setupDetails();
     focusLater($('fdGrams'), true);
   }
@@ -9373,7 +9411,9 @@ async function pomRestoreSession() {
       if (e) { applyEdit(e, g); }
     } else {
       const f = st.food;
-      list.push({ id: uid(), fid: f.id, n: f.en, k: f.k, p: f.p, c: f.c, f: f.f, g, meal: st.meal, ap: !!f.approx, ts: Date.now() });
+      const ne = { id: uid(), fid: f.id, n: f.en, k: f.k, p: f.p, c: f.c, f: f.f, g, meal: st.meal, ap: !!f.approx, ts: Date.now() }, x = unitExtra();
+      if (x) Object.assign(ne, { q: x.q, u: x.u, sz: x.sz, ug: x.ug, src: 'manual', est: x.unitEst || !!f.approx, ap: x.unitEst || !!f.approx });
+      list.push(ne);
       const rec = [st.food.id].concat(load(LS_RECENT, []).filter(x => x !== st.food.id)).slice(0, 12);
       store(LS_RECENT, rec);
     }
@@ -9466,7 +9506,7 @@ async function pomRestoreSession() {
     if (!(total > 0 && total <= 5000)) throw new Error('The estimated weight is out of range.');
     const est = src === 'ai' || !!nut.approx;
     return { id: uid(), fid: nut.id || 'smart', n: nut.n, k: nut.k, p: nut.p, c: nut.c, f: nut.f, g: r1(total), meal: st.meal, ap: est, est, ts: Date.now(),
-      d: p.text, ing: p.ing, cm: p.cm, q: isFinite(p.w) ? 1 : p.q, u: p.u, sz: p.sz, ug: isFinite(p.w) ? total : ug, src, key, cf: conf };
+      d: p.text, ing: p.ing, cm: p.cm, q: isFinite(p.w) ? 1 : p.q, u: p.u, sz: p.sz, ug: isFinite(p.w) ? total : ug, wt: isFinite(p.w), src, key, cf: conf };
   }
   async function smartLog(text, btn) {
     const p = parseSmart(text);
@@ -9485,42 +9525,147 @@ async function pomRestoreSession() {
     } finally { st.busy = false; if (btn) { btn.disabled = false; btn.innerHTML = oh; } }
   }
 
-  // ── edit details (progressive disclosure inside the amount sheet)
-  function sizeG(t, sz) { const b = builtinServ(t.n, t.u, sz); return b ? b.g : t.ug0 * SZ_SCALE[sz] / SZ_SCALE[SZ_SCALE[t.sz0] ? t.sz0 : 'medium']; }
-  function setGrams(g) { $('fdGrams').value = r1(g); updatePreview(); }
-  function renderSizes() {
-    const t = st.ent, box = $('fdDSz'); box.hidden = !SIZEABLE[t.u];
-    if (box.hidden) return;
-    box.innerHTML = ['small', 'medium', 'large'].map(z => '<button type="button" class="fd-chip" data-sz="' + z + '" aria-pressed="' + (t.sz === z) + '">' + z.toUpperCase() + '<small style="display:block;opacity:.6">' + Math.round(sizeG(t, z)) + ' g</small></button>').join('') +
-      '<button type="button" class="fd-chip" data-sz="custom" aria-pressed="' + (t.sz === 'custom') + '">CUSTOM</button>';
+  // ── adaptive measurement: weight (g) ⇄ food-specific units; grams stays the canonical stored amount
+  function curOpt() { return st.un.opts.find(o => o.u === st.un.u); }
+  function optW(o, sz) { return o.w[sz] || o.w.medium || Object.values(o.w)[0]; }
+  function initUnits() {
+    const f = st.food, e = st.ent, opts = unitOpts(f.en, f);
+    if (e && e.u && e.ug > 0 && !opts.some(o => o.u === e.u)) opts.push({ u: e.u, w: { medium: e.ug } });
+    if (!opts.length) { st.un = null; applyMode(); return; }
+    const o = (e && opts.find(x => x.u === e.u)) || opts[0], sz = e && SZ_SCALE[e.sz] ? e.sz : 'medium', inU = !!(e && e.q > 0 && e.u && e.ug > 0 && !e.wt);
+    st.un = { opts, u: o.u, sz, ug: inU ? e.ug : optW(o, sz), q: inU ? e.q : 1, mode: inU ? 'u' : 'w', ugEd: false, touched: inU };
+    applyMode();
   }
+  function applyMode() {
+    const n = st.un, u = !!n && n.mode === 'u', lab = $('fdUnit');
+    $('fdGrams').style.display = u ? 'none' : ''; $('fdUQty').style.display = u ? '' : 'none';
+    $('fdUBox').style.display = u ? 'block' : 'none'; $('fdChips').style.display = u ? 'none' : '';
+    lab.tabIndex = n ? 0 : -1; lab.setAttribute('role', n ? 'button' : 'text');
+    lab.textContent = n ? (u ? ulabel(n.u, n.q) : 'g') + ' ▾' : 'g';
+    if (u) { $('fdUQty').value = r1(n.q); $('fdUG').value = r1(n.ug); renderUSz(); calcUnits(); }
+  }
+  function calcUnits() { const n = st.un; $('fdGrams').value = r1(n.q * n.ug); $('fdUnit').textContent = ulabel(n.u, n.q) + ' ▾'; updatePreview(); }
+  function renderUSz() {
+    const n = st.un, o = curOpt(), box = $('fdUSz'), keys = Object.keys(o.w).filter((k, i, a) => a.findIndex(z => o.w[z] === o.w[k]) === i);
+    box.style.display = keys.length > 1 ? '' : 'none';
+    box.innerHTML = keys.map(z => '<button type="button" class="fd-chip" data-sz="' + z + '" aria-pressed="' + (n.sz === z && !n.ugEd) + '">' + z.toUpperCase() + '<small style="display:block;opacity:.6">' + Math.round(o.w[z]) + ' g</small></button>').join('');
+  }
+  function cycleUnit() {
+    const n = st.un; if (!n) return;
+    const g = gramsVal(), list = ['g'].concat(n.opts.map(o => o.u)), i = n.mode === 'w' ? 0 : 1 + n.opts.findIndex(o => o.u === n.u), j = (i + 1) % list.length;
+    if (j === 0) { n.mode = 'w'; }
+    else {
+      n.mode = 'u'; n.u = list[j]; n.ug = optW(curOpt(), n.sz); n.ugEd = false;
+      if (!n.touched && isFinite(g)) n.q = Math.max(0.5, Math.round(g / n.ug * 2) / 2);
+    }
+    applyMode();
+  }
+  function unitExtra() { const n = st.un; return n && n.mode === 'u' ? { q: n.q, u: n.u, sz: n.sz, ug: n.ug, unitEst: !n.ugEd } : null; }
+
+  // ── edit details (progressive disclosure inside the amount sheet)
   function setupDetails() {
     const t = st.ent, det = $('fdDet'); det.hidden = !t; if (!t) return;
-    if (!(t.q > 0)) { t.q = 1; t.ug = t.g; } if (!(t.ug > 0)) t.ug = t.g / t.q;
-    t.ug0 = t.ug; t.sz0 = t.sz; det.open = false;
-    $('fdDName').value = t.n; $('fdDDesc').value = t.d || ''; $('fdDQty').value = r1(t.q);
+    det.open = false; $('fdDName').value = t.n; $('fdDDesc').value = t.d || '';
     ['K', 'P', 'C', 'F'].forEach(x => { $('fdD' + x).value = r1(st.food[x.toLowerCase()]); });
-    renderSizes();
   }
   function applyEdit(e, g) {
-    const t = st.ent || {};
+    const t = st.ent || {}, x = unitExtra();
     e.g = g; e.meal = st.meal; e.n = t.n || e.n; e.k = st.food.k; e.p = st.food.p; e.c = st.food.c; e.f = st.food.f;
     if (t.d != null) e.d = t.d;
-    if (t.q > 0) { e.q = t.q; e.ug = t.ug; e.u = t.u; e.sz = t.sz; }
+    if (x) { e.q = x.q; e.u = x.u; e.sz = x.sz; e.ug = x.ug; e.wt = false; if (x.unitEst) { e.est = true; e.ap = true; } }
+    else if (e.q > 0) { e.ug = g / e.q; }
     if (st.nutEd) { e.est = false; e.ap = false; e.src = 'user'; }
-    if (e.key && t.ugEd && t.sz !== 'custom') { const c = load(LS_SERV, {}); if (c[e.key]) { c[e.key].g = t.ug; c[e.key].ok = true; store(LS_SERV, c); } }
+    if (e.key && x && !x.unitEst) { const c = load(LS_SERV, {}); if (c[e.key]) { c[e.key].g = x.ug; c[e.key].ok = true; store(LS_SERV, c); } }
   }
   async function reEstimate() {
     const t = st.ent; if (!t || st.busy) return;
-    const p = parseSmart(($('fdDDesc').value || t.n) + ''); p.u = t.u || p.u; p.sz = SZ_SCALE[t.sz] ? t.sz : ''; p.w = NaN; if (!p.food) return;
+    const p = parseSmart(($('fdDDesc').value || t.n) + ''); p.u = (st.un && st.un.u) || t.u || p.u; p.sz = SZ_SCALE[t.sz] ? t.sz : ''; p.w = NaN; if (!p.food) return;
     const b = $('fdDAI'); st.busy = true; b.disabled = true; b.textContent = '✦ Estimating…';
     try {
       const a = await askAI(unitQuery(p)); if (!aiOK(a)) throw new Error('Unexpected values from Gemini.');
-      Object.assign(st.food, { k: +a.k, p: +a.p, c: +a.c, f: +a.f }); t.ug = t.ug0 = +a.grams; t.sz0 = SZ_SCALE[t.sz] ? t.sz : 'medium'; t.d = $('fdDDesc').value;
-      st.nutEd = false; setupDetails(); $('fdDet').open = true; setGrams(t.q * t.ug);
+      Object.assign(st.food, { k: +a.k, p: +a.p, c: +a.c, f: +a.f }); t.d = $('fdDDesc').value; st.nutEd = false; setupDetails(); $('fdDet').open = true;
+      if (st.un && st.un.mode === 'u') { st.un.ug = +a.grams; st.un.ugEd = false; applyMode(); } else updatePreview();
     } catch (err) { $('fdASub').textContent = 'Could not re-estimate: ' + (err && err.message ? err.message : 'network error'); }
     finally { st.busy = false; b.disabled = false; b.textContent = '✦ Re-estimate with Gemini'; }
   }
+
+  // ── barcode: local custom foods first, then Open Food Facts (public API, no key), then manual form
+  async function offLookup(code) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 6000);
+    try {
+      const r = await fetch('https://world.openfoodfacts.org/api/v2/product/' + code + '.json?fields=product_name,brands,nutriments,serving_quantity', { signal: ctl.signal });
+      if (!r.ok) return null;
+      const j = await r.json(); if (j.status !== 1 || !j.product) return null;
+      const pr = j.product, n = pr.nutriments || {}, k = +n['energy-kcal_100g'], p = +n['proteins_100g'], c = +n['carbohydrates_100g'], f = +n['fat_100g'];
+      const name = ((pr.product_name || '') + (pr.brands ? ' — ' + String(pr.brands).split(',')[0].trim() : '')).trim(), sq = +pr.serving_quantity;
+      if (!name || ![k, p, c, f].every(Number.isFinite) || k < 0 || k > 900 || p < 0 || c < 0 || f < 0 || p + c + f > 100.5) return null;
+      const food = { id: 'bc' + code, en: name.slice(0, 100), k, p, c, f, barcode: code };
+      if (sq > 0 && sq <= 2000) food.serv = { l: '1 serving', g: sq };
+      return food;
+    } catch (e) { return null; } finally { clearTimeout(t); }
+  }
+
+  // ── food photo → Gemini (needs Worker support: see request/response contract in the report)
+  function shrinkImage(file) {
+    return new Promise((res, rej) => {
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload = () => { const sc = Math.min(1, 1024 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', 0.72).split(',')[1]); };
+      img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('Could not read that image.')); };
+      img.src = u;
+    });
+  }
+  async function askPhoto(b64) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
+    try {
+      const r = await fetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'photo', image: b64, mime: 'image/jpeg' }), signal: ctl.signal });
+      let d; try { d = await r.json(); } catch (_) { throw new Error('The AI service returned an unreadable response.'); }
+      if (!r.ok) throw new Error(d && d.error ? d.error : 'AI request failed (' + r.status + ').');
+      return d;
+    } catch (e) { throw e.name === 'AbortError' ? new Error('The request timed out.') : e; } finally { clearTimeout(t); }
+  }
+  function phTotals() {
+    const it = st.ph.filter(x => x.g > 0 && x.g <= 5000), t = it.reduce((a, x) => { const m = x.g / 100; a.k += x.k * m; a.p += x.p * m; a.c += x.c * m; a.f += x.f * m; return a; }, { k: 0, p: 0, c: 0, f: 0 });
+    $('fdPhK').textContent = fmt(t.k); $('fdPhP').textContent = fmt(t.p); $('fdPhC').textContent = fmt(t.c); $('fdPhF').textContent = fmt(t.f);
+    $('fdPhSave').disabled = !it.length;
+  }
+  function phRows() {
+    $('fdPhRows').innerHTML = st.ph.map((x, i) => '<div style="display:grid;grid-template-columns:1fr 78px 52px 32px;gap:8px;align-items:center;margin-bottom:8px"><input class="fd-input" data-i="' + i + '" data-f="n" value="' + esc(x.n) + '" aria-label="Ingredient name" maxlength="80" style="min-height:44px;font-size:15px">' +
+      '<input class="fd-input" data-i="' + i + '" data-f="g" value="' + r1(x.g) + '" inputmode="decimal" aria-label="Grams" style="min-height:44px;font-size:15px;text-align:center"><span class="fd-note" style="margin:0;text-align:right" data-k="' + i + '">' + fmt(x.k * x.g / 100) + ' kcal</span>' +
+      '<button type="button" class="fd-iconbtn" data-rm="' + i + '" aria-label="Remove ' + esc(x.n) + '">✕</button></div>').join('');
+    phTotals();
+  }
+  async function handlePhoto(file) {
+    if (!file) return;
+    st.ph = []; showView('photo'); phRows(); $('fdPhNote').textContent = '✦ Analyzing photo…';
+    try {
+      if (!/^image\//.test(file.type)) throw new Error('Please choose an image.');
+      const d = await askPhoto(await shrinkImage(file));
+      if (!d || !Array.isArray(d.items) || !d.items.length) throw new Error('Photo analysis isn’t available from the AI service yet.');
+      const items = d.items.filter(aiOK).slice(0, 12);
+      if (!items.length) throw new Error('Gemini couldn’t recognise this food confidently.');
+      st.ph = items.map(a => ({ n: String(a.name).slice(0, 80), g: +a.grams, k: +a.k, p: +a.p, c: +a.c, f: +a.f }));
+      $('fdPhNote').textContent = 'AI Estimated · review and edit before adding.' + (st.ph.length === 1 ? ' Whole-meal estimate — components couldn’t be separated.' : '');
+      phRows();
+    } catch (err) { $('fdPhNote').textContent = (err && err.message ? err.message : 'Something went wrong.') + ' Go back to describe it or enter it manually.'; }
+  }
+  async function phAdd() {
+    const q = $('fdPhAdd').value.trim(); if (!q || st.busy) return;
+    const hit = search(q)[0]; st.busy = true;
+    try {
+      if (hit) st.ph.push({ n: hit.en, g: hit.serv ? hit.serv.g : 100, k: hit.k, p: hit.p, c: hit.c, f: hit.f });
+      else { const a = await askAI(q); if (!aiOK(a)) throw new Error('bad'); st.ph.push({ n: String(a.name).slice(0, 80), g: +a.grams, k: +a.k, p: +a.p, c: +a.c, f: +a.f }); }
+      $('fdPhAdd').value = ''; phRows();
+    } catch (e) { $('fdPhNote').textContent = 'Couldn’t estimate “' + q + '”. Try a simpler name.'; }
+    finally { st.busy = false; }
+  }
+  function phSave() {
+    const it = st.ph.filter(x => x.g > 0 && x.g <= 5000); if (!it.length) return;
+    const key = keyOf(st.day), list = dayEntries(), grp = uid(), now = Date.now(), ids = [];
+    it.forEach((x, i) => { const id = uid(); ids.push(id); list.push({ id, fid: 'photo', n: x.n, k: x.k, p: x.p, c: x.c, f: x.f, g: r1(x.g), meal: st.meal, ap: true, est: true, ts: now + i, src: 'photo', grp }); });
+    setDayEntries(key, list); closeSheet(); render();
+    showUndo('Added ' + it.length + (it.length > 1 ? ' items' : ' item'), () => { setDayEntries(key, dayEntries(new Date(key + 'T12:00:00')).filter(x => ids.indexOf(x.id) < 0)); render(); });
+  }
+
   async function runAI(query, button) {
     query = String(query || '').trim();
     if (!query) return;
@@ -9597,8 +9742,12 @@ async function pomRestoreSession() {
     if (code.length < 6) { $('fdScanMsg').textContent = 'That doesn’t look like a barcode. Check the number under the lines.'; return; }
     const hit = getCustom().find(c => c.barcode === code);
     if (hit) { chooseFood(Object.assign({ mine: true }, hit)); return; }
-    // Later: fetch Open Food Facts here before falling back to the form.
-    openForm({ barcode: code, note: 'New product. Enter the values per 100 g from the label once. It is saved, so next scan is instant.' });
+    $('fdScanMsg').textContent = 'Looking up product…';
+    offLookup(code).then(f => {
+      if (st.view !== 'scan') return;
+      if (f) { store(LS_CUSTOM, getCustom().concat([f])); chooseFood(Object.assign({ mine: true }, f)); }
+      else openForm({ barcode: code, note: 'Product not found online. Enter the values per 100 g from the label once. It is saved, so next scan is instant.' });
+    });
   }
   function startScan() {
     showView('scan');
@@ -9673,7 +9822,21 @@ async function pomRestoreSession() {
 
     $('fdQ').addEventListener('input', renderResults);
     $('fdQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const q = $('fdQ').value.trim(), sb = $('fdResults').querySelector('[data-smart]'); if (sb && isSmart(parseSmart(q))) { e.preventDefault(); smartLog(q, sb); return; } const b = $('fdResults').querySelector('.fd-res'); if (b) b.click(); } });
-    $('fdScanBtn').addEventListener('click', startScan);
+    $('fdUnit').addEventListener('click', cycleUnit);
+    $('fdUnit').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleUnit(); } });
+    $('fdUQty').addEventListener('input', () => { const n = st.un, q = num($('fdUQty').value); if (n && q > 0 && q <= 500) { n.q = q; n.touched = true; calcUnits(); } else { $('fdGrams').value = ''; updatePreview(); } });
+    $('fdUQty').addEventListener('keydown', e => { if (e.key === 'Enter') saveAmount(); });
+    $('fdUG').addEventListener('input', () => { const n = st.un, v = num($('fdUG').value); if (n && v > 0 && v <= 5000) { n.ug = v; n.ugEd = true; renderUSz(); calcUnits(); } else { $('fdGrams').value = ''; updatePreview(); } });
+    $('fdUSz').addEventListener('click', e => { const b = e.target.closest('[data-sz]'), n = st.un; if (!b || !n) return; n.sz = b.dataset.sz; n.ug = optW(curOpt(), n.sz); n.ugEd = false; $('fdUG').value = r1(n.ug); renderUSz(); calcUnits(); });
+    $('fdScanBtn').addEventListener('click', e => { e.stopPropagation(); $('fdCamMenu').hidden = !$('fdCamMenu').hidden; });
+    document.addEventListener('click', e => { if (!e.target.closest('#fdCamMenu')) $('fdCamMenu').hidden = true; });
+    $('fdCamMenu').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (!b) return; $('fdCamMenu').hidden = true; if (b.dataset.cam === 'scan') startScan(); else $('fdPhotoIn').click(); });
+    $('fdPhotoIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; handlePhoto(f); });
+    $('fdPhRows').addEventListener('input', e => { const i = e.target.dataset.i, f = e.target.dataset.f, x = st.ph[i]; if (!x) return; if (f === 'n') x.n = e.target.value.trim() || x.n; else { x.g = num(e.target.value); const k = $('fdPhRows').querySelector('[data-k="' + i + '"]'); if (k) k.textContent = fmt(x.k * (x.g > 0 ? x.g : 0) / 100) + ' kcal'; phTotals(); } });
+    $('fdPhRows').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { st.ph.splice(+b.dataset.rm, 1); phRows(); } });
+    $('fdPhAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); phAdd(); } });
+    $('fdPhMeal').addEventListener('click', e => { const b = e.target.closest('[data-meal]'); if (!b) return; st.meal = b.dataset.meal; $('fdPhMeal').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.meal === st.meal)); });
+    $('fdPhSave').addEventListener('click', phSave);
     $('fdResults').addEventListener('click', e => {
       const t = e.target.closest('[data-fid],[data-ai],[data-smart]'); if (!t) return;
       if (t.dataset.smart) { smartLog($('fdQ').value.trim(), t); return; }
@@ -9690,10 +9853,7 @@ async function pomRestoreSession() {
       $(id).addEventListener('keydown', e => { if (e.key === 'Enter') saveForm(); });
     });
 
-    $('fdGrams').addEventListener('input', updatePreview);
-    $('fdDQty').addEventListener('input', () => { const t = st.ent, q = num($('fdDQty').value); if (t && q > 0) { t.q = q; t.ugEd = t.ugEd; setGrams(q * t.ug); } });
     $('fdGrams').addEventListener('input', () => { const t = st.ent, g = gramsVal(); if (t && isFinite(g) && t.q > 0) { t.ug = g / t.q; t.sz = 'custom'; t.ugEd = true; renderSizes(); } });
-    $('fdDSz').addEventListener('click', e => { const b = e.target.closest('[data-sz]'), t = st.ent; if (!b || !t) return; t.sz = b.dataset.sz; if (t.sz === 'custom') { focusLater($('fdGrams'), true); } else { t.ug = sizeG(t, t.sz); t.ugEd = true; setGrams(t.q * t.ug); } renderSizes(); });
     [['K', 'k'], ['P', 'p'], ['C', 'c'], ['F', 'f']].forEach(x => $('fdD' + x[0]).addEventListener('input', () => { const v = num($('fdD' + x[0]).value); if (isFinite(v) && v >= 0 && st.food) { st.food[x[1]] = v; st.nutEd = true; updatePreview(); } }));
     $('fdDName').addEventListener('input', () => { if (st.ent) st.ent.n = $('fdDName').value.trim() || st.ent.n; });
     $('fdDDesc').addEventListener('input', () => { if (st.ent) st.ent.d = $('fdDDesc').value; });
