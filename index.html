@@ -1418,6 +1418,26 @@ html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
   .modal-overlay,.modal-overlay.open{transition-duration:.15s}
   .progress-fill{transition-duration:.2s}
 }
+
+/* index30 · Dashboard cards open modals */
+#cardWater,#cardCaffeine,#cardSleep,#cardSteps,#cardPushups,#cardMood{cursor:pointer;-webkit-tap-highlight-color:transparent}
+#cardWater:focus-visible,#cardCaffeine:focus-visible,#cardSleep:focus-visible,#cardSteps:focus-visible,#cardPushups:focus-visible,#cardMood:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.cf-item{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:0 16px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font:600 15px 'DM Sans',system-ui,sans-serif;cursor:pointer;text-align:left;transition:background-color .15s,border-color .15s,transform .12s}
+.cf-item:active{transform:scale(.985)}
+.cf-item .cf-mg{font-size:13px;font-weight:600;color:rgba(255,255,255,.55);white-space:nowrap}
+.cf-item.selected{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.5)}
+.cf-item.selected .cf-mg{color:#eab308}
+.cf-item:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.cf-item{transition:none}}
+
+/* index31 · left zone = decrease, right zone = open modal */
+.has-dec>div:nth-child(2){padding-bottom:56px!important}
+.dec-zone{position:absolute;left:0;top:0;bottom:0;width:50%;z-index:12;border:0;border-radius:var(--r-card,20px) 0 0 var(--r-card,20px);background:transparent;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.dec-zone:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.dec-zone span,.has-dec::after{position:absolute;bottom:14px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font:500 18px/1 'DM Sans',system-ui,sans-serif;pointer-events:none}
+.dec-zone span{left:16px}
+.has-dec::after{content:"+";right:16px;z-index:11}
+@media (prefers-reduced-motion:reduce){.dec-zone{transition:none}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1644,7 +1664,7 @@ body.focus-mode .fd-fab{display:none !important}
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn-cancel" onclick="closeSleepModal()">Cancel</button>
-      <button class="btn-save" onclick="saveSleep()">Save</button>
+      <button class="btn-save" onclick="saveSleep()">Done</button>
     </div>
   </div>
 </div>
@@ -1663,7 +1683,7 @@ body.focus-mode .fd-fab{display:none !important}
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn-cancel" onclick="closeStepsModal()">Cancel</button>
-      <button class="btn-save" onclick="saveSteps()">Save</button>
+      <button class="btn-save" onclick="saveSteps()">Done</button>
     </div>
   </div>
 </div>
@@ -1682,7 +1702,39 @@ body.focus-mode .fd-fab{display:none !important}
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn-cancel" onclick="closePushupsModal()">Cancel</button>
-      <button class="btn-save" onclick="savePushups()">Save</button>
+      <button class="btn-save" onclick="savePushups()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- WATER -->
+<div id="waterModal" class="modal-overlay" onclick="if(event.target===this)closeWaterModal()">
+  <div class="modal-box modal-box-steps">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Water</p>
+    <p style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Total litres drunk today</p>
+    <input id="waterInput" type="number" inputmode="decimal" class="mission-input" style="margin-bottom:10px" value="0" min="0" max="10" step="0.1">
+    <div style="display:flex;gap:6px;margin-bottom:20px">
+      <button class="qbtn" onclick="addWaterQ(0.2)">+0.2 L</button>
+      <button class="qbtn" onclick="addWaterQ(0.5)">+0.5 L</button>
+      <button class="qbtn" onclick="addWaterQ(1)">+1 L</button>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeWaterModal()">Cancel</button>
+      <button class="btn-save" onclick="saveWater()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAFFEINE -->
+<div id="caffeineModal" class="modal-overlay" onclick="if(event.target===this)closeCaffeineModal()">
+  <div class="modal-box" style="max-width:380px">
+    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Caffeine</p>
+    <p id="cfToday" style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Today: 0 mg</p>
+    <div id="cfList" role="radiogroup" aria-label="Beverage" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+    <p style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:18px;line-height:1.5">Approximate values for one medium serving. Cappuccino and Mocaccino assume one espresso shot.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn-cancel" onclick="closeCaffeineModal()">Cancel</button>
+      <button class="btn-save" onclick="saveCaffeine()">Done</button>
     </div>
   </div>
 </div>
@@ -1777,7 +1829,7 @@ body.focus-mode .fd-fab{display:none !important}
     </div>
     <div style="display:flex;gap:10px">
       <button class="btn-cancel" onclick="closeMoodModal()">Cancel</button>
-      <button class="btn-save"   onclick="saveMood()">Save</button>
+      <button class="btn-save"   onclick="saveMood()">Done</button>
     </div>
   </div>
 </div>
@@ -7144,7 +7196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Card tap gestures ──────────────────────────────────────
 
   // WATER / CAFFEINE / SLEEP / STEPS / PUSH-UPS: tap or hold — left half = down, right half = up
-  initHoldCards();
+  /* index30: tap-halves gesture retired — each card opens its modal */
 
   // MOOD: single tap → openMoodModal
   (function() {
@@ -9508,6 +9560,73 @@ async function pomRestoreSession() {
     window.renderFood = render;   // called by switchTab('food') so the page is always fresh
   }
   init();
+})();
+</script>
+<script>
+/* index30 · Dashboard entry: tap a card → modal → Done. Saves reuse adjustWater / adjustCaffeine / saveSleep / saveSteps / savePushups / saveMood. */
+var CF_DRINKS=[['Regular Coffee',95],['Espresso (Single Shot)',63],['Long Coffee',120],['Cappuccino',63],['Red Tea',40],['Mocaccino',63],['Hot Chocolate',15]];
+var cfPick=-1;
+function openWaterModal(){document.getElementById('waterInput').value=(S.waterHistory[S.dayIndex]||0).toFixed(1);document.getElementById('waterModal').classList.add('open')}
+function closeWaterModal(){document.getElementById('waterModal').classList.remove('open')}
+function addWaterQ(n){var el=document.getElementById('waterInput');el.value=clamp(+((parseFloat(el.value)||0)+n).toFixed(1),0,10).toFixed(1)}
+function saveWater(){
+  if(selectedDay>SYSTEM_TODAY){closeWaterModal();return}
+  var v=clamp(+(parseFloat(document.getElementById('waterInput').value)||0).toFixed(1),0,10);
+  adjustWater(v-(S.waterHistory[S.dayIndex]||0));closeWaterModal();
+}
+function openCaffeineModal(){
+  cfPick=-1;document.getElementById('cfToday').textContent='Today: '+(S.caffeineHistory[S.dayIndex]||0)+' mg';
+  var l=document.getElementById('cfList');l.innerHTML='';
+  CF_DRINKS.forEach(function(d,i){
+    var b=document.createElement('button');b.type='button';b.className='cf-item';b.setAttribute('role','radio');b.setAttribute('aria-checked','false');
+    b.innerHTML='<span>'+d[0]+'</span><span class="cf-mg">'+d[1]+' mg</span>';
+    b.onclick=function(){cfPick=i;Array.prototype.forEach.call(l.children,function(c,j){c.classList.toggle('selected',j===i);c.setAttribute('aria-checked',j===i)})};
+    l.appendChild(b);
+  });
+  document.getElementById('caffeineModal').classList.add('open');
+}
+function closeCaffeineModal(){document.getElementById('caffeineModal').classList.remove('open')}
+function saveCaffeine(){
+  if(cfPick>=0&&selectedDay<=SYSTEM_TODAY)adjustCaffeine(CF_DRINKS[cfPick][1]);
+  closeCaffeineModal();
+}
+(function(){
+  var M={cardWater:function(){openWaterModal()},cardCaffeine:function(){openCaffeineModal()},cardSleep:function(){openSleepModal()},cardSteps:function(){openStepsModal()},cardPushups:function(){openPushupsModal()},cardMood:null};
+  Object.keys(M).forEach(function(id){
+    var c=document.getElementById(id);if(!c)return;
+    c.tabIndex=0;c.setAttribute('role','button');
+    if(!M[id])return; // mood card already opens its modal
+    function go(){if(selectedDay<=SYSTEM_TODAY)M[id]()}
+    c.addEventListener('click',go);
+    c.addEventListener('keydown',function(e){if(e.target!==c)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}});
+  });
+  var mc=document.getElementById('cardMood');
+  if(mc)mc.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openMoodModal()}});
+  [['waterInput','openWaterModal','saveWater'],['stepsInput','openStepsModal','saveSteps'],['pushupsInput','openPushupsModal','savePushups']].forEach(function(t){
+    var el=document.getElementById(t[0]);if(t[0]!=='waterInput')el.setAttribute('inputmode','numeric');
+    el.addEventListener('keydown',function(e){if(e.key==='Enter')window[t[2]]()});
+    var f=window[t[1]];window[t[1]]=function(){f();setTimeout(function(){el.focus();el.select()},60)};
+  });
+})();
+</script>
+<script>
+/* index31 · left-side decrease on each card (water 100 ml, caffeine 10 mg, sleep 15 min, steps 100, push-ups 1). Reuses existing save paths; never below 0. */
+(function(){
+  function cur(h){return h()[S.dayIndex]||0}
+  var D={
+    cardWater:{l:'Remove 100 ml of water',f:function(){if(cur(function(){return S.waterHistory})>0)adjustWater(-0.1)}},
+    cardCaffeine:{l:'Remove 10 mg of caffeine',f:function(){var v=S.caffeineHistory[S.dayIndex]||0;if(v>0)adjustCaffeine(-Math.min(10,v))}},
+    cardSleep:{l:'Remove 15 minutes of sleep',f:function(){var v=S.sleepHistory[S.dayIndex]||0;if(v>0){sleepTmp=Math.max(0,Math.round((v-0.25)*60)/60);saveSleep()}}},
+    cardSteps:{l:'Remove 100 steps',f:function(){var v=S.stepsHistory[S.dayIndex]||0;if(v>0){document.getElementById('stepsInput').value=Math.max(0,v-100);saveSteps()}}},
+    cardPushups:{l:'Remove 1 push-up',f:function(){var v=S.pushupsHistory[S.dayIndex]||0;if(v>0){document.getElementById('pushupsInput').value=Math.max(0,v-1);savePushups()}}}
+  };
+  Object.keys(D).forEach(function(id){
+    var c=document.getElementById(id);if(!c)return;
+    c.classList.add('has-dec');
+    var b=document.createElement('button');b.type='button';b.className='dec-zone';b.setAttribute('aria-label',D[id].l);b.innerHTML='<span aria-hidden="true">−</span>';
+    b.addEventListener('click',function(e){e.stopPropagation();if(selectedDay<=SYSTEM_TODAY)D[id].f()});
+    c.appendChild(b);
+  });
 })();
 </script>
 
