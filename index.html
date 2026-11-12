@@ -2907,6 +2907,17 @@ body.focus-mode .fd-fab{display:none !important}
             <span class="fd-unit">g</span>
           </div>
           <div class="fd-chips" id="fdChips"></div>
+          <details class="fd-det" id="fdDet" hidden style="margin:12px 0 0">
+            <summary style="cursor:pointer;font-size:13px;opacity:.7;padding:6px 0">Details</summary>
+            <div style="display:grid;gap:8px;margin-top:8px">
+              <input id="fdDName" class="fd-input" placeholder="Food name" aria-label="Food name" maxlength="100">
+              <input id="fdDDesc" class="fd-input" placeholder="Description / ingredients" aria-label="Description" maxlength="200">
+              <div style="display:flex;gap:8px;align-items:flex-start"><input id="fdDQty" class="fd-input" inputmode="decimal" placeholder="Qty" aria-label="Quantity" style="flex:0 0 76px"><div class="fd-chips" id="fdDSz" style="margin:0" hidden></div></div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><input id="fdDK" class="fd-input" inputmode="decimal" placeholder="kcal" aria-label="kcal per 100 g"><input id="fdDP" class="fd-input" inputmode="decimal" placeholder="P" aria-label="Protein per 100 g"><input id="fdDC" class="fd-input" inputmode="decimal" placeholder="C" aria-label="Carbs per 100 g"><input id="fdDF" class="fd-input" inputmode="decimal" placeholder="F" aria-label="Fat per 100 g"></div>
+              <p class="fd-note" style="margin:0">Nutrition values are per 100 g.</p>
+              <button type="button" class="fd-btn fd-btn-ghost" id="fdDAI">✦ Re-estimate with Gemini</button>
+            </div>
+          </details>
           <div class="fd-preview" aria-live="polite">
             <div><b id="fdPK">0</b><span>kcal</span></div>
             <div><b id="fdPP">0</b><span>protein</span></div>
@@ -9026,6 +9037,65 @@ async function pomRestoreSession() {
       .replace(/[ً-ٰٟ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
   }
 
+/*SMART-START*/
+  // ── smart natural-language logging (additive; entries keep per-100 g values + grams `g`)
+  const LS_SERV = 'foodServ';
+  const NUMW = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, half: 0.5, dozen: 12 };
+  const UNITS = { piece: 'piece', pieces: 'piece', slice: 'slice', slices: 'slice', bowl: 'bowl', bowls: 'bowl', cup: 'cup', cups: 'cup', can: 'can', cans: 'can', container: 'container', containers: 'container', pot: 'container', pots: 'container', tbsp: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', spoons: 'tbsp', tsp: 'tsp', teaspoon: 'tsp', teaspoons: 'tsp', glass: 'glass', glasses: 'glass', plate: 'plate', plates: 'plate', serving: 'serving', servings: 'serving', bottle: 'bottle', bottles: 'bottle' };
+  const SIZEABLE = { container: 1, bowl: 1, slice: 1, cup: 1, glass: 1, plate: 1, bottle: 1, can: 1 };
+  const SZ_SCALE = { small: 0.75, medium: 1, large: 1.35 };
+  const COOK = ['fried', 'grilled', 'boiled', 'baked', 'roasted', 'steamed', 'scrambled', 'raw', 'smoked'];
+  // built-in serving weights (g): [food regex, accepted units, {size: g}]
+  const SERV = [
+    [/yogh?urt|yaourt|zabadi/, ['container', 'cup'], { small: 100, medium: 125, large: 170 }],
+    [/pizza/, ['slice', 'piece'], { small: 80, medium: 110, large: 150 }],
+    [/\beggs?\b|\boeufs?\b/, ['piece'], { small: 40, medium: 50, large: 60 }],
+    [/bread|toast|khobz|baguette/, ['slice', 'piece'], { small: 25, medium: 30, large: 40 }],
+    [/banana|banane/, ['piece'], { small: 100, medium: 118, large: 136 }],
+    [/apple|pomme/, ['piece'], { small: 150, medium: 182, large: 220 }],
+    [/\brice\b|\briz\b/, ['cup'], { small: 130, medium: 160, large: 200 }],
+    [/olive oil|huile/, ['tbsp'], { small: 14, medium: 14, large: 14 }],
+    [/tuna|thon/, ['can'], { small: 112, medium: 140, large: 170 }]
+  ];
+  function parseSmart(text) {
+    const s = String(text || '').trim().replace(/\s+/g, ' ');
+    const p = { text: s, q: NaN, u: '', sz: '', w: NaN, cm: '', ing: [], food: '', mod: false };
+    let low = s.toLowerCase(), m = low.match(/(\d+(?:[.,]\d+)?)\s*(kg|grams?|gr|g|ml)\b/);
+    if (m) { p.w = num(m[1]) * (m[2] === 'kg' ? 1000 : 1); low = low.replace(m[0], ' ').replace(/\s+/g, ' ').trim(); }
+    m = low.match(/^(\d+\/\d+|\d+(?:[.,]\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|half|dozen)\b\s*(?:x\s+)?/);
+    if (m) {
+      const t = m[1]; p.q = NUMW[t] != null ? NUMW[t] : (t.indexOf('/') > 0 ? t.split('/')[0] / t.split('/')[1] : num(t));
+      low = low.slice(m[0].length);
+    }
+    const sm = low.match(/\b(small|medium|large|big)\b/); if (sm) { p.sz = sm[1] === 'big' ? 'large' : sm[1]; low = low.replace(sm[0], ' ').replace(/\s+/g, ' ').trim(); }
+    if (/\bhome[- ]?made\b/.test(low)) { p.mod = true; low = low.replace(/\bhome[- ]?made\b/, ' ').replace(/\s+/g, ' ').trim(); }
+    const um = low.match(/^([a-z]+)\b(?:\s+of\b)?\s*/);
+    if (um && UNITS[um[1]]) { p.u = UNITS[um[1]]; low = low.slice(um[0].length); }
+    const parts = low.split(/\s+(?:with|topped with|including)\s+|,\s*/);
+    let food = (parts.shift() || '').trim();
+    let tail = parts.join(',').split(/,|\band\b|&/).map(x => x.trim()).filter(Boolean);
+    const fm = food.split(/\s+and\s+/); if (fm.length > 1) { food = fm[0]; tail = fm.slice(1).concat(tail); }
+    const w = food.split(' '), last = w[w.length - 1];
+    if (!p.u && w.length > 1 && UNITS[last]) { p.u = UNITS[last]; w.pop(); food = w.join(' '); }
+    p.cm = COOK.find(c => new RegExp('\\b' + c + '\\b').test(food)) || '';
+    p.food = food; p.ing = tail;
+    return p;
+  }
+  function isSmart(p) { return !!p.food && (isFinite(p.q) || isFinite(p.w)); }
+  function builtinServ(food, u, sz) {
+    const f = norm(food), s = SZ_SCALE[sz] ? sz : 'medium';
+    for (const r of SERV) if (r[0].test(f) && (!u || r[1].indexOf(u) >= 0)) return { u: u || r[1][0], g: r[2][s] };
+    return null;
+  }
+  function unitQuery(p) {
+    const core = (p.cm && p.food.indexOf(p.cm) < 0 ? p.cm + ' ' : '') + p.food + (p.ing.length ? ' with ' + p.ing.join(', ') : '');
+    return p.w ? core : '1 ' + (p.sz ? p.sz + ' ' : '') + (p.u && p.u !== 'piece' ? p.u + ' of ' : '') + (p.mod ? 'homemade ' : '') + core;
+  }
+  function aiOK(a) {
+    const v = a ? [a.k, a.p, a.c, a.f, a.grams].map(Number) : [NaN];
+    return !!(a && a.name && v.every(Number.isFinite) && v[0] >= 0 && v[0] <= 900 && v.slice(1, 4).every(x => x >= 0 && x <= 100) && v[1] + v[2] + v[3] <= 100.5 && v[4] > 0 && v[4] <= 5000);
+  }
+/*SMART-END*/
   // ── seed foods: per 100 g  (k = kcal, p/c/f = grams).  approx = home recipes vary.  alt = FR / Darija aliases
   const F = (id, en, ar, k, p, c, f, x) => Object.assign({ id, en, ar, k, p, c, f }, x || {});
   const SEED = [
@@ -9166,7 +9236,7 @@ async function pomRestoreSession() {
         const k = e.k * e.g / 100, m1 = e.g / 100;
         html += '<div class="fd-row"><button type="button" class="fd-row-main" data-edit="' + esc(e.id) + '"><div style="min-width:0">' +
           '<div class="fd-row-name">' + esc(e.n) + '</div>' +
-          '<div class="fd-row-sub">' + r1(e.g) + ' g · P ' + r1(e.p * m1) + ' · C ' + r1(e.c * m1) + ' · F ' + r1(e.f * m1) + '</div></div>' +
+          '<div class="fd-row-sub">' + r1(e.g) + ' g · P ' + r1(e.p * m1) + ' · C ' + r1(e.c * m1) + ' · F ' + r1(e.f * m1) + (e.est ? '<span style="opacity:.5"> · Estimated</span>' : '') + '</div></div>' +
           '<div class="fd-row-k">' + (e.ap ? '≈ ' : '') + fmt(k) + '<small>kcal</small></div></button>' +
           '<button type="button" class="fd-iconbtn fd-del" data-del="' + esc(e.id) + '" aria-label="Remove ' + esc(e.n) + '">' +
           '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></button></div>';
@@ -9248,6 +9318,7 @@ async function pomRestoreSession() {
       html += '<div class="fd-sec">COMMON</div>' + SEED.slice(0, 14).map(foodRow).join('');
     } else {
       const res = search(q);
+      if (isSmart(parseSmart(q))) html += '<button type="button" class="fd-res fd-res-ai" data-smart="1"><div><div class="fd-res-name">✦ Log “' + esc(q) + '”</div><div class="fd-res-ar">Press Enter · portion and nutrition estimated for you</div></div></button>';
       html += res.length ? res.map(foodRow).join('') : '<p class="fd-note" style="margin:16px 4px 4px">No match for “' + esc(q) + '”.</p>';
       // Ask Gemini to estimate a food that is not already in the local catalogue.
       html += '<button type="button" class="fd-res fd-res-ai" data-ai="1"><div><div class="fd-res-name">✦ Describe it: “' + esc(q) + '”</div>' +
@@ -9258,7 +9329,7 @@ async function pomRestoreSession() {
 
   // ── pick a food → amount
   function chooseFood(f) {
-    st.food = f; st.editing = null;
+    st.food = f; st.editing = null; st.ent = null;
     openAmount(f.serv ? f.serv.g : 100);
   }
   function openAmount(grams) {
@@ -9275,6 +9346,7 @@ async function pomRestoreSession() {
     setMeal(st.meal);
     showView('amount');
     updatePreview();
+    setupDetails();
     focusLater($('fdGrams'), true);
   }
   function gramsVal() { const g = num($('fdGrams').value); return g > 0 && g <= 5000 ? g : NaN; }
@@ -9298,7 +9370,7 @@ async function pomRestoreSession() {
     const key = keyOf(st.day), list = dayEntries();
     if (st.editing) {
       const e = list.find(x => x.id === st.editing);
-      if (e) { e.g = g; e.meal = st.meal; }
+      if (e) { applyEdit(e, g); }
     } else {
       const f = st.food;
       list.push({ id: uid(), fid: f.id, n: f.en, k: f.k, p: f.p, c: f.c, f: f.f, g, meal: st.meal, ap: !!f.approx, ts: Date.now() });
@@ -9313,6 +9385,7 @@ async function pomRestoreSession() {
     const e = dayEntries().find(x => x.id === id); if (!e) return;
     st.editing = id;
     st.food = { id: e.fid, en: e.n, k: e.k, p: e.p, c: e.c, f: e.f, approx: e.ap };
+    st.ent = Object.assign({}, e); st.nutEd = false;
     st.meal = e.meal;
     openSheet('amount');
     openAmount(e.g);
@@ -9369,6 +9442,85 @@ async function pomRestoreSession() {
     return data;
   }
 
+
+  async function resolveSmart(p) {
+    if (!p.u) { const b = builtinServ(p.food, '', p.sz); p.u = b ? b.u : (isFinite(p.w) ? '' : 'piece'); }
+    if (!p.sz && SIZEABLE[p.u]) p.sz = 'medium';
+    if (!(p.q > 0)) p.q = 1;
+    const key = norm(p.food + ' ' + p.ing.join(' ') + (p.mod ? ' homemade' : '')) + '|' + p.u + '|' + (p.sz || ''), cache = load(LS_SERV, {}), c = cache[key];
+    const plain = !p.ing.length && !p.mod, hit = plain ? search(p.food)[0] : null;
+    let nut, ug, src = 'local', conf = '';
+    if (c && c.ok && c.g > 0) { nut = c; ug = c.g; src = 'saved'; }
+    else {
+      const bs = plain ? builtinServ(p.food, p.u, p.sz) : null;
+      if (hit && (isFinite(p.w) || bs || (hit.serv && !p.u))) { nut = { id: hit.id, n: hit.en, k: hit.k, p: hit.p, c: hit.c, f: hit.f, approx: !!hit.approx }; ug = bs ? bs.g : (hit.serv ? hit.serv.g : 0); }
+      else if (c && c.g > 0 && !isFinite(p.w)) { nut = c; ug = c.g; src = 'saved'; }
+    }
+    if (!nut || (!isFinite(p.w) && !(ug > 0))) {
+      const a = await askAI(unitQuery(p));
+      if (!aiOK(a)) throw new Error('Gemini returned values outside the expected nutrition ranges.');
+      nut = { n: String(a.name).slice(0, 100), k: +a.k, p: +a.p, c: +a.c, f: +a.f, approx: true }; ug = +a.grams; src = 'ai'; conf = String(a.confidence || '');
+      if (!(c && c.ok)) { cache[key] = { n: nut.n, k: nut.k, p: nut.p, c: nut.c, f: nut.f, g: ug, ok: false }; store(LS_SERV, cache); }
+    }
+    const total = isFinite(p.w) ? p.w : p.q * ug;
+    if (!(total > 0 && total <= 5000)) throw new Error('The estimated weight is out of range.');
+    const est = src === 'ai' || !!nut.approx;
+    return { id: uid(), fid: nut.id || 'smart', n: nut.n, k: nut.k, p: nut.p, c: nut.c, f: nut.f, g: r1(total), meal: st.meal, ap: est, est, ts: Date.now(),
+      d: p.text, ing: p.ing, cm: p.cm, q: isFinite(p.w) ? 1 : p.q, u: p.u, sz: p.sz, ug: isFinite(p.w) ? total : ug, src, key, cf: conf };
+  }
+  async function smartLog(text, btn) {
+    const p = parseSmart(text);
+    if (st.busy || !isSmart(p)) return;
+    st.busy = true;
+    const oh = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<div><div class="fd-res-name">✦ Logging…</div><div class="fd-res-ar">Estimating portion</div></div>'; }
+    try {
+      const e = await resolveSmart(p), key = keyOf(st.day), list = dayEntries();
+      list.push(e); setDayEntries(key, list);
+      if (e.fid !== 'smart') store(LS_RECENT, [e.fid].concat(load(LS_RECENT, []).filter(x => x !== e.fid)).slice(0, 12));
+      closeSheet(); render();
+      showUndo('Added ' + e.n, () => { setDayEntries(key, dayEntries(new Date(key + 'T12:00:00')).filter(x => x.id !== e.id)); render(); });
+    } catch (err) {
+      openForm({ name: p.text, note: 'Could not estimate this food: ' + (err && err.message ? err.message : 'Unknown error') + ' You can enter the nutrition values manually.' });
+    } finally { st.busy = false; if (btn) { btn.disabled = false; btn.innerHTML = oh; } }
+  }
+
+  // ── edit details (progressive disclosure inside the amount sheet)
+  function sizeG(t, sz) { const b = builtinServ(t.n, t.u, sz); return b ? b.g : t.ug0 * SZ_SCALE[sz] / SZ_SCALE[SZ_SCALE[t.sz0] ? t.sz0 : 'medium']; }
+  function setGrams(g) { $('fdGrams').value = r1(g); updatePreview(); }
+  function renderSizes() {
+    const t = st.ent, box = $('fdDSz'); box.hidden = !SIZEABLE[t.u];
+    if (box.hidden) return;
+    box.innerHTML = ['small', 'medium', 'large'].map(z => '<button type="button" class="fd-chip" data-sz="' + z + '" aria-pressed="' + (t.sz === z) + '">' + z.toUpperCase() + '<small style="display:block;opacity:.6">' + Math.round(sizeG(t, z)) + ' g</small></button>').join('') +
+      '<button type="button" class="fd-chip" data-sz="custom" aria-pressed="' + (t.sz === 'custom') + '">CUSTOM</button>';
+  }
+  function setupDetails() {
+    const t = st.ent, det = $('fdDet'); det.hidden = !t; if (!t) return;
+    if (!(t.q > 0)) { t.q = 1; t.ug = t.g; } if (!(t.ug > 0)) t.ug = t.g / t.q;
+    t.ug0 = t.ug; t.sz0 = t.sz; det.open = false;
+    $('fdDName').value = t.n; $('fdDDesc').value = t.d || ''; $('fdDQty').value = r1(t.q);
+    ['K', 'P', 'C', 'F'].forEach(x => { $('fdD' + x).value = r1(st.food[x.toLowerCase()]); });
+    renderSizes();
+  }
+  function applyEdit(e, g) {
+    const t = st.ent || {};
+    e.g = g; e.meal = st.meal; e.n = t.n || e.n; e.k = st.food.k; e.p = st.food.p; e.c = st.food.c; e.f = st.food.f;
+    if (t.d != null) e.d = t.d;
+    if (t.q > 0) { e.q = t.q; e.ug = t.ug; e.u = t.u; e.sz = t.sz; }
+    if (st.nutEd) { e.est = false; e.ap = false; e.src = 'user'; }
+    if (e.key && t.ugEd && t.sz !== 'custom') { const c = load(LS_SERV, {}); if (c[e.key]) { c[e.key].g = t.ug; c[e.key].ok = true; store(LS_SERV, c); } }
+  }
+  async function reEstimate() {
+    const t = st.ent; if (!t || st.busy) return;
+    const p = parseSmart(($('fdDDesc').value || t.n) + ''); p.u = t.u || p.u; p.sz = SZ_SCALE[t.sz] ? t.sz : ''; p.w = NaN; if (!p.food) return;
+    const b = $('fdDAI'); st.busy = true; b.disabled = true; b.textContent = '✦ Estimating…';
+    try {
+      const a = await askAI(unitQuery(p)); if (!aiOK(a)) throw new Error('Unexpected values from Gemini.');
+      Object.assign(st.food, { k: +a.k, p: +a.p, c: +a.c, f: +a.f }); t.ug = t.ug0 = +a.grams; t.sz0 = SZ_SCALE[t.sz] ? t.sz : 'medium'; t.d = $('fdDDesc').value;
+      st.nutEd = false; setupDetails(); $('fdDet').open = true; setGrams(t.q * t.ug);
+    } catch (err) { $('fdASub').textContent = 'Could not re-estimate: ' + (err && err.message ? err.message : 'network error'); }
+    finally { st.busy = false; b.disabled = false; b.textContent = '✦ Re-estimate with Gemini'; }
+  }
   async function runAI(query, button) {
     query = String(query || '').trim();
     if (!query) return;
@@ -9520,10 +9672,11 @@ async function pomRestoreSession() {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else hideToast(); } });
 
     $('fdQ').addEventListener('input', renderResults);
-    $('fdQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('fdResults').querySelector('.fd-res'); if (b) b.click(); } });
+    $('fdQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const q = $('fdQ').value.trim(), sb = $('fdResults').querySelector('[data-smart]'); if (sb && isSmart(parseSmart(q))) { e.preventDefault(); smartLog(q, sb); return; } const b = $('fdResults').querySelector('.fd-res'); if (b) b.click(); } });
     $('fdScanBtn').addEventListener('click', startScan);
     $('fdResults').addEventListener('click', e => {
-      const t = e.target.closest('[data-fid],[data-ai]'); if (!t) return;
+      const t = e.target.closest('[data-fid],[data-ai],[data-smart]'); if (!t) return;
+      if (t.dataset.smart) { smartLog($('fdQ').value.trim(), t); return; }
       if (t.dataset.ai) { runAI($('fdQ').value.trim(), t); return; }
       const f = findFood(t.dataset.fid); if (f) chooseFood(f);
     });
@@ -9538,6 +9691,13 @@ async function pomRestoreSession() {
     });
 
     $('fdGrams').addEventListener('input', updatePreview);
+    $('fdDQty').addEventListener('input', () => { const t = st.ent, q = num($('fdDQty').value); if (t && q > 0) { t.q = q; t.ugEd = t.ugEd; setGrams(q * t.ug); } });
+    $('fdGrams').addEventListener('input', () => { const t = st.ent, g = gramsVal(); if (t && isFinite(g) && t.q > 0) { t.ug = g / t.q; t.sz = 'custom'; t.ugEd = true; renderSizes(); } });
+    $('fdDSz').addEventListener('click', e => { const b = e.target.closest('[data-sz]'), t = st.ent; if (!b || !t) return; t.sz = b.dataset.sz; if (t.sz === 'custom') { focusLater($('fdGrams'), true); } else { t.ug = sizeG(t, t.sz); t.ugEd = true; setGrams(t.q * t.ug); } renderSizes(); });
+    [['K', 'k'], ['P', 'p'], ['C', 'c'], ['F', 'f']].forEach(x => $('fdD' + x[0]).addEventListener('input', () => { const v = num($('fdD' + x[0]).value); if (isFinite(v) && v >= 0 && st.food) { st.food[x[1]] = v; st.nutEd = true; updatePreview(); } }));
+    $('fdDName').addEventListener('input', () => { if (st.ent) st.ent.n = $('fdDName').value.trim() || st.ent.n; });
+    $('fdDDesc').addEventListener('input', () => { if (st.ent) st.ent.d = $('fdDDesc').value; });
+    $('fdDAI').addEventListener('click', reEstimate);
     $('fdGrams').addEventListener('keydown', e => { if (e.key === 'Enter') saveAmount(); });
     $('fdChips').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (!b) return; $('fdGrams').value = b.dataset.g; updatePreview(); });
     $('fdSeg').addEventListener('click', e => { const b = e.target.closest('[data-meal]'); if (b) setMeal(b.dataset.meal); });
