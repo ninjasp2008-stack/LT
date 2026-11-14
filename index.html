@@ -515,7 +515,7 @@ body.focus-mode #pomModeSwitch{visibility:hidden}
 .week-nav-arrow{background:transparent;border:1px solid rgba(255,255,255,0.12);
   color:#9ca3af;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;
   font-family:'DM Sans',system-ui,sans-serif;transition:color .15s var(--ease-out),background-color .15s var(--ease-out),border-color .15s var(--ease-out),opacity .15s var(--ease-out),transform .15s var(--ease-out),box-shadow .15s var(--ease-out)}
-@media (hover:hover) and (pointer:fine){.week-nav-arrow:hover{border-color:#00FF66;color:#ffffff}}
+@media (hover:hover) and (pointer:fine){.week-nav-arrow:hover{border-color:#ffffff;color:#ffffff}}
 
 /* ── PROGRESS RING ── */
 .ring-circle{transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1)}
@@ -1438,6 +1438,132 @@ html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
 .dec-zone span{left:16px}
 .has-dec::after{content:"+";right:16px;z-index:11}
 @media (prefers-reduced-motion:reduce){.dec-zone{transition:none}}
+
+/* ═══ Habits page · minimal, fluid, monochrome (scoped to #tab-habits) ═══ */
+#tab-habits>div{width:100%;max-width:1120px;margin:0 auto;box-sizing:border-box;padding:clamp(12px,3vw,28px)!important;padding-bottom:96px!important;gap:clamp(12px,2vw,20px)!important}
+#tab-habits .mission-glass-container{max-width:none!important;margin:0!important;padding:clamp(14px,2.4vw,24px)!important;border-radius:20px!important}
+#tab-habits .habits-pair-grids{gap:clamp(12px,2vw,20px)}
+@media(min-width:900px){#tab-habits .habits-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+#tab-habits .glass-title{font-size:12px!important;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6)!important}
+#tab-habits #gridWeekHeader{font-size:14px!important;font-weight:600;letter-spacing:-.005em}
+#tab-habits .week-nav-arrow{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+#tab-habits #habitsGridContainerPos,#tab-habits #habitsGridContainerNeg{grid-template-columns:minmax(96px,1.7fr) repeat(7,minmax(0,1fr));gap:clamp(4px,1vw,8px);row-gap:clamp(6px,1.2vw,10px)}
+#tab-habits .grid-cell-week{width:100%;max-width:56px;height:clamp(36px,5.2vw,46px);aspect-ratio:auto;min-height:0;max-height:none;justify-self:center;border-radius:clamp(9px,1.6vw,13px);border:0!important;box-shadow:none!important;outline:none}
+#tab-habits #habitsGridContainerPos,#tab-habits #habitsGridContainerNeg{overflow:visible!important}
+#tab-habits .grid-cell-week:not(.is-done):not(.is-done-neg){background:rgba(255,255,255,.07)!important}
+#tab-habits .grid-cell-week.is-future{background:rgba(255,255,255,.03)!important}
+#tab-habits .grid-cell-week.is-done,#tab-habits .grid-cell-week.is-done-neg{background:rgba(255,255,255,.72)!important}
+#tab-habits .grid-cell-week.is-done.is-today,#tab-habits .grid-cell-week.is-done-neg.is-today-neg,#tab-habits .grid-cell-week.is-done-neg.is-today{background:#fff!important}
+#tab-habits .grid-cell-week:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#tab-habits .grid-header-letter{filter:none!important;font-size:12px;font-weight:600;color:rgba(255,255,255,.4)}
+#tab-habits .grid-header-letter[style*="255, 255, 255"],#tab-habits .grid-header-letter[style*="#ffffff"]{color:#fff!important}
+#tab-habits .grid-row-name{font-size:clamp(13px,1.6vw,15px);color:rgba(255,255,255,.85)}
+@media(max-width:600px){
+  #tab-habits #habitsGridContainerPos,#tab-habits #habitsGridContainerNeg{grid-template-columns:repeat(7,minmax(0,1fr));row-gap:4px}
+  #tab-habits .grid-header-name{display:none}
+  #tab-habits .grid-row-name{grid-column:1/-1;white-space:normal;padding:12px 0 2px;font-size:14px;font-weight:500}
+  #tab-habits .grid-cell-week{max-width:none;height:42px}
+}
+
+/* ═══ Habits · per-habit cards: week circles + streak + heat map (monochrome) ═══ */
+#tab-habits #habitsGridContainerPos,#tab-habits #habitsGridContainerNeg{display:block}
+.hb{padding:clamp(14px,2.2vw,18px);border-radius:18px;background:rgba(255,255,255,.04);margin-bottom:12px}
+.hb:last-child{margin-bottom:0}
+.hb-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hb-name{font-size:clamp(15px,1.8vw,16px);font-weight:600;color:#fff;min-width:0;overflow-wrap:anywhere}
+.hb-streak{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap}
+.hb-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:clamp(4px,1.2vw,10px);margin:14px 0}
+.hb-day{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;color:inherit}
+.hb-day i{display:block;width:100%;max-width:46px;aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.07);transition:background-color .15s,transform .12s}
+.hb-day:active:not(:disabled) i{transform:scale(.9)}
+.hb-day.on i{background:rgba(255,255,255,.72)}
+.hb-day.on.today i{background:#fff}
+.hb-day.off{cursor:default}.hb-day.off i{background:rgba(255,255,255,.03)}
+.hb-day small{font-size:10px;font-weight:600;letter-spacing:.06em;color:rgba(255,255,255,.4)}
+.hb-day.today small{color:#fff;font-weight:700}
+.hb-day:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:12px}
+.hb-heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);grid-auto-columns:clamp(10px,2.4vw,14px);gap:4px;justify-content:start}
+.hb-h{aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.07)}
+.hb-h.f{background:rgba(255,255,255,.03)}.hb-h.x{background:transparent}
+.hb-h.l1{background:rgba(255,255,255,.4)}.hb-h.l2{background:rgba(255,255,255,.7)}.hb-h.l3{background:#fff}
+@media(prefers-reduced-motion:reduce){.hb-day i{transition:none}}
+
+/* ═══ Habits v3 · coloured bubbles, separate heat maps ═══ */
+.hb{background:var(--hc-12,rgba(255,255,255,.04))}
+.hb-streak{color:var(--hc,#fff)}
+.hb-day i{background:var(--hc-25,rgba(255,255,255,.07))}
+.hb-day.on i,.hb-day.on.today i{background:var(--hc,#fff)}
+.hb-day.off i{background:var(--hc-12,rgba(255,255,255,.03))}
+.hb-day.today small{color:var(--hc,#fff)}
+.hb-week{margin:14px 0 2px}
+#habitsHeatGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:12px}
+.hm{padding:clamp(14px,2.2vw,18px);border-radius:18px;background:var(--hc-12,rgba(255,255,255,.04))}
+.hm-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
+.hm-top b{font-size:15px;font-weight:600;color:#fff;overflow-wrap:anywhere}
+.hm-top span{font-size:12px;font-weight:600;color:var(--hc,#fff);white-space:nowrap}
+.hm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:clamp(5px,1.5vw,9px);max-width:340px}
+.hm-l{font-size:9px;font-weight:600;text-align:center;color:rgba(255,255,255,.35);letter-spacing:.05em}
+.hm-grid .hb-h{width:100%;max-width:30px;justify-self:center;background:rgba(255,255,255,.07)}
+.hm-grid .hb-h.f{background:rgba(255,255,255,.03)}.hm-grid .hb-h.x{background:transparent}
+.hm-grid .hb-h.l1{background:var(--hc-45)}.hm-grid .hb-h.l2{background:var(--hc-75)}.hm-grid .hb-h.l3{background:var(--hc)}
+
+/* v4: calmer tints, tabular numbers, flexible heat-map cards */
+.hb{background:var(--hc-8,rgba(255,255,255,.04))}
+.hb-day i{background:var(--hc-22,rgba(255,255,255,.07))}
+.hb-day.off i{background:var(--hc-8,rgba(255,255,255,.03))}
+.hm{background:var(--hc-8,rgba(255,255,255,.04));min-width:0;overflow:hidden}
+.hm-top span,.hb-streak{font-variant-numeric:tabular-nums}
+#habitsHeatGrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+
+/* ═══ Full-screen camera (Scan Food · Barcode · Food Label) ═══ */
+#fdCam{position:fixed;inset:0;z-index:100000;background:#000;color:#fff;overflow:hidden;font-family:'DM Sans',system-ui,sans-serif}
+#fdCam[hidden]{display:none}
+#fdCamV{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fdc-top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0;display:flex;justify-content:space-between}
+.fdc-r{width:48px;height:48px;border-radius:50%;border:0;background:rgba(30,30,32,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .12s cubic-bezier(.23,1,.32,1),background-color .15s}
+.fdc-r:active{transform:scale(.92)}
+.fdc-r.on{background:#fff;color:#000}
+.fdc-frame{position:absolute;left:50%;top:44%;width:min(80vw,420px);transform:translate(-50%,-50%);border-radius:22px;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 100vmax rgba(0,0,0,.38);pointer-events:none;display:none}
+.fdc-frame.barcode{display:block;aspect-ratio:7/3}
+.fdc-frame.label{display:block;aspect-ratio:3/4}
+.fdc-mid{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 76px);display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 24px;text-align:center}
+.fdc-hint{margin:0;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(30,30,32,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.fdc-link{background:none;border:0;color:#fff;font:600 14px inherit;text-decoration:underline;padding:10px;cursor:pointer}
+.fdc-bot{position:absolute;left:0;right:0;bottom:0;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 18px);display:flex;flex-direction:column;gap:18px;max-width:560px;margin:0 auto}
+.fdc-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fdc-tab{min-height:64px;border:0;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(30,30,32,.62);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:rgba(255,255,255,.8);font:600 12px inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background-color .15s,color .15s,transform .12s cubic-bezier(.23,1,.32,1)}
+.fdc-tab:active{transform:scale(.97)}
+.fdc-tab[aria-pressed="true"]{background:#fff;color:#000}
+.fdc-ctl{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.fdc-ctl .fdc-r:first-child{justify-self:start}.fdc-ctl .fdc-r:last-child{justify-self:end}
+.fdc-sp{display:none}
+.fdc-shut{width:76px;height:76px;border-radius:50%;border:0;background:#fff;box-shadow:0 0 0 4px rgba(0,0,0,.35),0 0 0 6px rgba(255,255,255,.85);cursor:pointer;touch-action:manipulation;transition:transform .12s cubic-bezier(.23,1,.32,1)}
+.fdc-shut:active{transform:scale(.92)}
+#fdCam button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){#fdCam *{transition:none!important}}
+
+/* voice logging bar (listening state, animated bars + timer) */
+#fdVoice{display:flex;align-items:center;gap:12px;margin:10px 0;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.06);font-size:14px;font-weight:500}
+#fdVoice[hidden]{display:none}
+#fdVoice #fdVoiceTxt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.85)}
+#fdVoice #fdVoiceT{font-variant-numeric:tabular-nums;color:rgba(255,255,255,.5);font-size:13px}
+#fdVoice #fdVoiceStop{min-height:36px;padding:0 14px;border-radius:999px;border:0;background:#fff;color:#000;font:600 13px inherit;cursor:pointer}
+.fdv-bars{display:flex;align-items:center;gap:3px;height:22px}
+.fdv-bars i{display:block;width:3px;height:8px;border-radius:2px;background:#fff;animation:fdv .9s ease-in-out infinite alternate}
+.fdv-bars i:nth-child(2){animation-delay:.15s}.fdv-bars i:nth-child(3){animation-delay:.3s}.fdv-bars i:nth-child(4){animation-delay:.45s}.fdv-bars i:nth-child(5){animation-delay:.6s}
+@keyframes fdv{from{height:6px;opacity:.6}to{height:22px;opacity:1}}
+#fdMicBtn.on{background:#fff;color:#000}
+@media(prefers-reduced-motion:reduce){.fdv-bars i{animation:none;height:14px}}
+
+/* To-Do cards: minimal, black & white only */
+.todo-task{background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:16px!important;box-shadow:none!important}
+.todo-task .todo-text{color:#fff}
+.todo-task .todo-text.done{opacity:.4}
+.todo-task .todo-checkbox{border-color:rgba(255,255,255,.4)}
+.todo-task .todo-checkbox.done{background:#fff;border-color:#fff}
+.todo-task .todo-delete{color:rgba(255,255,255,.4)}
+@media (hover:hover) and (pointer:fine){.todo-task .todo-delete:hover{color:#fff;background:rgba(255,255,255,.1)}}
+.todo-task .todo-delete:active{color:#fff;background:rgba(255,255,255,.14)}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -2335,6 +2461,12 @@ body.focus-mode .fd-fab{display:none !important}
 
       </div><!-- /habits-pair-grids -->
 
+      <!-- HEAT MAPS (one per habit) -->
+      <div class="mission-glass-container" id="habitsHeatCard" style="border-radius:20px;padding:20px">
+        <h2 class="glass-title" style="margin:0 0 14px;color:#ffffff">Heat Maps</h2>
+        <div id="habitsHeatGrid"></div>
+      </div>
+
     </div>
   </div>
 
@@ -2787,10 +2919,6 @@ body.focus-mode .fd-fab{display:none !important}
 
     </div>
   </div><!-- /tab-food -->
-  <button type="button" class="fd-fab" id="fdFab">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    Add food
-  </button>
 
 
   <!-- FLOATING GLASS BUBBLE NAV -->
@@ -2810,7 +2938,7 @@ body.focus-mode .fd-fab{display:none !important}
         <path d="M6 8h.01"/><path d="M6 12h.01"/><path d="M6 16h.01"/>
       </svg>
     </button>
-    <button id="nav-food" class="nav-btn" onclick="switchTab('food')" aria-label="Food">
+    <button id="nav-food" class="nav-btn" onclick="handleFoodNav()" aria-label="Food. Tap again to add food">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/>
         <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
@@ -2859,6 +2987,9 @@ body.focus-mode .fd-fab{display:none !important}
           <div class="fd-searchrow" style="position:relative">
             <input id="fdQ" class="fd-input" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
                    placeholder="Search foods — bread, خبز, poulet" aria-label="Search foods">
+            <button type="button" class="fd-iconbtn" id="fdMicBtn" aria-label="Speak what you ate" aria-pressed="false" hidden>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/></svg>
+            </button>
             <button type="button" class="fd-iconbtn" id="fdScanBtn" aria-label="Camera: scan barcode or food photo" aria-haspopup="menu">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8"/><path d="M11 8v8"/><path d="M15 8v8"/><path d="M18 8v8"/></svg>
             </button>
@@ -2868,6 +2999,7 @@ body.focus-mode .fd-fab{display:none !important}
             <button type="button" role="menuitem" class="fd-res" data-cam="photo"><div class="fd-res-name">Food photo</div></button>
           </div>
           <input type="file" id="fdPhotoIn" accept="image/*" capture="environment" hidden>
+          <div id="fdVoice" hidden role="status" aria-live="polite"><span class="fdv-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span id="fdVoiceTxt">Listening…</span><span id="fdVoiceT">0:00</span><button type="button" id="fdVoiceStop">Done</button></div>
           <div id="fdResults"></div>
         </section>
 
@@ -3743,6 +3875,13 @@ function renderQuote() {
 // To-Do nav icon: 1 click = daily task, 2 clicks = monthly task. Single timer, cleared on the 2nd click,
 // so a double-click can never run the single-click action first. (Touch: the modal has a Daily/Monthly chooser.)
 let todoNavClicks = 0, todoNavTimer = null;
+// Food nav: first tap opens the Food page; tapping again while on it opens the Add food sheet.
+function handleFoodNav() {
+  const t = document.getElementById('tab-food');
+  if (t && t.classList.contains('active')) { if (window.fdStartAdd) window.fdStartAdd(); return; }
+  switchTab('food');
+}
+
 function handleTodoNav() {
   const todoTab = document.getElementById('tab-todo');
   if (!(todoTab && todoTab.classList.contains('active'))) {
@@ -4830,10 +4969,10 @@ function buildHabitsGridPos() {
         cell.style.background = '#111115';
         cell.style.opacity = 0.15;
       } else if (done && isToday) {
-        cell.style.background = '#00FF66';
+        cell.style.background = '#ffffff';
         cell.style.opacity = 1;
       } else if (done && !isToday) {
-        cell.style.background = '#0d2e0d';
+        cell.style.background = 'rgba(255,255,255,.55)';
         cell.style.opacity = 1;
       } else {
         cell.style.background = '#111115';
@@ -4847,7 +4986,7 @@ function buildHabitsGridPos() {
           const on = S.habitsHistory[colDayIndex][hi];
           cell.classList.toggle('is-done', on);
           if (on) {
-            cell.style.background = isToday ? '#00FF66' : '#0d2e0d';
+            cell.style.background = isToday ? '#ffffff' : 'rgba(255,255,255,.55)';
             cell.style.opacity = 1;
           } else {
             cell.style.background = '#111115';
@@ -4948,10 +5087,10 @@ function buildHabitsGridNeg() {
         cell.style.background = '#111115';
         cell.style.opacity = 0.15;
       } else if (done && isToday) {
-        cell.style.background = '#ff1a1a';
+        cell.style.background = '#ffffff';
         cell.style.opacity = 1;
       } else if (done && !isToday) {
-        cell.style.background = '#2d0a0a';
+        cell.style.background = 'rgba(255,255,255,.55)';
         cell.style.opacity = 1;
       } else {
         cell.style.background = '#111115';
@@ -4965,7 +5104,7 @@ function buildHabitsGridNeg() {
           const on = S.habitsHistoryNegative[colDayIndex][hi];
           cell.classList.toggle('is-done-neg', on);
           if (on) {
-            cell.style.background = isToday ? '#ff1a1a' : '#2d0a0a';
+            cell.style.background = isToday ? '#ffffff' : 'rgba(255,255,255,.55)';
             cell.style.opacity = 1;
           } else {
             cell.style.background = '#111115';
@@ -7136,6 +7275,27 @@ function carryOverTodos() {
   showToast(n + (n > 1 ? ' tasks' : ' task') + ' carried over');
 }
 
+// Tear-off effect for deleting a task: the card rips along a jagged line and the halves fall away.
+function tearTask(el, done) {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+  const r = el.getBoundingClientRect();
+  const L = 'polygon(0 0,52% 0,48% 14%,53% 28%,47% 42%,52% 56%,48% 70%,53% 84%,50% 100%,0 100%)';
+  const R = 'polygon(52% 0,100% 0,100% 100%,50% 100%,53% 84%,48% 70%,52% 56%,47% 42%,53% 28%,48% 14%)';
+  function half(clip) {
+    const c = el.cloneNode(true);
+    c.style.cssText = 'position:fixed;left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px;margin:0;z-index:9999;pointer-events:none;box-sizing:border-box;clip-path:' + clip + ';transition:transform .42s cubic-bezier(.23,1,.32,1),opacity .42s ease-out';
+    document.body.appendChild(c); return c;
+  }
+  el.style.visibility = 'hidden';
+  const a = half(L), b = half(R);
+  requestAnimationFrame(function() {
+    a.style.transform = 'translate(-16px,10px) rotate(-5deg)';
+    b.style.transform = 'translate(16px,16px) rotate(5deg)';
+    a.style.opacity = b.style.opacity = '0';
+  });
+  setTimeout(function() { a.remove(); b.remove(); done(); }, 430);
+}
+
 // Event delegation for todo list — ONE handler (registered once), no per-item listeners
 document.addEventListener('click', function(e) {
   const todoItem = e.target.closest('.todo-task');
@@ -7161,10 +7321,16 @@ document.addEventListener('click', function(e) {
   if (e.target.closest('.todo-text')) { openTodoModal(idx); return; }
 
   if (e.target.closest('.todo-delete')) {
-    ctx.items.splice(idx, 1);
-    const store = ctx.scope === 'month' ? S.todosMonthly : S.todosByDate;
-    if (!ctx.items.length) delete store[ctx.key];
-    afterTodoChange();
+    if (todoItem._tearing) return;
+    todoItem._tearing = true;
+    tearTask(todoItem, function() {
+      const i = ctx.items.indexOf(item);
+      if (i < 0) return;
+      ctx.items.splice(i, 1);
+      const store = ctx.scope === 'month' ? S.todosMonthly : S.todosByDate;
+      if (!ctx.items.length) delete store[ctx.key];
+      afterTodoChange();
+    });
   }
 });
 
@@ -9260,7 +9426,7 @@ async function pomRestoreSession() {
 
     const box = $('fdList');
     if (!list.length) {
-      box.innerHTML = '<div class="fd-card fd-empty"><h3>Nothing logged yet</h3><p style="margin:0">Tap <b>Add food</b> to search, scan a barcode, or enter something of your own.</p></div>';
+      box.innerHTML = '<div class="fd-card fd-empty"><h3>Nothing logged yet</h3><p style="margin:0">Tap the <b>food icon</b> again to search, scan a barcode, or enter something of your own.</p></div>';
       return;
     }
     let html = '';
@@ -9287,6 +9453,7 @@ async function pomRestoreSession() {
   const VIEWS = { photo: 'fdVPhoto', search: 'fdVSearch', scan: 'fdVScan', form: 'fdVForm', amount: 'fdVAmount', goals: 'fdVGoals' };
   const TITLES = { photo: 'Meal photo', search: 'Add food', scan: 'Scan barcode', form: 'New food', amount: 'Amount', goals: 'Daily goals' };
   function showView(name) {
+    if (name !== 'search') stopVoice();
     if (name !== 'scan') stopScan();
     st.view = name;
     Object.keys(VIEWS).forEach(k => { $(VIEWS[k]).hidden = k !== name; });
@@ -9614,10 +9781,10 @@ async function pomRestoreSession() {
       img.src = u;
     });
   }
-  async function askPhoto(b64) {
+  async function askPhoto(b64, mode) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 30000);
     try {
-      const r = await fetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'photo', image: b64, mime: 'image/jpeg' }), signal: ctl.signal });
+      const r = await fetch(AI_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: mode || 'photo', image: b64, mime: 'image/jpeg' }), signal: ctl.signal });
       let d; try { d = await r.json(); } catch (_) { throw new Error('The AI service returned an unreadable response.'); }
       if (!r.ok) throw new Error(d && d.error ? d.error : 'AI request failed (' + r.status + ').');
       return d;
@@ -9634,20 +9801,106 @@ async function pomRestoreSession() {
       '<button type="button" class="fd-iconbtn" data-rm="' + i + '" aria-label="Remove ' + esc(x.n) + '">✕</button></div>').join('');
     phTotals();
   }
-  async function handlePhoto(file) {
-    if (!file) return;
-    st.ph = []; showView('photo'); phRows(); $('fdPhNote').textContent = '✦ Analyzing photo…';
+  async function analyze(getB64, mode) {
+    const lab = mode === 'label';
+    st.ph = []; showView('photo'); phRows(); $('fdPhNote').textContent = lab ? '✦ Reading label…' : '✦ Analyzing photo…';
     try {
-      if (!/^image\//.test(file.type)) throw new Error('Please choose an image.');
-      const d = await askPhoto(await shrinkImage(file));
-      if (!d || !Array.isArray(d.items) || !d.items.length) throw new Error('Photo analysis isn’t available from the AI service yet.');
-      const items = d.items.filter(aiOK).slice(0, 12);
-      if (!items.length) throw new Error('Gemini couldn’t recognise this food confidently.');
+      const d = await askPhoto(await getB64(), mode);
+      let items = d && d.items;
+      if (lab && !Array.isArray(items) && d && d.name) items = [{ name: d.name, grams: d.grams > 0 ? d.grams : 100, k: d.k, p: d.p, c: d.c, f: d.f }];
+      if (!Array.isArray(items) || !items.length) throw new Error((lab ? 'Label reading' : 'Photo analysis') + ' isn’t available from the AI service yet.');
+      items = items.filter(aiOK).slice(0, 12);
+      if (!items.length) throw new Error(lab ? 'Couldn’t read the nutrition values. Try a closer, sharper photo.' : 'Gemini couldn’t recognise this food confidently.');
       st.ph = items.map(a => ({ n: String(a.name).slice(0, 80), g: +a.grams, k: +a.k, p: +a.p, c: +a.c, f: +a.f }));
-      $('fdPhNote').textContent = 'AI Estimated · review and edit before adding.' + (st.ph.length === 1 ? ' Whole-meal estimate — components couldn’t be separated.' : '');
+      $('fdPhNote').textContent = (lab ? 'Read from label · check the values before adding.' : 'AI Estimated · review and edit before adding.') + (!lab && st.ph.length === 1 ? ' Whole-meal estimate — components couldn’t be separated.' : '');
       phRows();
     } catch (err) { $('fdPhNote').textContent = (err && err.message ? err.message : 'Something went wrong.') + ' Go back to describe it or enter it manually.'; }
   }
+  function handlePhoto(file, mode) {
+    if (!file) return;
+    analyze(() => /^image\//.test(file.type) ? shrinkImage(file) : Promise.reject(new Error('Please choose an image.')), mode || 'photo');
+  }
+
+  // ── full-screen camera: Scan Food · Barcode · Food Label
+  const ICON = {
+    photo: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="2.5"/></svg>',
+    barcode: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 5v14M8 5v14M12 5v14M16 5v14M20 5v14"/></svg>',
+    label: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>'
+  };
+  const CAMS = [['photo', 'Scan Food'], ['barcode', 'Barcode'], ['label', 'Food Label']];
+  const HINTS = { photo: 'Center your meal in the frame', barcode: 'Point at a barcode', label: 'Fit the nutrition label in the frame' };
+  function ensureCam() {
+    if ($('fdCam')) return;
+    const d = document.createElement('div'); d.id = 'fdCam'; d.hidden = true; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-label', 'Camera');
+    d.innerHTML = '<video id="fdCamV" playsinline muted autoplay></video><div id="fdCamFrame" class="fdc-frame"></div>' +
+      '<div class="fdc-top"><button type="button" class="fdc-r" id="fdCamX" aria-label="Close camera"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
+      '<div class="fdc-mid"><p id="fdCamHint" class="fdc-hint" aria-live="polite"></p><button type="button" id="fdCamManual" class="fdc-link" hidden>Type the number instead</button></div>' +
+      '<div class="fdc-bot"><div class="fdc-tabs" id="fdCamTabs">' + CAMS.map(c => '<button type="button" class="fdc-tab" data-m="' + c[0] + '" aria-pressed="false">' + ICON[c[0]] + '<span>' + c[1] + '</span></button>').join('') + '</div>' +
+      '<div class="fdc-ctl"><button type="button" class="fdc-r" id="fdCamFlash" aria-label="Toggle flash" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></button><span class="fdc-sp" id="fdCamSp"></span>' +
+      '<button type="button" id="fdCamShut" class="fdc-shut" aria-label="Take photo"></button>' +
+      '<button type="button" class="fdc-r" id="fdCamGal" aria-label="Choose from library"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="M21 15l-5-5L5 21"/></svg></button></div></div>' +
+      '<input type="file" id="fdGalIn" accept="image/*" hidden>';
+    document.body.appendChild(d);
+    $('fdCamX').addEventListener('click', closeCam);
+    $('fdCamTabs').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) setCamMode(b.dataset.m); });
+    $('fdCamShut').addEventListener('click', shoot);
+    $('fdCamManual').addEventListener('click', () => { closeCam(); startScan(); });
+    $('fdCamGal').addEventListener('click', () => $('fdGalIn').click());
+    $('fdGalIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0], m = st.cam ? st.cam.mode : 'photo'; e.target.value = ''; if (!f) return; closeCam(); handlePhoto(f, m === 'label' ? 'label' : 'photo'); });
+    $('fdCamFlash').addEventListener('click', () => { const c = st.cam, t = c && c.stream && c.stream.getVideoTracks()[0]; if (!t) return; c.torch = !c.torch; t.applyConstraints({ advanced: [{ torch: c.torch }] }).catch(() => {}); $('fdCamFlash').classList.toggle('on', c.torch); });
+    d.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeCam(); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && st.cam) closeCam(); });
+  }
+  function setCamMode(m) {
+    const c = st.cam; if (!c) return; c.mode = m; c.scan = false;
+    $('fdCamTabs').querySelectorAll('.fdc-tab').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === m));
+    const fr = $('fdCamFrame'); fr.className = 'fdc-frame ' + m;
+    $('fdCamShut').style.visibility = m === 'barcode' ? 'hidden' : 'visible';
+    $('fdCamManual').hidden = true; $('fdCamHint').textContent = HINTS[m];
+    if (m === 'barcode') {
+      if (!('BarcodeDetector' in window)) { $('fdCamHint').textContent = 'This browser can’t scan barcodes with the camera.'; $('fdCamManual').hidden = false; return; }
+      if (c.stream) detect();
+    }
+  }
+  function detect() {
+    const c = st.cam; if (!c || c.scan) return;
+    try { c.det = c.det || new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] }); } catch (e) { c.det = c.det || new window.BarcodeDetector(); }
+    c.scan = true; const v = $('fdCamV');
+    (function loop() {
+      if (!st.cam || !st.cam.scan || st.cam.mode !== 'barcode') return;
+      c.det.detect(v).then(r => {
+        if (!st.cam || !st.cam.scan) return;
+        if (r && r.length) { const code = r[0].rawValue; closeCam(); showView('scan'); $('fdBarcode').value = ''; lookupBarcode(code); } else setTimeout(loop, 250);
+      }).catch(() => setTimeout(loop, 400));
+    })();
+  }
+  function openCam(mode) {
+    ensureCam(); const cam = $('fdCam');
+    st.cam = { mode: mode, stream: null, scan: false, torch: false };
+    cam.hidden = false; document.documentElement.style.overflow = 'hidden'; setCamMode(mode);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { noCam('This browser can’t open the camera. You can still choose a photo.'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }).then(stream => {
+      if (!st.cam) { stream.getTracks().forEach(t => t.stop()); return; }
+      st.cam.stream = stream; const v = $('fdCamV'); v.srcObject = stream; v.play().catch(() => {});
+      const t = stream.getVideoTracks()[0], caps = t && t.getCapabilities ? t.getCapabilities() : {}; $('fdCamFlash').hidden = !caps.torch;
+      if (st.cam.mode === 'barcode' && 'BarcodeDetector' in window) detect();
+      $('fdCamX').focus();
+    }).catch(() => noCam('Camera access is blocked. Allow it in your browser settings, or choose a photo.'));
+  }
+  function noCam(msg) { $('fdCamHint').textContent = msg; $('fdCamFrame').className = 'fdc-frame'; $('fdCamShut').style.visibility = 'hidden'; if (st.cam && st.cam.mode === 'barcode') $('fdCamManual').hidden = false; }
+  function closeCam() {
+    const c = st.cam; st.cam = null; if (!c) return;
+    c.scan = false; if (c.stream) c.stream.getTracks().forEach(t => t.stop());
+    const v = $('fdCamV'); if (v) v.srcObject = null; $('fdCam').hidden = true; $('fdCamFlash').classList.remove('on'); document.documentElement.style.overflow = '';
+    focusLater($('fdScanBtn'));
+  }
+  function shoot() {
+    const c = st.cam, v = $('fdCamV'); if (!c || !v.videoWidth) return;
+    const mode = c.mode === 'label' ? 'label' : 'photo', sc = Math.min(1, 1024 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
+    cv.width = Math.round(v.videoWidth * sc); cv.height = Math.round(v.videoHeight * sc); cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
+    const b64 = cv.toDataURL('image/jpeg', 0.72).split(',')[1]; closeCam(); analyze(() => Promise.resolve(b64), mode);
+  }
+
   async function phAdd() {
     const q = $('fdPhAdd').value.trim(); if (!q || st.busy) return;
     const hit = search(q)[0]; st.busy = true;
@@ -9664,6 +9917,37 @@ async function pomRestoreSession() {
     it.forEach((x, i) => { const id = uid(); ids.push(id); list.push({ id, fid: 'photo', n: x.n, k: x.k, p: x.p, c: x.c, f: x.f, g: r1(x.g), meal: st.meal, ap: true, est: true, ts: now + i, src: 'photo', grp }); });
     setDayEntries(key, list); closeSheet(); render();
     showUndo('Added ' + it.length + (it.length > 1 ? ' items' : ' item'), () => { setDayEntries(key, dayEntries(new Date(key + 'T12:00:00')).filter(x => ids.indexOf(x.id) < 0)); render(); });
+  }
+
+  // ── voice logging (Web Speech API; no dependency). Speak → text fills the box → logged like typed text.
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function cleanSpeech(t) {
+    return String(t || '').trim().replace(/^(?:(?:for\s+\w+\s+)?i(?:'ve|\s+have|\s+just)?\s+(?:just\s+)?(?:ate|had|eaten|drank|drunk)|(?:i\s+)?(?:ate|had))\s+/i, '').replace(/^(?:some|about|around)\s+/i, '').replace(/[.!?]+$/, '');
+  }
+  function stopVoice(abort) {
+    const v = st.voice; if (!v) return; st.voice = null;
+    clearInterval(v.tm); try { abort ? v.rec.abort() : v.rec.stop(); } catch (e) {}
+    $('fdVoice').hidden = true; $('fdMicBtn').classList.remove('on'); $('fdMicBtn').setAttribute('aria-pressed', 'false');
+  }
+  function startVoice() {
+    if (!SR || st.busy) return;
+    if (st.voice) { stopVoice(); return; }
+    const rec = new SR(), v = { rec, t0: Date.now(), text: '', got: false, tm: 0 };
+    rec.lang = document.documentElement.lang || navigator.language || 'en-US'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+    rec.onresult = e => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; v.text = t; v.got = true; $('fdVoiceTxt').textContent = t || 'Listening…'; $('fdQ').value = cleanSpeech(t); };
+    rec.onerror = e => { const m = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Microphone access is blocked. Allow it in your browser settings.' : e.error === 'no-speech' ? 'Didn’t catch that. Tap the mic and try again.' : e.error === 'network' ? 'Speech recognition needs a connection.' : ''; v.err = m; };
+    rec.onend = () => {
+      if (st.voice !== v) return;
+      stopVoice(); const txt = cleanSpeech(v.text);
+      if (v.err) { $('fdResults').innerHTML = '<p class="fd-note">' + esc(v.err) + '</p>'; return; }
+      if (!txt) return;
+      $('fdQ').value = txt; $('fdQ').dispatchEvent(new Event('input'));
+      if (isSmart(parseSmart(txt))) smartLog(txt, $('fdResults').querySelector('[data-smart]'));
+    };
+    try { rec.start(); } catch (e) { return; }
+    st.voice = v; $('fdMicBtn').classList.add('on'); $('fdMicBtn').setAttribute('aria-pressed', 'true');
+    $('fdVoice').hidden = false; $('fdVoiceTxt').textContent = 'Listening… say what you ate'; $('fdVoiceT').textContent = '0:00';
+    v.tm = setInterval(() => { const s = Math.floor((Date.now() - v.t0) / 1000); $('fdVoiceT').textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); if (s >= 30) stopVoice(); }, 250);
   }
 
   async function runAI(query, button) {
@@ -9806,7 +10090,10 @@ async function pomRestoreSession() {
   function wire() {
     $('fdPrev').addEventListener('click', () => { st.day.setDate(st.day.getDate() - 1); st.day = new Date(st.day); render(); });
     $('fdNext').addEventListener('click', () => { if (keyOf(st.day) >= keyOf(new Date())) return; st.day.setDate(st.day.getDate() + 1); st.day = new Date(st.day); render(); });
-    $('fdFab').addEventListener('click', startAdd);
+    if (SR) $('fdMicBtn').hidden = false;
+    $('fdMicBtn').addEventListener('click', startVoice);
+    $('fdVoiceStop').addEventListener('click', () => stopVoice());
+    window.fdStartAdd = startAdd; // opened from the Food nav icon (second tap)
     $('fdGoalBtn').addEventListener('click', openGoals);
     $('fdList').addEventListener('click', e => {
       const t = e.target.closest('[data-edit],[data-del],[data-act]'); if (!t) return;
@@ -9828,10 +10115,10 @@ async function pomRestoreSession() {
     $('fdUQty').addEventListener('keydown', e => { if (e.key === 'Enter') saveAmount(); });
     $('fdUG').addEventListener('input', () => { const n = st.un, v = num($('fdUG').value); if (n && v > 0 && v <= 5000) { n.ug = v; n.ugEd = true; renderUSz(); calcUnits(); } else { $('fdGrams').value = ''; updatePreview(); } });
     $('fdUSz').addEventListener('click', e => { const b = e.target.closest('[data-sz]'), n = st.un; if (!b || !n) return; n.sz = b.dataset.sz; n.ug = optW(curOpt(), n.sz); n.ugEd = false; $('fdUG').value = r1(n.ug); renderUSz(); calcUnits(); });
-    $('fdScanBtn').addEventListener('click', e => { e.stopPropagation(); $('fdCamMenu').hidden = !$('fdCamMenu').hidden; });
+    $('fdScanBtn').addEventListener('click', e => { e.stopPropagation(); openCam('photo'); });
     document.addEventListener('click', e => { if (!e.target.closest('#fdCamMenu')) $('fdCamMenu').hidden = true; });
     $('fdCamMenu').addEventListener('click', e => { const b = e.target.closest('[data-cam]'); if (!b) return; $('fdCamMenu').hidden = true; if (b.dataset.cam === 'scan') startScan(); else $('fdPhotoIn').click(); });
-    $('fdPhotoIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; handlePhoto(f); });
+    $('fdPhotoIn').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; handlePhoto(f, 'photo'); });
     $('fdPhRows').addEventListener('input', e => { const i = e.target.dataset.i, f = e.target.dataset.f, x = st.ph[i]; if (!x) return; if (f === 'n') x.n = e.target.value.trim() || x.n; else { x.g = num(e.target.value); const k = $('fdPhRows').querySelector('[data-k="' + i + '"]'); if (k) k.textContent = fmt(x.k * (x.g > 0 ? x.g : 0) / 100) + ' kcal'; phTotals(); } });
     $('fdPhRows').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { st.ph.splice(+b.dataset.rm, 1); phRows(); } });
     $('fdPhAdd').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); phAdd(); } });
@@ -9947,6 +10234,112 @@ function saveCaffeine(){
     b.addEventListener('click',function(e){e.stopPropagation();if(selectedDay<=SYSTEM_TODAY)D[id].f()});
     c.appendChild(b);
   });
+})();
+</script>
+<script>
+/* Habits page: coloured per-habit bubbles + separate heat maps. Same data & side effects as before. */
+(function(){
+  var DL=['S','M','T','W','T','F','S'],MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var FLAME='<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/></svg>';
+  function el(t,c){var e=document.createElement(t);if(c)e.className=c;return e}
+  // ── colour by meaning: Gemini (via Worker, cached) → keyword classifier → hash
+  var CK='habitColors',aiOff=false,tried={};
+  var RULES=[[/gym|workout|exercis|strength|lift|train|sport|fitness|run|jog|cardio|push.?up|رياض|تمرين|جري/,'#FF7A2F'],
+    [/medit|mindful|pray|breath|yoga|calm|relax|gratitude|تأمل|صلا|دعاء/,'#4C8DFF'],
+    [/sleep|bed|nap|rest|wake|نوم/,'#A56CF2'],
+    [/water|drink|hydrat|ماء|مياه/,'#3BC8F5'],
+    [/read|book|study|learn|course|language|write|journal|قراءة|دراسة/,'#F5B83D'],
+    [/code|coding|deep work|focus|project|work|build|برمج/,'#6C72F2'],
+    [/eat|diet|fruit|veget|salad|vitamin|health|heal|walk|stretch|nature|sun|clean|غذاء|صحة/,'#2FD08A'],
+    [/save|budget|money|invest|finance|مال/,'#19C3B1'],
+    [/call|family|friend|love|kind|gift|thank|social|عائلة|أهل/,'#FF5C8A'],
+    [/smok|vape|porn|goon|junk|sugar|soda|scroll|phone|tiktok|insta|game|gaming|alcohol|fast food|snack|late|procrastin|nail|swear|gossip/,'#F0484F']];
+  function lc(){try{return JSON.parse(localStorage.getItem(CK)||'{}')}catch(e){return{}}}
+  function h2r(h){return[1,3,5].map(function(i){return parseInt(h.substr(i,2),16)})}
+  function toHsl(h){var r=h2r(h).map(function(v){return v/255}),M=Math.max.apply(0,r),m=Math.min.apply(0,r),l=(M+m)/2,d=M-m,hh=0,ss=0;
+    if(d){ss=d/(1-Math.abs(2*l-1));hh=M===r[0]?((r[1]-r[2])/d)%6:M===r[1]?(r[2]-r[0])/d+2:(r[0]-r[1])/d+4;hh*=60;if(hh<0)hh+=360}return[hh,ss,l]}
+  function fromHsl(h,s,l){h=((h%360)+360)%360;var c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2,r=[[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][Math.floor(h/60)%6];
+    return '#'+r.map(function(v){return ('0'+Math.round((v+m)*255).toString(16)).slice(-2)}).join('')}
+  function fit(h){var a=toHsl(h);return fromHsl(a[0],Math.max(.55,Math.min(.9,a[1])),Math.max(.5,Math.min(.65,a[2])))}
+  var PAL=['#FF7A2F','#F5B83D','#A3E635','#2FD08A','#19C3B1','#3BC8F5','#4C8DFF','#6C72F2','#A56CF2','#E052D0','#FF5C8A','#F0484F'];
+  function hd(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d}
+  function guess(name,neg){var n=String(name).toLowerCase();for(var i=0;i<RULES.length;i++)if(RULES[i][0].test(n))return RULES[i][1];
+    var hs=0;for(var j=0;j<n.length;j++)hs=(hs*31+n.charCodeAt(j))%997;return neg?PAL[9+hs%3]:PAL[hs%PAL.length]}
+  function pick(pref,used){
+    function md(c){var m=360,h=toHsl(c)[0];used.forEach(function(u){m=Math.min(m,hd(h,toHsl(u)[0]))});return m}
+    if(md(pref)>=38)return pref;
+    var ph=toHsl(pref)[0],cand=PAL.slice().sort(function(x,y){return hd(toHsl(x)[0],ph)-hd(toHsl(y)[0],ph)}),best=cand[0],bm=-1;
+    for(var i=0;i<cand.length;i++){var m=md(cand[i]);if(m>=38)return cand[i];if(m>bm){bm=m;best=cand[i]}}
+    return best}
+  function palette(pos,neg){var c=lc(),used=[],out={};
+    pos.map(function(n){return[n,0]}).concat(neg.map(function(n){return[n,1]})).forEach(function(p){
+      var col=pick(c[p[0]]?fit(c[p[0]]):guess(p[0],p[1]),used);used.push(col);out[p[1]+':'+p[0]]=col});return out}
+  function vars(card,col){var r=h2r(col);card.style.setProperty('--hc',col);[8,12,22,45,75].forEach(function(a){card.style.setProperty('--hc-'+a,'rgba('+r+','+a/100+')')})}
+  function askColors(names){
+    if(aiOff)return;var c=lc(),todo=names.filter(function(n){return !c[n]&&!tried[n]});if(!todo.length)return;
+    (async function(){var got=false;
+      for(var i=0;i<todo.length&&!aiOff;i++){var n=todo[i];tried[n]=1;var ctl=new AbortController(),t=setTimeout(function(){ctl.abort()},8000);
+        try{var r=await fetch('https://calorietarget.slimaneprs1.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'habitColor',text:String(n).slice(0,80)}),signal:ctl.signal});
+          var d=await r.json();if(!r.ok||!d||!/^#[0-9a-f]{6}$/i.test(d.color||''))throw 0;
+          var cc=lc();cc[n]=fit(d.color);localStorage.setItem(CK,JSON.stringify(cc));got=true}
+        catch(e){aiOff=true}finally{clearTimeout(t)}}
+      if(got)buildAll()})();
+  }
+  // ── data helpers
+  function ctx(){var p=S.startDate.split('-'),st=new Date(+p[0],+p[1]-1,+p[2]);st.setHours(0,0,0,0);var sys=new Date(st);sys.setDate(sys.getDate()+SYSTEM_TODAY);
+    var ws=new Date(sys);ws.setDate(sys.getDate()-sys.getDay()+weekOffset*7);ws.setHours(0,0,0,0);return{st:st,sys:sys,ws:ws}}
+  function streak(H,hi){var d=SYSTEM_TODAY,n=0;if(!(H[d]&&H[d][hi]))d--;for(;d>=0&&H[d]&&H[d][hi];d--)n++;return n}
+  function nav(x){var h=document.getElementById('gridWeekHeader'),we=new Date(x.ws);we.setDate(x.ws.getDate()+6);
+    if(h)h.textContent=(weekOffset===0?'Current Week':weekOffset>0?'Week +'+weekOffset:'Week '+weekOffset)+' · '+MO[x.ws.getMonth()]+' '+x.ws.getDate()+' – '+MO[we.getMonth()]+' '+we.getDate();
+    var minOff=Math.ceil((-6-SYSTEM_TODAY+x.sys.getDay())/7);
+    [[document.getElementById('gridPrevWeek'),weekOffset<=minOff],[document.getElementById('gridNextWeek'),weekOffset>=0]].forEach(function(y){y[0].disabled=y[1];y[0].style.opacity=y[1]?'0.3':'1';y[0].style.pointerEvents=y[1]?'none':'auto'})}
+  // ── week bubbles
+  function build(kind){
+    var pos=kind==='pos',list=pos?S.habits:S.habitsNegative,H=pos?S.habitsHistory:S.habitsHistoryNegative,x=ctx(),pal=palette(S.habits,S.habitsNegative);
+    var grid=document.getElementById(pos?'habitsGridContainerPos':'habitsGridContainerNeg'),no=document.getElementById(pos?'noHabitsGridPos':'noHabitsGridNeg');
+    if(pos)nav(x);grid.innerHTML='';
+    if(!list.length){grid.style.display='none';no.style.display='block';if(pos){var h=document.getElementById('gridWeekHeader');if(h)h.textContent=''}return}
+    grid.style.display='block';no.style.display='none';var frag=document.createDocumentFragment();
+    list.forEach(function(name,hi){
+      var card=el('div','hb'),top=el('div','hb-top'),nm=el('span','hb-name'),sk=el('span','hb-streak'),n=streak(H,hi);
+      vars(card,pal[(pos?0:1)+':'+name]);nm.textContent=name;nm.dir='auto';sk.innerHTML=FLAME+'<span>'+n+(n===1?' day':' days')+'</span>';sk.style.opacity=n?'1':'.45';
+      top.appendChild(nm);top.appendChild(sk);card.appendChild(top);var wk=el('div','hb-week');
+      for(var c=0;c<7;c++){(function(c){
+        var dt=new Date(x.ws);dt.setDate(x.ws.getDate()+c);var di=Math.round((dt-x.st)/864e5),ok=di>=0&&di<TOTAL_DAYS&&di<=SYSTEM_TODAY,done=ok&&!!(H[di]&&H[di][hi]===true);
+        var b=el('button','hb-day'+(done?' on':'')+(di===SYSTEM_TODAY?' today':'')+(ok?'':' off'));b.type='button';b.disabled=!ok;
+        b.setAttribute('aria-pressed',done);b.setAttribute('aria-label',name+', '+MO[dt.getMonth()]+' '+dt.getDate()+(done?', done':''));b.innerHTML='<i></i><small>'+DL[c]+'</small>';
+        if(ok)b.onclick=function(){if(!H[di])H[di]=[];H[di][hi]=!H[di][hi];saveState();
+          if(di===S.dayIndex){pos?renderTodayHabits():renderTodayHabitsNeg();updateMasteryUI();updateStreakUI()}
+          if(chartHabits){chartHabits.data.datasets[pos?0:1].data[di]=(pos?dayHabitPct:dayHabitPctNeg)(di);chartHabits.update('none')}
+          build(kind);heat()};
+        wk.appendChild(b)})(c)}
+      card.appendChild(wk);frag.appendChild(card)});
+    grid.appendChild(frag);
+  }
+  // ── separate heat maps (one per habit, Do It then Don't Do It)
+  function heat(){
+    var box=document.getElementById('habitsHeatGrid'),card=document.getElementById('habitsHeatCard');if(!box)return;
+    var all=S.habits.map(function(n,i){return{n:n,i:i,H:S.habitsHistory,k:0}}).concat(S.habitsNegative.map(function(n,i){return{n:n,i:i,H:S.habitsHistoryNegative,k:1}}));
+    box.innerHTML='';card.style.display=all.length?'':'none';if(!all.length)return;
+    var x=ctx(),pal=palette(S.habits,S.habitsNegative),blanks=x.st.getDay(),frag=document.createDocumentFragment();
+    all.forEach(function(a){
+      var col=pal[a.k+':'+a.n],rgb=h2r(col),c=el('div','hm'),top=el('div','hm-top'),b=el('b'),sp=el('span'),g=el('div'),run=0,done=0;
+      vars(c,col);b.textContent=a.n;b.dir='auto';
+      g.style.cssText='display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:clamp(5px,1.6vw,9px);width:100%;max-width:300px';
+      function cell(bg,t){var e=el('span');e.style.cssText='display:block;width:100%;max-width:34px;aspect-ratio:1/1;border-radius:50%;justify-self:center;background:'+bg;if(t)e.title=t;g.appendChild(e)}
+      DL.forEach(function(l){var e=el('span','hm-l');e.textContent=l;e.style.cssText='font-size:10px;font-weight:600;text-align:center;color:rgba(255,255,255,.35);padding-bottom:2px';g.appendChild(e)});
+      for(var z=0;z<blanks;z++){var e=el('span');g.appendChild(e)}
+      for(var d=0;d<TOTAL_DAYS;d++){var dn=!!(a.H[d]&&a.H[d][a.i]===true);run=dn?run+1:0;if(dn&&d<=SYSTEM_TODAY)done++;
+        var dd=new Date(x.st);dd.setDate(dd.getDate()+d);
+        var bg=d>SYSTEM_TODAY?'rgba(255,255,255,.03)':dn?'rgba('+rgb+','+(run>=7?1:run>=3?.7:.4)+')':'rgba(255,255,255,.08)';
+        cell(bg,MO[dd.getMonth()]+' '+dd.getDate())}
+      sp.textContent=done+' / '+Math.min(TOTAL_DAYS,SYSTEM_TODAY+1)+' days';top.appendChild(b);top.appendChild(sp);c.appendChild(top);c.appendChild(g);frag.appendChild(c)});
+    box.appendChild(frag);
+  }
+  function buildAll(){build('pos');build('neg');heat()}
+  window.buildHabitsGridPos=function(){build('pos');heat();askColors(S.habits.concat(S.habitsNegative))};
+  window.buildHabitsGridNeg=function(){build('neg');heat()};
+  try{buildHabitsGrid()}catch(e){}
 })();
 </script>
 
