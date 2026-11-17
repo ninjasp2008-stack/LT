@@ -1387,6 +1387,7 @@ button,[role=button],a,.nav-btn,.hcheck,.todo-checkbox,.mood-btn,.range-toggle,.
   touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 @media (pointer:coarse){input,textarea,select{font-size:max(16px,1em)}}
 .floating-nav{padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px))}
+.modal-box,.fd-sheet{overscroll-behavior-y:contain}
 .modal-overlay{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 
 #pomodoroDisplay{font-variant-numeric:tabular-nums}
@@ -1828,6 +1829,20 @@ body.focus-mode .fd-fab{display:none !important}
   .fd-overlay{background:rgba(0,0,0,.75);-webkit-backdrop-filter:none;backdrop-filter:none}
   .fd-toast{background:rgba(40,40,46,.98);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+
+/* ── MOBILE ONLY (<=767px): all animations/transitions off. Laptop/PC untouched. ── */
+@media (max-width:767px){
+  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+}
+/* ── MOBILE LITE (<=767px, e.g. Galaxy A03s): no GPU blur, no extra compositor layers ── */
+@media (max-width:767px){
+  *,*::before,*::after{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;will-change:auto !important;text-shadow:none !important}
+  .floating-nav{background:#18181c !important}
+  .modal-overlay,.fd-overlay{background:rgba(0,0,0,.82) !important}
+  .fdc-r,.fdc-hint,.fdc-tab{background:#1e1e20 !important}
+  .fd-toast{background:#28282e !important}
+  .bk-tip{background:#1c1c20 !important;box-shadow:none !important}
+}
 </style>
 </head>
 <body>
@@ -2262,7 +2277,7 @@ body.focus-mode .fd-fab{display:none !important}
                   <span style="font-size:16px; color:rgba(255,255,255,0.6); font-weight:500; margin-left:4px;">L</span>
                 </div>
                 <!-- Muted gray status/goal text directly below -->
-                <div id="waterSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: 3.5L | 1.5L to go</div>
+                <div id="waterSub" style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Goal: 2.5L | 0.5L to go</div>
               </div>
               <!-- Elegant icon top-right -->
               <div style="background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.2); border-radius:8px; padding:6px; display:flex; align-items:center; justify-content:center;">
@@ -3171,7 +3186,7 @@ const IS_MOBILE = window.matchMedia("(max-width:767px)").matches;   // mobile-on
 
 // ── CONSTANTS
 let   TOTAL_DAYS   = 31;   // days in the LIVE calendar-month cycle (28-31) — set by ensureCalendarCycle()/loadState()
-const WATER_GOAL   = 3.5;
+const WATER_GOAL   = 2.5;
 const STEPS_GOAL   = 10000;
 const SLEEP_GOAL   = 8;
 const PUSHUPS_GOAL = 100;
@@ -6094,6 +6109,7 @@ function bkScales() {
 
 const CDEFS = {
   responsive: true, maintainAspectRatio: false,
+  devicePixelRatio: IS_MOBILE ? 1 : undefined,   // low-end phones: 1 canvas pixel per CSS px (4x fewer pixels at dpr 2)
   animation:  { duration: IS_MOBILE ? 0 : 300 },
   interaction: { mode: 'index', intersect: false, axis: 'x' },
   hover: { mode: 'index', intersect: false },
@@ -7366,7 +7382,7 @@ function createTearButton(o) {
 
   let phase = 'idle', hadFocus = false, timer = 0;
   const s = { angle: 0, speed: 0, target: 0, held: false, grabAngle: 0, hole: 0, raf: 0, last: 0, carry: 0, x: 0, y: 0, vx: 0, vy: 0, spin: 0, px: 0, py: 0, pt: 0, pvx: 0, pvy: 0, auto: 0, flying: false,
-    reduce: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) };
+    reduce: !!(window.matchMedia && (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width:767px)').matches)) };
 
   function setPhase(p) {
     phase = p; stub.style.cursor = p === 'tearing' ? 'grabbing' : 'grab';
@@ -7641,6 +7657,12 @@ let pomPresenceAt = 0;           // last moment the user was confirmed present
 let pomPresencePending = false;  // a check is on screen
 let pomPresenceDeadline = 0;     // when an unanswered check auto-pauses the timer
 let pomPresenceNextBeep = 0;
+// Sleep guard: both timers tick every second. If the gap between two ticks is
+// far longer than a throttled background tab can explain, the device slept
+// (laptop lid closed) -> the timer is paused at the last tick, so the sleep is never counted.
+const TIMER_SLEEP_GAP_MS = 150 * 1000;
+let pomHbAt = 0;   // last pomTick moment
+let flowHbAt = 0;  // last flowTick moment
 let pomFocusStartAt = 0;         // when the current focus phase began (defers checks past a break)
 // Focus session parked while a MANUAL break runs: { left, key, day, focusSecs }
 let pomHeldFocus = null;
@@ -7811,6 +7833,13 @@ function pomSyncFromClock(atMs) {
 // fresh instead of replaying every missed cycle.
 function pomTick() {
   if (!pomRunning) return;
+  { const _n = Date.now(), _hb = pomHbAt;
+    pomHbAt = _n;
+    if (_hb && _n - _hb > TIMER_SLEEP_GAP_MS) {   // device was asleep / frozen
+      togglePomodoro(_hb);                         // normal Pause, rewound to the last tick
+      showToast('Timer paused — device was asleep');
+      return;
+    } }
   // Presence check first: a long absence pauses the timer BEFORE any new phase
   // transition can log a session the user was not there for.
   if (pomPresenceTick(Date.now())) return;
@@ -8080,6 +8109,7 @@ function togglePomodoro(atMs) {
     // Clock-based: the remaining time is always computed from this end
     // timestamp, so a throttled / sleeping tab can never stretch a session.
     pomEndAt = Date.now() + pomSecondsLeft * 1000;
+    pomHbAt = Date.now();
     pomTimer = setInterval(pomTick, 1000);
   } else {
     // Pause — persist the exact progress right now (no minute gate at all)
@@ -8287,6 +8317,7 @@ function flowToggle() {
     pomSessionValid = true;                                    // shield: navigation never resets a live session
     flowLastSavedMin = Math.floor(flowBaseSecs / 60);
     clearInterval(flowTimer);
+    flowHbAt = Date.now();
     flowTimer = setInterval(flowTick, 1000);
     pomSound('start');
     pomWriteLiveSession();
@@ -8302,8 +8333,22 @@ function flowToggle() {
   flowUpdateUI();
 }
 
+function flowAutoPause(atMs) {
+  flowBaseSecs += Math.max(0, (atMs - flowStartAt) / 1000);   // only time that really ran
+  flowStartAt = 0;
+  flowRunning = false;
+  clearInterval(flowTimer); flowTimer = null;
+  flowLogPartial(flowBaseSecs);
+  pomWriteLiveSession();
+  flowUpdateUI();
+  showToast('Flow paused — device was asleep');
+}
+
 function flowTick() {
   if (!flowRunning) return;
+  { const _n = Date.now(), _hb = Math.max(flowHbAt, flowStartAt);
+    flowHbAt = _n;
+    if (_n - _hb > TIMER_SLEEP_GAP_MS) { flowAutoPause(_hb); return; } }
   const m = Math.floor(flowElapsedSecs() / 60);
   if (m >= 1 && m > flowLastSavedMin) {                        // autosave at every elapsed-minute boundary (like FOCUS)
     flowLastSavedMin = m;
@@ -10471,7 +10516,7 @@ var CF2=[['cappuccino','Cappuccino',180,63],['coffee','Regular Coffee',240,95],[
 var CF_R={d:[.8,1,1.4],espresso:[.67,1,2],energy:[.6,1,2]},CF_SN=['Small','Medium','Large'];
 var cf={i:5,s:1,bg:0,img:null};
 function cfSize(d,k){var r=(CF_R[d[0]]||CF_R.d)[k],q=d[0]==='espresso'?5:10;return{ml:Math.round(d[2]*r/q)*q,mg:Math.round(d[3]*r)}}
-function cfReduce(){return window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches}
+function cfReduce(){return window.matchMedia&&(matchMedia('(prefers-reduced-motion: reduce)').matches||matchMedia('(max-width:767px)').matches)}
 /* Feather the photo's outer edge so its own edge pixels (compression streaks, shadows) melt into the grain-matched sheet */
 function cfMask(f){
   var v=[['right',f[0],CF_IW],['left',f[1],CF_IW],['bottom',f[2],CF_IH],['top',f[3],CF_IH]],m=v.map(function(a){
@@ -10479,18 +10524,18 @@ function cfMask(f){
     return'linear-gradient(to '+a[0]+',transparent '+s+'%,#000 '+n+'%)'}).join(',');
   return'-webkit-mask-image:'+m+';mask-image:'+m+';-webkit-mask-composite:source-in;mask-composite:intersect';
 }
-/* Per-drink fixes measured from the photos: dx/dy = px (in the 560x490 photo) that centre the subject exactly;
+/* Per-drink fixes measured from the photos: dx/dy = px (in the 560x490 photo) that centre the cup BODY (rim, without handle/garnish) on the stage;
    s = luma grain sigma of the photo background at the 6 gradient stops; r = slight grain softness. */
 var CF_FIX={
   /* f = [left,right,top,bottom] each as [hard-cut px, feather px]: the photos carry grain-free outer bands, which are cut so the grain-matched sheet shows through */
   cappuccino:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:.25,s:[2.9,3.8,4.1,5.2,7.1,5.4]},
-  coffee:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[8.9,8.5,10.3,16.5,16.3,15.3]},
+  coffee:{dx:11,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[8.9,8.5,10.3,16.5,16.3,15.3]},
   redtea:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:.45,s:[1.7,2.1,2.9,4.3,5.1,4.1]},
-  longcoffee:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:.25,s:[3.4,3.4,5.2,7.9,8.8,8.4]},
-  hotchoc:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[6.4,7,6.4,8,10.2,11.9]},
-  espresso:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[8,9.6,10.1,12.2,15.6,13.6]},
-  energy:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[7.3,5.3,5.4,9.7,10.8,12.1]},
-  mocaccino:{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[9.1,8.5,8.8,10,11.8,14.1]}
+  longcoffee:{dx:60,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:.25,s:[3.4,3.4,5.2,7.9,8.8,8.4]},
+  hotchoc:{dx:40,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[6.4,7,6.4,8,10.2,11.9]},
+  espresso:{dx:4,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[8,9.6,10.1,12.2,15.6,13.6]},
+  energy:{dx:30,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[7.3,5.3,5.4,9.7,10.8,12.1]},
+  mocaccino:{dx:-9,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:[9.1,8.5,8.8,10,11.8,14.1]}
 };
 var CF_IW=560,CF_IH=490,cfTiles={};
 /* Seeded gaussian noise tile (Int8, sd=32): the same fine film grain the photos carry */
@@ -10575,6 +10620,7 @@ function cfInfo(){
 }
 function cfShow(dir,instant){
   var st=document.getElementById('cfStage'),id=CF2[cf.i][0],img=new Image();img.alt='';img.draggable=false;img.src=CF_DATA[id].img;
+  img.style.left=(CF_FIX[id].dx/CF_IW*100)+'%';   // centre on the cup body (handle / garnish excluded)
   var old=cf.img;cf.img=img;st.appendChild(img);cfBg(id,instant);cfInfo();
   if(instant||!dir){if(old)old.remove();return}
   var rm=cfReduce(),ease='cubic-bezier(0.23,1,0.32,1)';
@@ -10753,5 +10799,86 @@ function saveCaffeine(){
 })();
 </script>
 
+<script>
+/* ── Swipe down to close any bottom sheet / modal (all .modal-overlay + #fdOverlay) ── */
+(function(){
+  var SHEET = '.modal-box, .fd-sheet';
+  var THRESH = 110, VEL = 0.55, LOCK = 8;
+  var st = null, justDragged = false;
+
+  function sheetOf(t){ return t.closest ? t.closest(SHEET) : null; }
+  function overlayOf(s){ return s.closest('.modal-overlay, .fd-overlay'); }
+
+  function scrollBlocked(el, sheet){
+    // If the touch started inside something scrolled down, let it scroll instead of dragging.
+    while (el && el !== sheet.parentNode){
+      if (el.scrollHeight > el.clientHeight + 1 && el.scrollTop > 0){
+        var oy = getComputedStyle(el).overflowY;
+        if (oy === 'auto' || oy === 'scroll') return true;
+      }
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function start(e, x, y){
+    var sheet = sheetOf(e.target);
+    if (!sheet) return;
+    var ov = overlayOf(sheet);
+    if (!ov || !(ov.classList.contains('open'))) return;
+    if (e.target.closest('input,textarea,select,[contenteditable="true"],[data-no-swipe]')) return;
+    if (scrollBlocked(e.target, sheet)) return;
+    st = {sheet:sheet, ov:ov, x:x, y:y, dy:0, t:Date.now(), mode:null};
+  }
+
+  function move(e, x, y){
+    if (!st) return;
+    var dx = x - st.x, dy = y - st.y;
+    if (!st.mode){
+      if (Math.abs(dx) < LOCK && Math.abs(dy) < LOCK) return;
+      if (Math.abs(dy) > Math.abs(dx) && dy > 0){
+        st.mode = 'drag';
+        st.sheet.style.transition = 'none';
+        st.sheet.style.willChange = 'transform';
+      } else { st = null; return; }
+    }
+    if (e.cancelable) e.preventDefault();
+    st.dy = Math.max(0, dy);
+    st.sheet.style.transform = 'translateY(' + st.dy + 'px)';
+  }
+
+  function end(){
+    if (!st) return;
+    var s = st; st = null;
+    if (s.mode !== 'drag') return;
+    justDragged = true; setTimeout(function(){ justDragged = false; }, 60);
+    var v = s.dy / Math.max(1, Date.now() - s.t);
+    if (s.dy > THRESH || (v > VEL && s.dy > 30)){
+      s.sheet.style.transition = 'transform .2s cubic-bezier(.32,.72,0,1)';
+      s.sheet.style.transform = 'translateY(105%)';
+      setTimeout(function(){
+        s.ov.click();                       // runs the modal's own close handler
+        setTimeout(function(){ s.sheet.style.transition = s.sheet.style.transform = s.sheet.style.willChange = ''; }, 260);
+      }, 170);
+    } else {
+      s.sheet.style.transition = 'transform .3s cubic-bezier(.32,.72,0,1)';
+      s.sheet.style.transform = '';
+      setTimeout(function(){ s.sheet.style.transition = s.sheet.style.willChange = ''; }, 320);
+    }
+  }
+
+  // touch
+  document.addEventListener('touchstart', function(e){ if (e.touches.length===1) start(e, e.touches[0].clientX, e.touches[0].clientY); else st = null; }, {passive:true});
+  document.addEventListener('touchmove',  function(e){ if (st) move(e, e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+  document.addEventListener('touchend', end, {passive:true});
+  document.addEventListener('touchcancel', end, {passive:true});
+  // mouse (desktop / emulator)
+  document.addEventListener('mousedown', function(e){ if (e.button===0) start(e, e.clientX, e.clientY); });
+  document.addEventListener('mousemove', function(e){ if (st) move(e, e.clientX, e.clientY); });
+  document.addEventListener('mouseup', end);
+  // don't let the release of a drag count as a click on a button
+  document.addEventListener('click', function(e){ if (justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+</script>
 </body>
 </html>
