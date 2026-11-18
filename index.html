@@ -1622,6 +1622,41 @@ html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
 .cf2-box button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 @media(max-width:520px){.cf2-box{border-radius:28px 28px 0 0}}
 @media(prefers-reduced-motion:reduce){.cf2-bg{transition:opacity .15s}}
+
+/* ═══ index32 · Sleep / Steps / Push-ups / Mood sheets share the coffee & water sheet look (grain gradient in the card's own colour) ═══ */
+.sx-stage{display:grid;place-items:center}
+.sx-ring{position:relative;width:236px;height:236px;grid-area:1/1}
+.sx-ring svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.sx-ring .tr{fill:none;stroke:rgba(255,255,255,.14);stroke-width:14}
+.sx-ring .ar{fill:none;stroke:var(--ac);stroke-width:14;stroke-linecap:round;stroke-dasharray:628.32;stroke-dashoffset:628.32;transition:stroke-dashoffset .5s cubic-bezier(.23,1,.32,1)}
+.sx-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.sx-mid input{width:170px;border:0;border-radius:0;background:transparent;color:#fff;font:700 46px 'DM Sans',system-ui,sans-serif;letter-spacing:-.02em;text-align:center;outline:none;padding:0;margin:0;-moz-appearance:textfield;appearance:textfield;font-variant-numeric:tabular-nums}
+.sx-mid span{font-size:14px;font-weight:600;color:rgba(255,255,255,.7)}
+.sx-mid em{font-style:normal;font-size:12px;color:rgba(255,255,255,.5);margin-top:6px;font-variant-numeric:tabular-nums}
+.sx-goal{margin:2px 0 14px;font-size:13px;color:rgba(255,255,255,.6);font-variant-numeric:tabular-nums}
+.md-face{grid-area:1/1;width:210px;height:210px;overflow:visible}
+.md-face #mdHead{fill:color-mix(in srgb,var(--ac) 10%,transparent);stroke:var(--ac);transition:fill .4s,stroke .4s}
+.md-face path{stroke:var(--ac);transition:stroke .4s,d .35s cubic-bezier(.23,1,.32,1),stroke-width .35s}
+.md-dots{display:flex;gap:12px;margin:0 0 14px}
+.md-dot{width:14px;height:14px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.25);cursor:pointer;touch-action:manipulation;position:relative;transition:background-color .2s,transform .2s cubic-bezier(.23,1,.32,1)}
+.md-dot::after{content:"";position:absolute;inset:-10px}
+.md-dot[aria-checked="true"]{background:#fff;transform:scale(1.35)}
+.sl-box .cf2-in{padding-top:14px}
+.sl-top{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;width:100%;margin-bottom:12px}
+.sl-top h3{margin:0;text-align:center;font:700 16px 'DM Sans',system-ui,sans-serif}
+.sl-btn{width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;transition:transform .12s cubic-bezier(.23,1,.32,1)}
+.sl-btn:active{transform:scale(.92)}
+.sl-btn.ok{background:var(--ac);color:#150a2b}
+.sl-card{width:100%;border-radius:24px;background:rgba(255,255,255,.08);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);padding:16px 12px 18px;display:flex;flex-direction:column;align-items:center}
+.sl-times{display:flex;justify-content:space-around;width:100%;margin-bottom:10px}
+.sl-times>div{text-align:center}
+.sl-times small{display:flex;align-items:center;justify-content:center;gap:5px;font:700 11px 'DM Sans',system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ac)}
+.sl-times b{display:block;font:700 27px 'DM Sans',system-ui,sans-serif;font-variant-numeric:tabular-nums;margin-top:2px}
+.sl-times i{font-style:normal;font-size:12px;color:rgba(255,255,255,.55)}
+.sl-stage{position:relative;width:min(290px,100%);aspect-ratio:1;touch-action:none;user-select:none;-webkit-user-select:none}
+.sl-stage svg{width:100%;height:100%;display:block;overflow:visible}
+.sl-dur{font:700 24px 'DM Sans',system-ui,sans-serif;margin-top:10px;font-variant-numeric:tabular-nums}
+.sl-sub{font-size:13px;color:rgba(255,255,255,.55);margin-top:2px;text-align:center}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -1852,58 +1887,81 @@ body.focus-mode .fd-fab{display:none !important}
 
 <!-- SLEEP -->
 <div id="sleepModal" class="modal-overlay" onclick="if(event.target===this)closeSleepModal()">
-  <div class="modal-box modal-box-sleep">
-    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Sleep</p>
-    <p style="font-size:13px;color:#a0a0a0;margin-bottom:20px">Total hours slept last night</p>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
-      <button class="step-btn" onclick="adjSleepTemp(-0.5)">−</button>
-      <div style="flex:1;text-align:center">
-        <span id="sleepInputVal" style="font-size:44px;font-weight:800;color:#ffffff;font-family:'DM Sans',system-ui,sans-serif">7.5</span>
-        <span style="font-size:18px;color:#a0a0a0;margin-left:4px">hrs</span>
+  <div class="modal-box cf2-box sl-box" role="dialog" aria-modal="true" aria-label="Log sleep" style="--ac:#a98bff">
+    <div class="cf2-bg" id="slBgA"></div><div class="cf2-bg" id="slBgB"></div>
+    <div class="cf2-in">
+      <div class="sl-top">
+        <button type="button" class="sl-btn" onclick="closeSleepModal()" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <h3>Sleep</h3>
+        <button type="button" class="sl-btn ok" id="slOk" aria-label="Save sleep"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
       </div>
-      <button class="step-btn" onclick="adjSleepTemp(0.5)">+</button>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn-cancel" onclick="closeSleepModal()">Cancel</button>
-      <button class="btn-save" onclick="saveSleep()">Done</button>
+      <div class="sl-card">
+        <div class="sl-times">
+          <div><small><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6M2 15h20v4M22 15v-3a3 3 0 0 0-3-3h-8v6"/><circle cx="6.5" cy="11" r="1.6" fill="currentColor"/></svg> Bedtime</small><b id="slBed">22:00</b><i id="slBedD">Last night</i></div>
+          <div><small><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.6M4 5.5l3-2.5M20 5.5l-3-2.5"/></svg> Wake up</small><b id="slWake">07:00</b><i id="slWakeD">This morning</i></div>
+        </div>
+        <div class="sl-stage" id="slStage">
+          <svg id="slSvg" viewBox="0 0 300 300" role="group" aria-label="24 hour sleep dial">
+            <circle cx="150" cy="150" r="118" fill="none" stroke="rgba(0,0,0,.6)" stroke-width="40"/>
+            <circle cx="150" cy="150" r="96" fill="rgba(0,0,0,.28)"/>
+            <g id="slFace"></g>
+            <path id="slArc" data-h="arc" fill="none" stroke="rgba(120,120,132,.62)" stroke-width="34" stroke-linecap="round" style="cursor:grab"/>
+            <path id="slTicks" data-h="arc" fill="none" stroke="rgba(0,0,0,.42)" stroke-width="22" stroke-dasharray="1.3 5.2" style="cursor:grab"/>
+            <g id="slHB" data-h="bed" style="cursor:grab"><circle r="19" fill="#8d8d97"/><g transform="translate(-9,-9) scale(.75)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 19V6M2 15h20v4M22 15v-3a3 3 0 0 0-3-3h-8v6"/><circle cx="6.5" cy="11" r="1.6" fill="#fff"/></g></g>
+            <g id="slHW" data-h="wake" style="cursor:grab"><circle r="19" fill="#8d8d97"/><g transform="translate(-9,-9) scale(.75)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.6M4 5.5l3-2.5M20 5.5l-3-2.5"/></g></g>
+          </svg>
+        </div>
+        <div class="sl-dur" id="slDur">9 hr</div>
+        <div class="sl-sub" id="slSub">This schedule meets your sleep goal.</div>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- STEPS -->
 <div id="stepsModal" class="modal-overlay" onclick="if(event.target===this)closeStepsModal()">
-  <div class="modal-box modal-box-steps">
-    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Steps</p>
-    <p style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Enter today's step count</p>
-    <input id="stepsInput" type="number" class="mission-input" style="margin-bottom:10px" value="0" min="0" max="99999">
-    <div style="display:flex;gap:6px;margin-bottom:20px">
-      <button class="qbtn" onclick="addStepsQ(1000)">+1K</button>
-      <button class="qbtn" onclick="addStepsQ(2500)">+2.5K</button>
-      <button class="qbtn" onclick="addStepsQ(5000)">+5K</button>
-      <button class="qbtn" onclick="addStepsQ(10000)">10K</button>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn-cancel" onclick="closeStepsModal()">Cancel</button>
-      <button class="btn-save" onclick="saveSteps()">Done</button>
+  <div class="modal-box cf2-box" role="dialog" aria-modal="true" aria-label="Log steps" style="--ac:#3dff8e">
+    <div class="cf2-bg" id="spBgA"></div><div class="cf2-bg" id="spBgB"></div>
+    <div class="cf2-in">
+      <span class="cf2-grab" aria-hidden="true"></span>
+      <p class="cf2-today" id="spToday">Today: 0</p>
+      <div class="cf2-stage sx-stage" id="spStage">
+        <div class="sx-ring"><svg viewBox="0 0 240 240" aria-hidden="true"><circle class="tr" cx="120" cy="120" r="100"/><circle class="ar" id="spArc" cx="120" cy="120" r="100"/></svg>
+          <div class="sx-mid"><input id="stepsInput" type="number" inputmode="numeric" value="0" min="0" aria-label="Log steps"><span>steps</span><em id="spPct">0% of goal</em></div></div>
+      </div>
+      <p class="sx-goal" id="spGoal"></p>
+      <div class="cf2-sizes" id="spQuick"><button type="button" data-add="1000">+1K<small>1,000</small></button><button type="button" data-add="2500">+2.5K<small>2,500</small></button><button type="button" data-add="5000">+5K<small>5,000</small></button></div>
+      <div class="cf2-pick">
+        <button type="button" id="spMinus" aria-label="Remove 100"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <span>Fine tune · 100</span>
+        <button type="button" id="spPlus" aria-label="Add 100"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <button type="button" class="cf2-done" onclick="saveSteps()">Done</button>
+      <p class="cf2-note">Type a total or tap a quick add.</p>
     </div>
   </div>
 </div>
 
 <!-- PUSH-UPS -->
 <div id="pushupsModal" class="modal-overlay" onclick="if(event.target===this)closePushupsModal()">
-  <div class="modal-box modal-box-pushups">
-    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Push-ups</p>
-    <p style="font-size:13px;color:#a0a0a0;margin-bottom:16px">Total reps completed today</p>
-    <input id="pushupsInput" type="number" class="mission-input" style="margin-bottom:10px" value="0" min="0" max="9999">
-    <div style="display:flex;gap:6px;margin-bottom:20px">
-      <button class="qbtn" onclick="addPushupsQ(10)">+10</button>
-      <button class="qbtn" onclick="addPushupsQ(25)">+25</button>
-      <button class="qbtn" onclick="addPushupsQ(50)">+50</button>
-      <button class="qbtn" onclick="addPushupsQ(100)">+100</button>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn-cancel" onclick="closePushupsModal()">Cancel</button>
-      <button class="btn-save" onclick="savePushups()">Done</button>
+  <div class="modal-box cf2-box" role="dialog" aria-modal="true" aria-label="Log push-ups" style="--ac:#ff6b6b">
+    <div class="cf2-bg" id="puBgA"></div><div class="cf2-bg" id="puBgB"></div>
+    <div class="cf2-in">
+      <span class="cf2-grab" aria-hidden="true"></span>
+      <p class="cf2-today" id="puToday">Today: 0</p>
+      <div class="cf2-stage sx-stage" id="puStage">
+        <div class="sx-ring"><svg viewBox="0 0 240 240" aria-hidden="true"><circle class="tr" cx="120" cy="120" r="100"/><circle class="ar" id="puArc" cx="120" cy="120" r="100"/></svg>
+          <div class="sx-mid"><input id="pushupsInput" type="number" inputmode="numeric" value="0" min="0" aria-label="Log push-ups"><span>reps</span><em id="puPct">0% of goal</em></div></div>
+      </div>
+      <p class="sx-goal" id="puGoal"></p>
+      <div class="cf2-sizes" id="puQuick"><button type="button" data-add="10">+10<small>10 reps</small></button><button type="button" data-add="25">+25<small>25 reps</small></button><button type="button" data-add="50">+50<small>50 reps</small></button></div>
+      <div class="cf2-pick">
+        <button type="button" id="puMinus" aria-label="Remove 1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <span>Fine tune · 1</span>
+        <button type="button" id="puPlus" aria-label="Add 1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <button type="button" class="cf2-done" onclick="savePushups()">Done</button>
+      <p class="cf2-note">Type a total or tap a quick add.</p>
     </div>
   </div>
 </div>
@@ -2028,19 +2086,27 @@ body.focus-mode .fd-fab{display:none !important}
 
 <!-- MOOD LOG -->
 <div id="moodModal" class="modal-overlay" onclick="if(event.target===this)closeMoodModal()">
-  <div class="modal-box modal-box-mood">
-    <p style="font-size:18px;font-weight:700;margin-bottom:4px">Log Mood</p>
-    <p style="font-size:13px;color:#a0a0a0;margin-bottom:22px">Select your mindset level for today</p>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
-      <button class="mood-btn" data-mood="5" data-label="Amazing" onclick="selectMood(this)">Amazing</button>
-      <button class="mood-btn" data-mood="4" data-label="Good"    onclick="selectMood(this)">Good</button>
-      <button class="mood-btn" data-mood="3" data-label="Neutral" onclick="selectMood(this)">Neutral</button>
-      <button class="mood-btn" data-mood="2" data-label="Low"     onclick="selectMood(this)">Low</button>
-      <button class="mood-btn" data-mood="1" data-label="Awful"   onclick="selectMood(this)">Awful</button>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn-cancel" onclick="closeMoodModal()">Cancel</button>
-      <button class="btn-save"   onclick="saveMood()">Done</button>
+  <div class="modal-box cf2-box" role="dialog" aria-modal="true" aria-label="Log mood" style="--ac:#3dff8e">
+    <div class="cf2-bg" id="mdBgA"></div><div class="cf2-bg" id="mdBgB"></div>
+    <div class="cf2-in">
+      <span class="cf2-grab" aria-hidden="true"></span>
+      <p class="cf2-today" id="mdToday">Today: not logged</p>
+      <div class="cf2-stage sx-stage" id="mdStage" aria-hidden="true">
+        <svg class="md-face" viewBox="-100 -100 200 200">
+          <circle id="mdHead" r="84" stroke-width="4"/>
+          <path id="mdEL" fill="none" stroke-linecap="round"/><path id="mdER" fill="none" stroke-linecap="round"/>
+          <path id="mdMouth" fill="none" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="cf2-read" aria-live="polite"><b id="mdName">Good</b></div>
+      <div class="md-dots" id="mdDots" role="radiogroup" aria-label="Mood"><button type="button" class="md-dot" data-mood="1" aria-label="Awful"></button><button type="button" class="md-dot" data-mood="2" aria-label="Low"></button><button type="button" class="md-dot" data-mood="3" aria-label="Neutral"></button><button type="button" class="md-dot" data-mood="4" aria-label="Good"></button><button type="button" class="md-dot" data-mood="5" aria-label="Amazing"></button></div>
+      <div class="cf2-pick">
+        <button type="button" id="mdPrev" aria-label="Lower mood"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15 5l-9 7 9 7z"/></svg></button>
+        <span id="mdLvl">4 / 5</span>
+        <button type="button" id="mdNext" aria-label="Higher mood"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 5l9 7-9 7z"/></svg></button>
+      </div>
+      <button type="button" class="cf2-done" onclick="saveMood()">Log mood</button>
+      <p class="cf2-note">Swipe or use the arrows to change mood.</p>
     </div>
   </div>
 </div>
@@ -10879,6 +10945,211 @@ function saveCaffeine(){
   // don't let the release of a drag count as a click on a button
   document.addEventListener('click', function(e){ if (justDragged){ e.stopPropagation(); e.preventDefault(); } }, true);
 })();
+</script>
+<script>
+/* index32 · Sleep (bedtime / wake-up dial), Steps, Push-ups and Mood sheets — same structure as the water / coffee sheets.
+   Saving still goes through the existing saveSleep / saveSteps / savePushups / saveMood (+ charts, score, streak). */
+(function(){
+  'use strict';
+  var $=function(i){return document.getElementById(i)};
+  function clampN(v,a,b){return v<a?a:v>b?b:v}
+  function fx(s){return{dx:0,dy:0,f:[[0,0],[0,0],[0,0],[0,0]],r:0,s:s}}
+  var GS=[3,3.4,4,4.8,5.4,5.4];
+  /* gradient stops: near-black at the top → the card's progress colour at the bottom */
+  var D={
+    sleep:{stops:['#07050e','#0a0715','#100a24','#241448','#3f2380','#5a35b0'],s:GS},
+    steps:{stops:['#040b06','#06110a','#08170d','#0d3a1c','#16703a','#1e9a4e'],s:GS},
+    push:{stops:['#0e0606','#120707','#1c0909','#4a1212','#8a1c1c','#b02626'],s:GS},
+    m5:{stops:['#03100d','#04150f','#06201a','#0b4234','#13715a','#1aa07c'],s:GS},
+    m4:{stops:['#040e07','#06130a','#091b0e','#10401f','#1b7335','#25a24a'],s:GS},
+    m3:{stops:['#08080a','#0b0b0d','#111114','#222226','#3a3a40','#52525b'],s:GS},
+    m2:{stops:['#0e0703','#130903','#1c0e04','#4a2509','#8a4710','#d0660f'],s:GS},
+    m1:{stops:['#0e0505','#120606','#1b0808','#4b1111','#8a1b1b','#c42a2a'],s:GS}
+  };
+  function sheet(P,stage,keys){
+    var data={},fix={};keys.forEach(function(k){data[k]=D[k];fix[k]=fx(D[k].s)});
+    var X={stage:stage,data:data,fix:fix},flip=0,cur=null;
+    return{
+      reset:function(){flip=0;cur=null;['A','B'].forEach(function(l){$(P+'Bg'+l).classList.remove('on')})},
+      paint:function(id,instant){
+        cur=id;var a=$(P+'BgA'),b=$(P+'BgB'),next=flip?a:b,old=flip?b:a;
+        cfPaint(next,id,X);next.classList.add('on');if(old!==next)old.classList.remove('on');flip=flip?0:1;
+        if(instant){next.style.transition='none';old.style.transition='none';void next.offsetWidth;next.style.transition='';old.style.transition=''}
+      },
+      again:function(){if(cur)this.paint(cur,true)}
+    };
+  }
+  var sh={sleep:sheet('sl','slStage',['sleep']),steps:sheet('sp','spStage',['steps']),push:sheet('pu','puStage',['push']),
+          mood:sheet('md','mdStage',['m5','m4','m3','m2','m1'])};
+  function isOpen(id){return $(id).classList.contains('open')}
+  window.addEventListener('resize',function(){
+    if(isOpen('sleepModal'))sh.sleep.again();if(isOpen('stepsModal'))sh.steps.again();
+    if(isOpen('pushupsModal'))sh.push.again();if(isOpen('moodModal'))sh.mood.again();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    if(isOpen('sleepModal'))closeSleepModal();else if(isOpen('stepsModal'))closeStepsModal();
+    else if(isOpen('pushupsModal'))closePushupsModal();else if(isOpen('moodModal'))closeMoodModal();
+  });
+
+  /* ───────────── Steps & Push-ups ───────────── */
+  function counter(c){
+    var inp=$(c.input),arc=$(c.P+'Arc');
+    function val(){return clampN(parseInt(inp.value)||0,0,c.max)}
+    function paint(){
+      var v=val(),r=clampN(v/c.goal,0,1);
+      arc.style.strokeDashoffset=(628.32*(1-r)).toFixed(1);
+      $(c.P+'Pct').textContent=Math.round(v/c.goal*100)+'% of goal';
+      $(c.P+'Goal').textContent=v>=c.goal?'✓ Goal reached':'Goal '+c.goal.toLocaleString()+' · '+(c.goal-v).toLocaleString()+' to go';
+    }
+    function add(n){inp.value=clampN(val()+n,0,c.max);paint()}
+    inp.addEventListener('input',paint);
+    inp.addEventListener('blur',function(){inp.value=val();paint()});
+    Array.prototype.forEach.call($(c.P+'Quick').children,function(b){b.onclick=function(){add(+b.getAttribute('data-add'))}});
+    $(c.P+'Minus').onclick=function(){add(-c.fine)};$(c.P+'Plus').onclick=function(){add(c.fine)};
+    return{
+      open:function(){
+        var cur=S[c.hist][S.dayIndex]||0;
+        $(c.P+'Today').textContent='Today: '+cur.toLocaleString()+' '+c.unit;
+        inp.value=cur;arc.style.transition='none';paint();void arc.getBoundingClientRect();arc.style.transition='';
+        $(c.modal).classList.add('open');sh[c.sheet].reset();
+        requestAnimationFrame(function(){sh[c.sheet].paint(c.sheet,true)});
+      },add:add
+    };
+  }
+  var ST=counter({P:'sp',input:'stepsInput',modal:'stepsModal',sheet:'steps',hist:'stepsHistory',goal:STEPS_GOAL,max:99999,fine:100,unit:'steps'});
+  var PU=counter({P:'pu',input:'pushupsInput',modal:'pushupsModal',sheet:'push',hist:'pushupsHistory',goal:PUSHUPS_GOAL,max:9999,fine:1,unit:'reps'});
+  window.openStepsModal=function(){ST.open()};   window.addStepsQ=function(n){ST.add(n)};
+  window.openPushupsModal=function(){PU.open()}; window.addPushupsQ=function(n){PU.add(n)};
+
+  /* ───────────── Mood ───────────── */
+  var MN={5:'Amazing',4:'Good',3:'Neutral',2:'Low',1:'Awful'};
+  var MC={5:'#27e39b',4:'#3dff8e',3:'#a1a1aa',2:'#fb923c',1:'#f87171'};
+  var MF={ /* minimal line faces: mouth, left eye, right eye, eye stroke width */
+    5:{m:'M-40 10 Q0 64 40 10',l:'M-42 -10 Q-30 -26 -18 -10',r:'M18 -10 Q30 -26 42 -10',w:6},
+    4:{m:'M-30 20 Q0 40 30 20',l:'M-30 -16 Q-30 -16 -30 -16.1',r:'M30 -16 Q30 -16 30 -16.1',w:11},
+    3:{m:'M-26 28 Q0 28 26 28',l:'M-30 -16 Q-30 -16 -30 -16.1',r:'M30 -16 Q30 -16 30 -16.1',w:11},
+    2:{m:'M-28 38 Q0 22 28 38',l:'M-30 -16 Q-30 -16 -30 -16.1',r:'M30 -16 Q30 -16 30 -16.1',w:11},
+    1:{m:'M-34 48 Q0 12 34 48',l:'M-30 -16 Q-30 -16 -30 -16.1',r:'M30 -16 Q30 -16 30 -16.1',w:11}
+  };
+  var md={v:4};
+  function mdPaint(instant){
+    var v=md.v,f=MF[v],box=document.querySelector('#moodModal .cf2-box');
+    box.style.setProperty('--ac',MC[v]);
+    var mo=$('mdMouth');mo.setAttribute('d',f.m);mo.style.d='path("'+f.m+'")';
+    [['mdEL','l'],['mdER','r']].forEach(function(q){var e=$(q[0]);e.setAttribute('d',f[q[1]]);e.style.d='path("'+f[q[1]]+'")';e.style.strokeWidth=f.w});
+    $('mdName').textContent=MN[v];$('mdLvl').textContent=v+' / 5';
+    Array.prototype.forEach.call($('mdDots').children,function(d){d.setAttribute('aria-checked',+d.getAttribute('data-mood')===v)});
+    sh.mood.paint('m'+v,!!instant);
+  }
+  function mdSet(v,instant){md.v=clampN(v,1,5);moodTmp=md.v;mdPaint(instant)}
+  $('mdPrev').onclick=function(){mdSet(md.v-1)};$('mdNext').onclick=function(){mdSet(md.v+1)};
+  Array.prototype.forEach.call($('mdDots').children,function(d){d.setAttribute('role','radio');d.onclick=function(){mdSet(+d.getAttribute('data-mood'))}});
+  (function(){var st=$('mdStage'),x0=null;
+    st.addEventListener('pointerdown',function(e){x0=e.clientX});
+    st.addEventListener('pointerup',function(e){if(x0==null)return;var dx=e.clientX-x0;x0=null;if(Math.abs(dx)>40)mdSet(md.v+(dx<0?1:-1))});
+    st.addEventListener('pointercancel',function(){x0=null});
+    document.addEventListener('keydown',function(e){if(!isOpen('moodModal'))return;
+      if(e.key==='ArrowLeft'){e.preventDefault();mdSet(md.v-1)}else if(e.key==='ArrowRight'){e.preventDefault();mdSet(md.v+1)}});
+  })();
+  window.openMoodModal=function(){
+    var cur=S.moodHistory[S.dayIndex]||0;md.v=cur||4;moodTmp=md.v;
+    $('mdToday').textContent='Today: '+(cur?MN[cur]:'not logged');
+    $('moodModal').classList.add('open');sh.mood.reset();
+    requestAnimationFrame(function(){mdPaint(true)});
+  };
+  window.selectMood=function(btn){mdSet(parseInt(btn.dataset.mood))};
+
+  /* ───────────── Sleep: bedtime / wake-up dial ───────────── */
+  var NS='http://www.w3.org/2000/svg',CX=150,CY=150,R=118;
+  var sl={bed:1320,wake:420,drag:null};
+  function ang(m){return m/1440*2*Math.PI-Math.PI/2}
+  function pt(m,r){var a=ang(m);return[CX+r*Math.cos(a),CY+r*Math.sin(a)]}
+  function dur(){return(sl.wake-sl.bed+1440)%1440}
+  function hhmm(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+  function fmtDur(m){var h=Math.floor(m/60),mm=m%60;return mm?h+' hr '+mm+' min':h+' hr'}
+  function svgEl(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e}
+  (function face(){
+    var g=$('slFace');
+    for(var i=0;i<48;i++){var big=i%2===0,p1=pt(i*30,big?92:93.5),p2=pt(i*30,96);g.appendChild(svgEl('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],stroke:big?'rgba(255,255,255,.5)':'rgba(255,255,255,.25)','stroke-width':big?1.4:1}))}
+    for(var h=0;h<24;h+=2){var p=pt(h*60,73),t=svgEl('text',{x:p[0],y:p[1],'text-anchor':'middle','dominant-baseline':'central','font-size':15,'font-weight':600,'font-family':"'DM Sans',system-ui,sans-serif",fill:h%6===0?'#fff':'rgba(255,255,255,.5)'});t.textContent=h;g.appendChild(t)}
+    var mp=pt(0,48),mk=svgEl('mask',{id:'slMoonMask',maskUnits:'userSpaceOnUse',x:mp[0]-12,y:mp[1]-12,width:24,height:24});mk.appendChild(svgEl('rect',{x:mp[0]-12,y:mp[1]-12,width:24,height:24,fill:'#fff'}));mk.appendChild(svgEl('circle',{cx:mp[0]+4.5,cy:mp[1]-3.5,r:6.5,fill:'#000'}));g.appendChild(mk);g.appendChild(svgEl('circle',{cx:mp[0],cy:mp[1],r:8,fill:'#7b7fff',mask:'url(#slMoonMask)'}));
+    var sp=pt(720,46);g.appendChild(svgEl('circle',{cx:sp[0],cy:sp[1],r:5.5,fill:'#ffc933'}));
+    for(var k=0;k<8;k++){var a=k*Math.PI/4,r1=8.5,r2=11.5;g.appendChild(svgEl('line',{x1:sp[0]+r1*Math.cos(a),y1:sp[1]+r1*Math.sin(a),x2:sp[0]+r2*Math.cos(a),y2:sp[1]+r2*Math.sin(a),stroke:'#ffc933','stroke-width':2,'stroke-linecap':'round'}))}
+  })();
+  /* realistic watch-crown detent: a crisp dry transient + a tiny damped metallic ring, slightly varied each time (a touch deeper on the hour) */
+  var AC=null,lastKey=null,NB=null,OUT=null,lastTick=0;
+  function ctx(){try{if(!AC){var C=window.AudioContext||window.webkitAudioContext;if(C){AC=new C();var cp=AC.createDynamicsCompressor();cp.threshold.value=-24;cp.ratio.value=8;cp.attack.value=.002;cp.release.value=.08;OUT=AC.createGain();OUT.gain.value=.8;OUT.connect(cp);cp.connect(AC.destination)}}if(AC&&AC.state==='suspended')AC.resume()}catch(e){}return AC}
+  function tick(hour){
+    var a=ctx();if(!a)return;
+    var nw=performance.now(),dt=nw-lastTick;if(dt<55)return;lastTick=nw; /* fast drags: skip ticks that would pile up into noise */
+    var sp=Math.max(.45,Math.min(1,(dt-55)/140)); /* quicker movement = softer ticks */
+    try{
+      var t0=a.currentTime,v=1+(Math.random()-.5)*.06;
+      if(!NB){var n=Math.floor(a.sampleRate*.02);NB=a.createBuffer(1,n,a.sampleRate);var d=NB.getChannelData(0);for(var i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(a.sampleRate*.0016))}
+      var s=a.createBufferSource();s.buffer=NB;
+      var hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=1400;
+      var bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=(hour?2300:3400)*v;bp.Q.value=1.6;
+      var g=a.createGain();g.gain.value=(hour?.5:.38)*sp;s.connect(hp);hp.connect(bp);bp.connect(g);g.connect(OUT);s.start(t0);
+      var o=a.createOscillator(),og=a.createGain();o.type='sine';o.frequency.value=(hour?1650:2500)*v;
+      og.gain.setValueAtTime((hour?.09:.06)*sp,t0);og.gain.exponentialRampToValueAtTime(.0001,t0+(hour?.07:.045));
+      o.connect(og);og.connect(OUT);o.start(t0);o.stop(t0+.09);
+    }catch(e){}
+  }
+  function slPaint(){
+    var d=dur(),s=pt(sl.bed,R),e=pt(sl.wake,R),path=d?'M'+s[0]+' '+s[1]+' A'+R+' '+R+' 0 '+(d>720?1:0)+' 1 '+e[0]+' '+e[1]:'';
+    $('slArc').setAttribute('d',path);$('slTicks').setAttribute('d',path);
+    $('slHB').setAttribute('transform','translate('+s[0]+' '+s[1]+')');$('slHW').setAttribute('transform','translate('+e[0]+' '+e[1]+')');
+    $('slBed').textContent=hhmm(sl.bed);$('slWake').textContent=hhmm(sl.wake);
+    $('slBedD').textContent=sl.bed>=720?'Last night':'After midnight';$('slWakeD').textContent=sl.wake<720?'This morning':'Today';
+    $('slDur').textContent=d?fmtDur(d):'0 hr';
+    $('slSub').textContent=!d?'Move the handles to set your sleep.':d>=SLEEP_GOAL*60?'This schedule meets your sleep goal.':'Below your '+SLEEP_GOAL+' hr sleep goal.';
+    sleepTmp=d/60;
+  }
+  function slKey(){return sl.bed+'|'+sl.wake}
+  function minAt(e){
+    var r=$('slSvg').getBoundingClientRect(),x=(e.clientX-r.left)/r.width*300-CX,y=(e.clientY-r.top)/r.height*300-CY;
+    var a=Math.atan2(y,x)+Math.PI/2;if(a<0)a+=2*Math.PI;
+    return Math.round(a/(2*Math.PI)*144)*10%1440; /* 10-minute steps */
+  }
+  (function(){
+    var svg=$('slSvg');
+    svg.addEventListener('pointerdown',function(e){
+      var h=e.target.closest&&e.target.closest('[data-h]');if(!h)return;
+      e.preventDefault();ctx();lastKey=slKey();var k=h.getAttribute('data-h');
+      sl.drag={k:k,m0:minAt(e),bed:sl.bed,wake:sl.wake};
+      try{svg.setPointerCapture(e.pointerId)}catch(_){}
+    });
+    svg.addEventListener('pointermove',function(e){
+      var g=sl.drag;if(!g)return;var m=minAt(e);
+      if(g.k==='bed')sl.bed=m;else if(g.k==='wake')sl.wake=m;
+      else{var dl=m-g.m0;if(dl>720)dl-=1440;if(dl<-720)dl+=1440;sl.bed=((g.bed+dl)%1440+1440)%1440;sl.wake=((g.wake+dl)%1440+1440)%1440}
+      slPaint();
+      var k=slKey();if(k!==lastKey){lastKey=k;var mv=g.k==='bed'?sl.bed:sl.wake;tick(g.k!=='arc'&&mv%60===0)}
+    });
+    function up(){sl.drag=null}
+    svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+  })();
+  function stored(){try{return JSON.parse(localStorage.getItem('sleepTimes')||'{}')}catch(e){return{}}}
+  window.openSleepModal=function(){
+    var v=S.sleepHistory[S.dayIndex]||0,T=stored()[S.dayIndex],last=null;
+    try{last=JSON.parse(localStorage.getItem('sleepLast')||'null')}catch(e){}
+    var mins=Math.round(v*60);
+    if(v&&T&&Math.abs(((T[1]-T[0]+1440)%1440)-mins)<=1){sl.bed=T[0];sl.wake=T[1]}
+    else if(v){sl.bed=last?last[0]:1320;sl.wake=(sl.bed+mins)%1440}
+    else{sl.bed=last?last[0]:1320;sl.wake=last?last[1]:420}
+    slPaint();
+    $('sleepModal').classList.add('open');sh.sleep.reset();
+    requestAnimationFrame(function(){sh.sleep.paint('sleep',true)});
+  };
+  $('slOk').onclick=function(){
+    if(selectedDay<=SYSTEM_TODAY){
+      try{var o=stored();o[S.dayIndex]=[sl.bed,sl.wake];localStorage.setItem('sleepTimes',JSON.stringify(o));localStorage.setItem('sleepLast',JSON.stringify([sl.bed,sl.wake]))}catch(e){}
+    }
+    sleepTmp=dur()/60;saveSleep();
+  };
+})();
+
 </script>
 </body>
 </html>
