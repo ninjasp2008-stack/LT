@@ -1418,15 +1418,15 @@ html,body,*{scrollbar-width:none !important;-ms-overflow-style:none !important}
   .modal-overlay{background:rgba(0,0,0,.75);backdrop-filter:none;-webkit-backdrop-filter:none}
   .bk-tip{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
   .mission-glass-card,.mission-glass-container,.journal-card,.trophy-card,.modal-box{box-shadow:none}
-  /* decorative entrance animations */
-  .tab-panel.active,
+  /* light motion (mobile): opacity/transform only, 120-180ms */
+  .tab-panel.active{animation:panelIn .15s ease-out backwards}
   .tab-panel.entering .habits-pair>*,
   .tab-panel.entering #trackerGrid>*,
-  .tab-panel.entering .journal-grid>*{animation:none !important}
-  .nav-btn svg{transition:none}
-  /* modals: simple fade instead of slide + scale */
-  .modal-box,
-  .modal-overlay.open .modal-box{transform:none;transition:opacity .15s linear;will-change:auto}
+  .tab-panel.entering .journal-grid>*{animation:cardIn .18s ease-out backwards;animation-delay:0s !important}
+  .nav-btn svg{transition:transform .15s ease-out}
+  /* modals: quick fade + tiny scale, simple fade-out */
+  .modal-box{opacity:0;transform:scale(.98);transition:opacity .12s ease-out,transform .12s ease-out;will-change:auto}
+  .modal-overlay.open .modal-box{opacity:1;transform:none;transition:opacity .16s ease-out,transform .16s ease-out}
   .modal-overlay,.modal-overlay.open{transition-duration:.15s}
   .progress-fill{transition-duration:.2s}
 }
@@ -1865,9 +1865,14 @@ body.focus-mode .fd-fab{display:none !important}
   .fd-toast{background:rgba(40,40,46,.98);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
 
-/* ── MOBILE ONLY (<=767px): all animations/transitions off. Laptop/PC untouched. ── */
+/* ── MOBILE (<=767px): light motion only; keep decorative infinite loops off ── */
 @media (max-width:767px){
-  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+  html{scroll-behavior:auto}
+  .fdv-bars i{animation:none !important}
+  .modal-box,.fd-sheet{transition-duration:.15s !important}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
 }
 /* ── MOBILE LITE (<=767px, e.g. Galaxy A03s): no GPU blur, no extra compositor layers ── */
 @media (max-width:767px){
