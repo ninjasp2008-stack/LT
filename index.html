@@ -1883,6 +1883,25 @@ body.focus-mode .fd-fab{display:none !important}
   .fd-toast{background:#28282e !important}
   .bk-tip{background:#1c1c20 !important;box-shadow:none !important}
 }
+
+/* ═══ SHARED OPENING ANIMATION · one implementation for every tab/panel/tracker popup ═══
+   Slide up from below + fade. CSS only, opacity+transform, no remount, no JS loop. */
+:root{--rise-dist:16px;--rise-dur:.18s}
+@keyframes riseIn{from{opacity:0;transform:translateY(var(--rise-dist))}to{opacity:1;transform:none}}
+/* Tabs: Dashboard, Habits, Journal, To-Do, Analytics, Food (display:none -> block restarts it on every open) */
+.tab-panel.active{animation:riseIn var(--rise-dur) ease-out backwards}
+/* inner cards no longer run a second staggered entrance: whole panel moves as one */
+.tab-panel.entering .habits-pair>*,
+.tab-panel.entering #trackerGrid>*,
+.tab-panel.entering .journal-grid>*{animation:none !important}
+/* Tracker popups (Water, Caffeine, Sleep, Steps, Pushups, Mood, Pressure...) share the same motion */
+.modal-box,
+.modal-overlay .modal-box{opacity:0;transform:translateY(var(--rise-dist));transition:opacity .12s ease-out,transform .12s ease-out;will-change:auto}
+.modal-overlay.open .modal-box{opacity:1;transform:none;transition:opacity var(--rise-dur) ease-out,transform var(--rise-dur) ease-out}
+@media (prefers-reduced-motion:reduce){
+  .tab-panel.active{animation:none}
+  .modal-box,.modal-overlay.open .modal-box{transform:none;transition:opacity .01ms}
+}
 </style>
 </head>
 <body>
